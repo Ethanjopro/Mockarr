@@ -1,0 +1,6 @@
+Initial release:
+• Road-route playback with realistic driving simulation
+• Pin (teleport) mode
+• Background playback with notification controls
+• Saved routes with offline replay
+• Configurable OSRM server, map style, and realism settings

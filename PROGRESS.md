@@ -17,7 +17,7 @@ Android app that plays back road routes through Android's built-in mock location
 | M3 — Simulation engine + playback service | ✅ Done | Emulator-verified: Google Maps blue dot drives the route; screen-off survival; notification controls. |
 | M4 — Persistence + settings | ✅ Done | Emulator-verified: offline replay after force-stop; settings + test-connection live. |
 | M5 — Hardening + polish | ✅ Done | First-run auto-setup, 4-item checklist, map warning banner; nav restore bug fixed. |
-| M6 — Open-source readiness | ⬜ Not started | License still TBD (user chose "decide later"). |
+| M6 — Open-source readiness | ✅ Done | Docs/templates/fastlane in place. **Only the license decision remains (user's call).** |
 
 ## Key decisions (and why)
 
@@ -110,7 +110,12 @@ Verified end-to-end like a human: app-drawer swipe → tapped the Mockarr icon �
 - **Emulator facts learned**: `pm clear` does NOT unselect the mock-location app; on userdebug emulator images the *default* appop mode for mock_location behaves as allowed (debuggable build relaxation) — use `appops set ... deny` to simulate "not selected", `allow` to select. The secure setting `mock_location_app` was null on this image.
 - Emulator-verified: deny + fresh launch → auto-opens checklist (accurate per-item state) → notification request flips card to ✓ → Map tab shows warning banner → `allow` + resume → banner gone.
 
-## Next steps (in order)
+### 2026-08-13 — Session 2 (M6)
 
-1. M6: open-source readiness (PLAN.md §12) — README w/ screenshots, CONTRIBUTING, CODE_OF_CONDUCT, LICENSE placeholder, issue/PR templates, fastlane metadata. License decision still pending (user).
-2. Physical-device spot-check of the full flow (recommended before any release).
+- **M6 complete**: README overhauled (screenshots, features, how-it-works + fair-use note, build instructions, OSRM self-host guide, architecture, attribution, license-TBD), CONTRIBUTING.md (style/architecture/test rules, emulator appops cheatsheet, pre-license contribution note), CODE_OF_CONDUCT.md (Contributor Covenant), LICENSE placeholder (all rights reserved until chosen), issue templates (bug asks device/OS/Play-services — mock behavior is OEM-specific — plus feature) + PR template, fastlane F-Droid metadata (title/descriptions/changelog + 4 real phone screenshots from emulator verification).
+
+## PLAN COMPLETE — remaining items are the user's
+
+1. **License decision** (GPL-3.0 vs Apache-2.0 vs other) — swap LICENSE, update README/CONTRIBUTING, then the repo can go public.
+2. **Physical-device spot-check** (recommended before any release/announcement): install via `./gradlew :app:installDebug`, run the in-app setup checklist, play a route, watch Google Maps follow. Emulator can't show OEM battery-killer quirks.
+3. Optional future work (from PLAN.md future ideas): joystick mode, GPX import/export, multi-stop UI polish, favorite places, geocoder search, tag-triggered release workflow with signing.

@@ -1,0 +1,16 @@
+Mockarr drives a fake route through the real world using Android's built-in "mock location" developer feature — the OS-sanctioned way to test location-aware apps.
+
+Features:
+
+• Tap points on the map; OSRM generates a real road route
+• Playback with human-like acceleration, corner slow-downs, and GPS-style noise
+• Works in any app that reads location, including Google Maps
+• Pin mode: long-press to hold your location anywhere
+• Background playback with notification controls; survives screen-off
+• Save routes and replay them fully offline
+• Live speed control (0.25×–4×)
+• Bring your own OSRM server and map style — no API keys anywhere
+
+Built on a fully open stack: Kotlin, Jetpack Compose, MapLibre, OpenStreetMap data, OSRM routing. No accounts, no tracking, no ads.
+
+Setup requires enabling Developer Options and selecting Mockarr as the mock location app — the in-app checklist walks you through it. Mock locations are for app testing; how you use them in third-party services is your responsibility.

@@ -1,0 +1,40 @@
+name: Bug report
+description: Something doesn't work
+labels: [bug]
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened?
+      description: What did you do, what did you expect, what happened instead?
+    validations:
+      required: true
+  - type: input
+    id: device
+    attributes:
+      label: Device model
+      placeholder: e.g. Pixel 8, Galaxy S24
+    validations:
+      required: true
+  - type: input
+    id: android
+    attributes:
+      label: Android version
+      placeholder: e.g. Android 15
+    validations:
+      required: true
+  - type: input
+    id: playservices
+    attributes:
+      label: Google Play services version (if the bug involves other apps following the mock)
+      placeholder: Settings → Apps → Google Play services
+  - type: textarea
+    id: setup
+    attributes:
+      label: Setup checklist state
+      description: Which items in Mockarr's Setup checklist are green?
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs / screenshots
+      description: "`adb logcat` around the failure, or screenshots"
