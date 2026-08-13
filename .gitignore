@@ -1,0 +1,15 @@
+# Gradle
+.gradle/
+build/
+.kotlin/
+
+# Local configuration
+local.properties
+
+# IDE
+.idea/
+*.iml
+captures/
+
+# macOS
+.DS_Store
