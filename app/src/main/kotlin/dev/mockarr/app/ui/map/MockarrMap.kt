@@ -37,9 +37,11 @@ private const val FALLBACK_SOURCE = "fallback-source"
 private const val FALLBACK_LAYER = "fallback-layer"
 private const val WAYPOINT_SOURCE = "waypoint-source"
 private const val WAYPOINT_LAYER = "waypoint-layer"
+private const val PLAYBACK_SOURCE = "playback-source"
+private const val PLAYBACK_LAYER = "playback-layer"
 private const val ROLE_KEY = "role"
 
-/** MapLibre map with waypoint markers and the route polyline. */
+/** MapLibre map with waypoint markers, the route polyline, and the live playback dot. */
 @Composable
 fun MockarrMap(
     waypoints: List<LatLng>,
@@ -47,6 +49,8 @@ fun MockarrMap(
     routeIsFallback: Boolean,
     onMapTap: (LatLng) -> Unit,
     onMapLongPress: (LatLng) -> Unit,
+    playbackPosition: LatLng? = null,
+    cameraFollow: Boolean = false,
     modifier: Modifier = Modifier,
 ) {
     val context = LocalContext.current
@@ -105,6 +109,15 @@ fun MockarrMap(
         updateRoute(loadedStyle, routePoints, routeIsFallback)
     }
 
+    LaunchedEffect(style, playbackPosition) {
+        val loadedStyle = style ?: return@LaunchedEffect
+        val features = playbackPosition?.let {
+            FeatureCollection.fromFeature(Feature.fromGeometry(it.toPoint()))
+        } ?: FeatureCollection.fromFeatures(emptyList())
+        loadedStyle.getSourceAs<org.maplibre.android.style.sources.GeoJsonSource>(PLAYBACK_SOURCE)
+            ?.setGeoJson(features)
+    }
+
     LaunchedEffect(map, routePoints) {
         val libreMap = map ?: return@LaunchedEffect
         if (routePoints.size >= 2) {
@@ -113,9 +126,23 @@ fun MockarrMap(
             libreMap.animateCamera(CameraUpdateFactory.newLatLngBounds(bounds.build(), CAMERA_PADDING))
         }
     }
+
+    LaunchedEffect(map, playbackPosition, cameraFollow) {
+        val libreMap = map ?: return@LaunchedEffect
+        val position = playbackPosition ?: return@LaunchedEffect
+        if (cameraFollow) {
+            val zoom = maxOf(libreMap.cameraPosition.zoom, FOLLOW_MIN_ZOOM)
+            libreMap.easeCamera(
+                CameraUpdateFactory.newLatLngZoom(position.toMapLibre(), zoom),
+                FOLLOW_EASE_MILLIS,
+            )
+        }
+    }
 }
 
 private const val CAMERA_PADDING = 120
+private const val FOLLOW_MIN_ZOOM = 15.0
+private const val FOLLOW_EASE_MILLIS = 900
 
 // Placeholder start view until real-location centering lands (M5)
 private val INITIAL_CENTER = LatLng(48.8584, 2.2945)
@@ -142,6 +169,15 @@ private fun setUpLayers(style: Style) {
             PropertyFactory.lineColor("#EA8600"),
             PropertyFactory.lineWidth(4f),
             PropertyFactory.lineDasharray(arrayOf(1.5f, 1.5f)),
+        ),
+    )
+    style.addSource(org.maplibre.android.style.sources.GeoJsonSource(PLAYBACK_SOURCE))
+    style.addLayer(
+        CircleLayer(PLAYBACK_LAYER, PLAYBACK_SOURCE).withProperties(
+            PropertyFactory.circleRadius(8f),
+            PropertyFactory.circleColor("#1A73E8"),
+            PropertyFactory.circleStrokeColor("#FFFFFF"),
+            PropertyFactory.circleStrokeWidth(3f),
         ),
     )
     style.addLayer(

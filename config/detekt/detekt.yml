@@ -5,9 +5,17 @@ naming:
 complexity:
   LongParameterList:
     ignoreAnnotated: ['Composable']
+  LongMethod:
+    ignoreAnnotated: ['Composable']
+  CyclomaticComplexMethod:
+    ignoreAnnotated: ['Composable']
+  TooManyFunctions:
+    thresholdInClasses: 20
 
 style:
   MagicNumber:
     active: false
+  ReturnCount:
+    excludeGuardClauses: true
   UnusedPrivateMember:
     ignoreAnnotated: ['Preview']

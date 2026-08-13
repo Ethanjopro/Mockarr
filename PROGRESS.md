@@ -14,7 +14,7 @@ Android app that plays back road routes through Android's built-in mock location
 | M0 — Skeleton + CI | ✅ Done | Commits `7f495f8`, `19e7098`, `bed0cc7`. CI green. |
 | M1 — Mock location walking skeleton | ✅ Done | **Verified on emulator incl. Google Maps blue dot at mocked coords.** Physical-device spot-check still worthwhile before M3 (OEM quirks). |
 | M2 — Map + waypoints + OSRM | ✅ Done | Emulator-verified: road-following route in Paris + airplane-mode fallback. |
-| M3 — Simulation engine + playback service | ⬜ Not started | |
+| M3 — Simulation engine + playback service | ✅ Done | Emulator-verified: Google Maps blue dot drives the route; screen-off survival; notification controls. |
 | M4 — Persistence + settings | ⬜ Not started | |
 | M5 — Hardening + polish | ⬜ Not started | |
 | M6 — Open-source readiness | ⬜ Not started | License still TBD (user chose "decide later"). |
@@ -91,8 +91,14 @@ Verified end-to-end like a human: app-drawer swipe → tapped the Mockarr icon �
 - **M2 complete**: `core:routing` = OsrmRouteProvider (Retrofit 3 + kotlinx converter, @Url full-URL pattern, UA + min-1s-interval interceptors, typed RoutingException incl. 429→RateLimited and 400-body NoRoute), hand-written Polyline6 codec, StraightLineRouteProvider fallback — 12 unit tests incl. MockWebServer. App = MockarrMap composable (MapLibre 13, OpenFreeMap liberty style, GeoJson sources: solid route layer + dashed fallback layer + role-colored waypoint circles, camera auto-fit, initial camera Paris z12 until M5), MapViewModel (500 ms debounce, fallback on failure), MapScreen rewrite (profile chips — walk/bike disabled pending custom server, stats, Clear, disabled Play placeholder), long-press = pin-mock (MockPinViewModel now takes a position). INTERNET permission; MapLibre.getInstance in Application.
 - Emulator-verified: two taps in Paris → road-following OSRM route "2.7 km · about 8 min"; airplane mode → error banner + orange dashed straight line. Gotchas: hiltViewModel moved to `androidx.hilt.lifecycle.viewmodel.compose` (1.4.0); detekt LongParameterList needs Composable exemption.
 
+### 2026-08-13 — Session 2 (M3)
+
+- **M3 complete**: `core:simulation` = RouteGeometry (cumulative distances, per-segment speeds from annotations w/ uniform fallback, turn caps `v=max(2, cruise×(1−θ/180×0.9))`, backward braking pass) + SimulationEngine (cold single-collector `fixes` Flow driving the tick loop; SimClock-injected dt; pause/resume/stop/multiplier 0.25–4×; Box-Muller jitter on reported position only) — **10 unit tests** under virtual time (duration envelope, speed/accel limits, corner slow-down, no-teleport stop, determinism). App = PlaybackSessionRepository (UI↔service bridge, route handoff via `pendingRoute` since routes exceed intent-extra limits), PlaybackService (FGS type location, wakelock w/ 6 h cap, notification with Pause/Resume/Stop actions + progress, graceful teardown), PlaybackViewModel, playback UI (progress card, speed slider, camera-follow toggle, live blue dot layer), runtime permission flow (fine location + notifications 33+).
+- Emulator-verified end-to-end: permission dialogs → playback → **Google Maps blue dot drove Av. de la Grande Armée to the Arc de Triomphe** with direction beam (bearing working); fused fixes showed vel≈6.7 m/s, jittered accuracy; **screen-off 25 s: still moving**; notification Pause → vel=0.0 (held, jitter-only wander); notification Stop → 0 mock providers left.
+- Notes: uiautomator dumps can go stale while permission dialogs animate in — re-dump or tap visible coords from a screenshot; system dialog sequence = location then notifications, launcher callback fires once after both.
+
 ## Next steps (in order)
 
-1. M3: simulation engine + foreground playback service (PLAN.md §4, §5) — the flagship. Do a physical-device spot-check of mocking before/during M3.
-2. M4: Room saved routes + DataStore settings, wire OSRM base URL + walk/bike chips to custom server setting.
-3. M5/M6: hardening, open-source readiness (PLAN.md §10, §12).
+1. M4: Room saved routes + favorite places + SavedRoutesScreen; DataStore settings + SettingsScreen; wire OSRM base URL + walk/bike chips to custom server setting; offline replay.
+2. M5: hardening + first-run polish; physical-device spot-check.
+3. M6: open-source readiness (PLAN.md §12); license decision still pending (user).
