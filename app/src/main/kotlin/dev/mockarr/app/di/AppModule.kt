@@ -10,6 +10,8 @@ import dagger.hilt.components.SingletonComponent
 import dev.mockarr.core.mocklocation.AndroidMockLocationController
 import dev.mockarr.core.mocklocation.MockLocationController
 import dev.mockarr.core.mocklocation.SetupStatusRepository
+import dev.mockarr.core.routing.OsrmRouteProvider
+import dev.mockarr.core.routing.RouteProvider
 import javax.inject.Singleton
 
 /** Core modules stay Hilt-free; all bindings live here. */
@@ -26,6 +28,13 @@ object AppModule {
     @Singleton
     fun provideMockLocationController(locationManager: LocationManager): MockLocationController =
         AndroidMockLocationController(locationManager)
+
+    @Provides
+    @Singleton
+    fun provideRouteProvider(): RouteProvider = OsrmRouteProvider(
+        baseUrlProvider = { OsrmRouteProvider.DEFAULT_BASE_URL },
+        userAgent = "Mockarr/0.1.0 (+https://github.com/Ethanjopro/Mockarr)",
+    )
 
     @Provides
     @Singleton

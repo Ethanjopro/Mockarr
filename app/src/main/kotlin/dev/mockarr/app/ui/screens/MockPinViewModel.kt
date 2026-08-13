@@ -17,8 +17,8 @@ import kotlinx.coroutines.launch
 import javax.inject.Inject
 
 /**
- * M1 walking skeleton: pins the mocked location to a fixed coordinate at 1 Hz.
- * Replaced by route playback (and a foreground service) in M3.
+ * Pins the mocked location to a fixed coordinate at 1 Hz ("teleport" mode,
+ * triggered by long-pressing the map). Route playback arrives in M3.
  */
 @HiltViewModel
 class MockPinViewModel @Inject constructor(
@@ -27,7 +27,7 @@ class MockPinViewModel @Inject constructor(
 
     sealed interface UiState {
         data object Idle : UiState
-        data object Mocking : UiState
+        data class Mocking(val position: LatLng) : UiState
         data class Error(val message: String) : UiState
     }
 
@@ -36,21 +36,29 @@ class MockPinViewModel @Inject constructor(
 
     private var ticker: Job? = null
 
-    fun startMocking() {
+    fun startMocking(position: LatLng) {
         when (val result = controller.start()) {
             MockStartResult.Ok -> {
+                ticker?.cancel()
+                val fix = SimulatedFix(
+                    position = position,
+                    speedMetersPerSecond = 0.0,
+                    bearingDegrees = 0.0,
+                    accuracyMeters = PIN_ACCURACY_METERS,
+                    altitudeMeters = PIN_ALTITUDE_METERS,
+                )
                 ticker = viewModelScope.launch {
                     while (isActive) {
-                        controller.push(PIN_FIX)
+                        controller.push(fix)
                         delay(TICK_MILLIS)
                     }
                 }
-                _uiState.value = UiState.Mocking
+                _uiState.value = UiState.Mocking(position)
             }
             MockStartResult.NotSelectedAsMockApp -> {
                 _uiState.value = UiState.Error(
                     "Mockarr isn't selected as the mock location app yet — " +
-                        "open the Setup checklist below.",
+                        "open the Setup checklist.",
                 )
             }
             is MockStartResult.ProviderError -> {
@@ -66,21 +74,19 @@ class MockPinViewModel @Inject constructor(
         _uiState.value = UiState.Idle
     }
 
+    fun dismissError() {
+        if (_uiState.value is UiState.Error) {
+            _uiState.value = UiState.Idle
+        }
+    }
+
     override fun onCleared() {
         stopMocking()
     }
 
-    companion object {
-        /** Eiffel Tower — unmistakable in Google Maps. */
-        val PIN_POSITION = LatLng(48.8584, 2.2945)
-
-        private val PIN_FIX = SimulatedFix(
-            position = PIN_POSITION,
-            speedMetersPerSecond = 0.0,
-            bearingDegrees = 0.0,
-            accuracyMeters = 5.0,
-            altitudeMeters = 35.0,
-        )
-        private const val TICK_MILLIS = 1_000L
+    private companion object {
+        const val TICK_MILLIS = 1_000L
+        const val PIN_ACCURACY_METERS = 5.0
+        const val PIN_ALTITUDE_METERS = 35.0
     }
 }

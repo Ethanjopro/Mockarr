@@ -27,6 +27,8 @@ dependencies {
     implementation(project(":core:mocklocation"))
     implementation(project(":core:data"))
 
+    implementation(libs.maplibre)
+
     implementation(platform(libs.compose.bom))
     implementation(libs.compose.ui)
     implementation(libs.compose.material3)

@@ -13,7 +13,7 @@ Android app that plays back road routes through Android's built-in mock location
 | Plan document | ✅ Done | PLAN.md, commit `2c9632c` |
 | M0 — Skeleton + CI | ✅ Done | Commits `7f495f8`, `19e7098`, `bed0cc7`. CI green. |
 | M1 — Mock location walking skeleton | ✅ Done | **Verified on emulator incl. Google Maps blue dot at mocked coords.** Physical-device spot-check still worthwhile before M3 (OEM quirks). |
-| M2 — Map + waypoints + OSRM | ⬜ Not started | |
+| M2 — Map + waypoints + OSRM | ✅ Done | Emulator-verified: road-following route in Paris + airplane-mode fallback. |
 | M3 — Simulation engine + playback service | ⬜ Not started | |
 | M4 — Persistence + settings | ⬜ Not started | |
 | M5 — Hardening + polish | ⬜ Not started | |
@@ -86,8 +86,13 @@ Verified end-to-end like a human: app-drawer swipe → tapped the Mockarr icon �
 - **M1 code written**: AndroidMockLocationController, SetupStatusRepository, real SetupScreen with deep links, debug "Mock here" pin on MapScreen, Hilt DI module, added `androidx.hilt:hilt-navigation-compose:1.4.0`.
 - **Emulator testing set up + M1 verified** (user asked for autonomous testing): created `mockarr_test` AVD, full verification pass incl. Google Maps blue dot in Paris — see "Autonomous emulator testing" section. detekt lessons this session: no inline `/* param */` comments (CommentWrapping), `javax` imports go last (ImportOrdering), ReturnCount/LoopWithTooManyJumpStatements limits; Android lint wants `ProviderProperties` constants (safe pre-31 — compile-time inlined).
 
+### 2026-08-13 — Session 2 (M2)
+
+- **M2 complete**: `core:routing` = OsrmRouteProvider (Retrofit 3 + kotlinx converter, @Url full-URL pattern, UA + min-1s-interval interceptors, typed RoutingException incl. 429→RateLimited and 400-body NoRoute), hand-written Polyline6 codec, StraightLineRouteProvider fallback — 12 unit tests incl. MockWebServer. App = MockarrMap composable (MapLibre 13, OpenFreeMap liberty style, GeoJson sources: solid route layer + dashed fallback layer + role-colored waypoint circles, camera auto-fit, initial camera Paris z12 until M5), MapViewModel (500 ms debounce, fallback on failure), MapScreen rewrite (profile chips — walk/bike disabled pending custom server, stats, Clear, disabled Play placeholder), long-press = pin-mock (MockPinViewModel now takes a position). INTERNET permission; MapLibre.getInstance in Application.
+- Emulator-verified: two taps in Paris → road-following OSRM route "2.7 km · about 8 min"; airplane mode → error banner + orange dashed straight line. Gotchas: hiltViewModel moved to `androidx.hilt.lifecycle.viewmodel.compose` (1.4.0); detekt LongParameterList needs Composable exemption.
+
 ## Next steps (in order)
 
-1. M2: MapLibre map + tap waypoints + OSRM route fetch + polyline render (PLAN.md §3, §8).
-2. M3: simulation engine + foreground playback service (PLAN.md §4, §5) — the flagship. Do a physical-device spot-check of mocking before/during M3.
-3. M4+: persistence, settings, hardening (PLAN.md §10).
+1. M3: simulation engine + foreground playback service (PLAN.md §4, §5) — the flagship. Do a physical-device spot-check of mocking before/during M3.
+2. M4: Room saved routes + DataStore settings, wire OSRM base URL + walk/bike chips to custom server setting.
+3. M5/M6: hardening, open-source readiness (PLAN.md §10, §12).

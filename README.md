@@ -12,7 +12,7 @@ Early development. See [PLAN.md](PLAN.md) for the full project plan and mileston
 
 - [x] **M0** — Project skeleton, module structure, CI
 - [x] **M1** — Mock location walking skeleton (verified: Google Maps follows the mocked location)
-- [ ] **M2** — Map, waypoints, OSRM routing
+- [x] **M2** — Map, waypoints, OSRM routing
 - [ ] **M3** — Simulation engine + playback service
 - [ ] **M4** — Persistence + settings
 - [ ] **M5** — Hardening + polish

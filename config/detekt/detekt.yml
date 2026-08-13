@@ -2,6 +2,10 @@ naming:
   FunctionNaming:
     ignoreAnnotated: ['Composable']
 
+complexity:
+  LongParameterList:
+    ignoreAnnotated: ['Composable']
+
 style:
   MagicNumber:
     active: false
