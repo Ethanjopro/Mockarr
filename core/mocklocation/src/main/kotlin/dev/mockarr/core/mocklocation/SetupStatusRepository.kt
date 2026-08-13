@@ -8,7 +8,10 @@ import android.provider.Settings
 data class SetupStatus(
     val developerOptionsEnabled: Boolean,
     val selectedAsMockLocationApp: Boolean,
+    val notificationsEnabled: Boolean,
+    val batteryOptimizationExempt: Boolean,
 ) {
+    /** The two hard requirements; notifications/battery are quality-of-life. */
     val readyToMock: Boolean get() = developerOptionsEnabled && selectedAsMockLocationApp
 }
 
@@ -25,6 +28,10 @@ class SetupStatusRepository(
     fun check(): SetupStatus = SetupStatus(
         developerOptionsEnabled = isDeveloperOptionsEnabled(),
         selectedAsMockLocationApp = isSelectedAsMockApp(),
+        notificationsEnabled = context.getSystemService(android.app.NotificationManager::class.java)
+            ?.areNotificationsEnabled() == true,
+        batteryOptimizationExempt = context.getSystemService(android.os.PowerManager::class.java)
+            ?.isIgnoringBatteryOptimizations(context.packageName) == true,
     )
 
     private fun isDeveloperOptionsEnabled(): Boolean = Settings.Global.getInt(

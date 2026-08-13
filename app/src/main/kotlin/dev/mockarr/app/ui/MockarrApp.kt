@@ -11,9 +11,14 @@ import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.navigation.NavDestination.Companion.hasRoute
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -27,6 +32,7 @@ import dev.mockarr.app.ui.screens.MapScreen
 import dev.mockarr.app.ui.screens.SavedRoutesScreen
 import dev.mockarr.app.ui.screens.SettingsScreen
 import dev.mockarr.app.ui.screens.SetupScreen
+import dev.mockarr.app.ui.screens.SetupViewModel
 import kotlin.reflect.KClass
 
 private data class TopLevelDestination(
@@ -48,10 +54,21 @@ private val topLevelDestinations = listOf(
 )
 
 @Composable
-fun MockarrApp() {
+fun MockarrApp(setupViewModel: SetupViewModel = hiltViewModel()) {
     val navController = rememberNavController()
     val backStackEntry by navController.currentBackStackEntryAsState()
     val currentDestination = backStackEntry?.destination
+
+    // First-run guidance: if mocking can't work yet, open the checklist once.
+    var checkedOnLaunch by rememberSaveable { mutableStateOf(false) }
+    LaunchedEffect(Unit) {
+        if (!checkedOnLaunch) {
+            checkedOnLaunch = true
+            if (!setupViewModel.isReadyToMock()) {
+                navController.navigate(SetupDestination)
+            }
+        }
+    }
 
     Scaffold(
         bottomBar = {
@@ -61,6 +78,11 @@ fun MockarrApp() {
                     NavigationBarItem(
                         selected = selected,
                         onClick = {
+                            // Setup is pushed within a tab's stack; pop it first so it
+                            // isn't captured in the tab's saved state and restored later.
+                            if (currentDestination?.hasRoute(SetupDestination::class) == true) {
+                                navController.popBackStack()
+                            }
                             navController.navigate(destination.route) {
                                 popUpTo(navController.graph.id) { saveState = true }
                                 launchSingleTop = true

@@ -16,7 +16,7 @@ Android app that plays back road routes through Android's built-in mock location
 | M2 — Map + waypoints + OSRM | ✅ Done | Emulator-verified: road-following route in Paris + airplane-mode fallback. |
 | M3 — Simulation engine + playback service | ✅ Done | Emulator-verified: Google Maps blue dot drives the route; screen-off survival; notification controls. |
 | M4 — Persistence + settings | ✅ Done | Emulator-verified: offline replay after force-stop; settings + test-connection live. |
-| M5 — Hardening + polish | ⬜ Not started | |
+| M5 — Hardening + polish | ✅ Done | First-run auto-setup, 4-item checklist, map warning banner; nav restore bug fixed. |
 | M6 — Open-source readiness | ⬜ Not started | License still TBD (user chose "decide later"). |
 
 ## Key decisions (and why)
@@ -103,7 +103,14 @@ Verified end-to-end like a human: app-drawer swipe → tapped the Mockarr icon �
 - Emulator-verified: save → force-stop → airplane mode → reopen → route listed → loads → **plays offline** (3 mock providers, no network); Settings renders; "✓ Server responded with a route" from Test connection.
 - Deviation from plan: FavoritePlace entity/UI deferred (waypoint reuse is low-value until there's a geocoder; long-press is taken by pin-mock).
 
+### 2026-08-13 — Session 2 (M5)
+
+- **M5 complete**: SetupStatus grew notificationsEnabled + batteryOptimizationExempt (platform APIs only, no androidx in core:mocklocation). SetupScreen now 4 cards — the two hard requirements plus Notifications (in-place POST_NOTIFICATIONS request on 33+, settings deep link below) and Battery exemption (ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS + dontkillmyapp pointer). First-run: MockarrApp auto-navigates to Setup once per launch when `readyToMock` is false. MapScreen shows a warning banner (with Fix action) when setup incomplete; clears on resume.
+- **Bug found & fixed**: bottom-nav used saveState/restoreState — Setup (pushed within the Map tab stack) was captured in the saved state, so tapping "Map" restored Setup on top forever. Fix: pop Setup before tab navigation.
+- **Emulator facts learned**: `pm clear` does NOT unselect the mock-location app; on userdebug emulator images the *default* appop mode for mock_location behaves as allowed (debuggable build relaxation) — use `appops set ... deny` to simulate "not selected", `allow` to select. The secure setting `mock_location_app` was null on this image.
+- Emulator-verified: deny + fresh launch → auto-opens checklist (accurate per-item state) → notification request flips card to ✓ → Map tab shows warning banner → `allow` + resume → banner gone.
+
 ## Next steps (in order)
 
-1. M5: hardening + first-run polish (first-run setup flow, battery exemption row, notification-permission row in checklist, process-death recovery check); physical-device spot-check.
-2. M6: open-source readiness (PLAN.md §12); license decision still pending (user).
+1. M6: open-source readiness (PLAN.md §12) — README w/ screenshots, CONTRIBUTING, CODE_OF_CONDUCT, LICENSE placeholder, issue/PR templates, fastlane metadata. License decision still pending (user).
+2. Physical-device spot-check of the full flow (recommended before any release).

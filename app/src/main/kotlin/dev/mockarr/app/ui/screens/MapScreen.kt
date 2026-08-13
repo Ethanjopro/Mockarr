@@ -52,8 +52,15 @@ fun MapScreen(
     viewModel: MapViewModel = hiltViewModel(),
     pinViewModel: MockPinViewModel = hiltViewModel(),
     playbackViewModel: PlaybackViewModel = hiltViewModel(),
+    setupViewModel: SetupViewModel = hiltViewModel(),
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
+    val setupStatus by setupViewModel.status.collectAsStateWithLifecycle()
+
+    androidx.lifecycle.compose.LifecycleResumeEffect(Unit) {
+        setupViewModel.refresh()
+        onPauseOrDispose { }
+    }
     val tileStyleUrl by viewModel.tileStyleUrl.collectAsStateWithLifecycle()
     val pinState by pinViewModel.uiState.collectAsStateWithLifecycle()
     val playbackState by playbackViewModel.playbackState.collectAsStateWithLifecycle()
@@ -115,6 +122,15 @@ fun MapScreen(
                 .fillMaxWidth()
                 .padding(12.dp),
         ) {
+            if (setupStatus?.readyToMock == false && !sessionActive) {
+                StatusCard(
+                    text = "Mocking isn't set up yet — routes will draw, but playback won't move your location.",
+                    actionLabel = "Fix",
+                    onAction = onOpenSetup,
+                    isError = true,
+                )
+                Spacer(Modifier.height(8.dp))
+            }
             when (val pin = pinState) {
                 is MockPinViewModel.UiState.Mocking -> StatusCard(
                     text = "Pin-mocking %.4f, %.4f".format(pin.position.latitude, pin.position.longitude),

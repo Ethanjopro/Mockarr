@@ -20,4 +20,7 @@ class SetupViewModel @Inject constructor(
     fun refresh() {
         _status.value = setupStatusRepository.check()
     }
+
+    /** One-shot check for launch-time routing decisions. */
+    fun isReadyToMock(): Boolean = setupStatusRepository.check().readyToMock
 }

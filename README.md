@@ -15,7 +15,7 @@ Early development. See [PLAN.md](PLAN.md) for the full project plan and mileston
 - [x] **M2** — Map, waypoints, OSRM routing
 - [x] **M3** — Simulation engine + playback service
 - [x] **M4** — Persistence + settings
-- [ ] **M5** — Hardening + polish
+- [x] **M5** — Hardening + polish
 - [ ] **M6** — Open-source readiness
 
 ## Building

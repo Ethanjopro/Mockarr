@@ -1,8 +1,12 @@
 package dev.mockarr.app.ui.screens
 
+import android.Manifest
 import android.content.Context
 import android.content.Intent
+import android.os.Build
 import android.provider.Settings
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -38,6 +42,9 @@ fun SetupScreen(
 ) {
     val status by viewModel.status.collectAsStateWithLifecycle()
     val context = LocalContext.current
+    val notificationLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission(),
+    ) { viewModel.refresh() }
 
     LifecycleResumeEffect(Unit) {
         viewModel.refresh()
@@ -57,7 +64,7 @@ fun SetupScreen(
         Spacer(Modifier.height(8.dp))
         Text(
             text = "Mockarr uses Android's built-in mock location testing feature. " +
-                "Two one-time steps are needed before mocking works.",
+                "Two one-time steps are required; the rest improve reliability.",
             style = MaterialTheme.typography.bodyMedium,
         )
         Spacer(Modifier.height(24.dp))
@@ -76,6 +83,32 @@ fun SetupScreen(
             instructions = "Developer options → scroll to \"Select mock location app\" → choose Mockarr.",
             actionLabel = "Open developer options",
             onAction = { context.openSettings(Settings.ACTION_APPLICATION_DEVELOPMENT_SETTINGS) },
+        )
+        Spacer(Modifier.height(16.dp))
+        SetupCheckCard(
+            title = "Notifications allowed",
+            subtitle = "Recommended — shows playback progress and controls",
+            done = status?.notificationsEnabled == true,
+            instructions = "Playback runs as a foreground service; its notification " +
+                "lets you pause or stop from anywhere.",
+            actionLabel = "Allow notifications",
+            onAction = {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                    notificationLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+                } else {
+                    context.openSettings(Settings.ACTION_APP_NOTIFICATION_SETTINGS)
+                }
+            },
+        )
+        Spacer(Modifier.height(16.dp))
+        SetupCheckCard(
+            title = "Battery optimization exemption",
+            subtitle = "Recommended — keeps long playbacks alive on aggressive devices",
+            done = status?.batteryOptimizationExempt == true,
+            instructions = "Find Mockarr in the list and choose \"Don't optimize\". " +
+                "Some manufacturers hide this — see dontkillmyapp.com for your device.",
+            actionLabel = "Open battery settings",
+            onAction = { context.openSettings(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS) },
         )
 
         Spacer(Modifier.height(24.dp))
@@ -100,6 +133,7 @@ private fun SetupCheckCard(
     instructions: String,
     actionLabel: String,
     onAction: () -> Unit,
+    subtitle: String? = null,
 ) {
     Card(modifier = Modifier.fillMaxWidth()) {
         Column(modifier = Modifier.padding(16.dp)) {
@@ -114,10 +148,18 @@ private fun SetupCheckCard(
                     },
                 )
                 Spacer(Modifier.width(12.dp))
-                Text(
-                    text = title,
-                    style = MaterialTheme.typography.titleMedium,
-                )
+                Column {
+                    Text(
+                        text = title,
+                        style = MaterialTheme.typography.titleMedium,
+                    )
+                    if (subtitle != null) {
+                        Text(
+                            text = subtitle,
+                            style = MaterialTheme.typography.bodySmall,
+                        )
+                    }
+                }
             }
             if (!done) {
                 Spacer(Modifier.height(8.dp))
