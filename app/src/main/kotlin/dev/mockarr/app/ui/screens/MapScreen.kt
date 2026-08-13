@@ -54,6 +54,7 @@ fun MapScreen(
     playbackViewModel: PlaybackViewModel = hiltViewModel(),
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
+    val tileStyleUrl by viewModel.tileStyleUrl.collectAsStateWithLifecycle()
     val pinState by pinViewModel.uiState.collectAsStateWithLifecycle()
     val playbackState by playbackViewModel.playbackState.collectAsStateWithLifecycle()
     val latestFix by playbackViewModel.latestFix.collectAsStateWithLifecycle()
@@ -93,6 +94,7 @@ fun MapScreen(
     }
 
     val sessionActive = playbackState != null
+    var showSaveDialog by remember { mutableStateOf(false) }
 
     Box(modifier = Modifier.fillMaxSize()) {
         MockarrMap(
@@ -101,6 +103,7 @@ fun MapScreen(
             routeIsFallback = state.routeIsFallback,
             onMapTap = { if (!sessionActive) viewModel.addWaypoint(it) },
             onMapLongPress = { if (!sessionActive) pinViewModel.startMocking(it) },
+            styleUrl = tileStyleUrl,
             playbackPosition = if (sessionActive) latestFix?.position else null,
             cameraFollow = followCamera && sessionActive,
             modifier = Modifier.fillMaxSize(),
@@ -139,6 +142,24 @@ fun MapScreen(
                 Spacer(Modifier.height(8.dp))
                 StatusCard(text = message, isError = true)
             }
+            state.savedConfirmation?.let { message ->
+                Spacer(Modifier.height(8.dp))
+                StatusCard(
+                    text = message,
+                    actionLabel = "OK",
+                    onAction = viewModel::consumeSavedConfirmation,
+                )
+            }
+        }
+
+        if (showSaveDialog) {
+            SaveRouteDialog(
+                onConfirm = { name ->
+                    viewModel.saveRoute(name)
+                    showSaveDialog = false
+                },
+                onDismiss = { showSaveDialog = false },
+            )
         }
 
         if (sessionActive) {
@@ -164,6 +185,7 @@ fun MapScreen(
                 onClear = viewModel::clearWaypoints,
                 onOpenSetup = onOpenSetup,
                 onPlay = { state.route?.let(::requestPlay) },
+                onSave = { showSaveDialog = true },
                 modifier = Modifier
                     .align(Alignment.BottomCenter)
                     .fillMaxWidth()
@@ -286,6 +308,7 @@ private fun ControlCard(
     onClear: () -> Unit,
     onOpenSetup: () -> Unit,
     onPlay: () -> Unit,
+    onSave: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     Card(modifier = modifier) {
@@ -297,15 +320,15 @@ private fun ControlCard(
                     label = { Text("Driving") },
                 )
                 FilterChip(
-                    selected = false,
-                    onClick = {},
-                    enabled = false,
+                    selected = state.profile == RoutingProfile.WALKING,
+                    onClick = { onProfileSelected(RoutingProfile.WALKING) },
+                    enabled = state.customServerConfigured,
                     label = { Text("Walking") },
                 )
                 FilterChip(
-                    selected = false,
-                    onClick = {},
-                    enabled = false,
+                    selected = state.profile == RoutingProfile.CYCLING,
+                    onClick = { onProfileSelected(RoutingProfile.CYCLING) },
+                    enabled = state.customServerConfigured,
                     label = { Text("Cycling") },
                 )
             }
@@ -328,6 +351,9 @@ private fun ControlCard(
                 Button(onClick = onPlay, enabled = state.route != null) {
                     Text("Play")
                 }
+                TextButton(onClick = onSave, enabled = state.route != null && !state.routeIsFallback) {
+                    Text("Save")
+                }
                 TextButton(onClick = onClear, enabled = state.waypoints.isNotEmpty()) {
                     Text("Clear")
                 }
@@ -338,6 +364,36 @@ private fun ControlCard(
             }
         }
     }
+}
+
+@Composable
+private fun SaveRouteDialog(
+    onConfirm: (String) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    val defaultName = remember {
+        "Route " + java.text.SimpleDateFormat("MMM d, HH:mm", java.util.Locale.getDefault())
+            .format(java.util.Date())
+    }
+    var name by remember { mutableStateOf(defaultName) }
+    androidx.compose.material3.AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Save route") },
+        text = {
+            androidx.compose.material3.OutlinedTextField(
+                value = name,
+                onValueChange = { name = it },
+                label = { Text("Name") },
+                singleLine = true,
+            )
+        },
+        confirmButton = {
+            TextButton(onClick = { onConfirm(name) }) { Text("Save") }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text("Cancel") }
+        },
+    )
 }
 
 private fun Route.summaryText(): String {

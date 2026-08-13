@@ -30,7 +30,6 @@ import org.maplibre.geojson.FeatureCollection
 import org.maplibre.geojson.LineString
 import org.maplibre.geojson.Point
 
-private const val STYLE_URL = "https://tiles.openfreemap.org/styles/liberty"
 private const val ROUTE_SOURCE = "route-source"
 private const val ROUTE_LAYER = "route-layer"
 private const val FALLBACK_SOURCE = "fallback-source"
@@ -49,6 +48,7 @@ fun MockarrMap(
     routeIsFallback: Boolean,
     onMapTap: (LatLng) -> Unit,
     onMapLongPress: (LatLng) -> Unit,
+    styleUrl: String,
     playbackPosition: LatLng? = null,
     cameraFollow: Boolean = false,
     modifier: Modifier = Modifier,
@@ -74,10 +74,6 @@ fun MockarrMap(
                     currentOnLongPress(LatLng(p.latitude, p.longitude))
                     true
                 }
-                libreMap.setStyle(Style.Builder().fromUri(STYLE_URL)) { loadedStyle ->
-                    setUpLayers(loadedStyle)
-                    style = loadedStyle
-                }
                 map = libreMap
             }
         }
@@ -102,6 +98,20 @@ fun MockarrMap(
     }
 
     AndroidView(factory = { mapView }, modifier = modifier)
+
+    // (Re)load the style whenever the URL changes; sources/layers must be re-added after each load.
+    var appliedStyleUrl by remember { mutableStateOf<String?>(null) }
+    LaunchedEffect(map, styleUrl) {
+        val libreMap = map ?: return@LaunchedEffect
+        if (appliedStyleUrl != styleUrl) {
+            appliedStyleUrl = styleUrl
+            style = null
+            libreMap.setStyle(Style.Builder().fromUri(styleUrl)) { loadedStyle ->
+                setUpLayers(loadedStyle)
+                style = loadedStyle
+            }
+        }
+    }
 
     LaunchedEffect(style, waypoints, routePoints, routeIsFallback) {
         val loadedStyle = style ?: return@LaunchedEffect

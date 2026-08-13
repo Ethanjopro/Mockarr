@@ -83,7 +83,15 @@ fun MockarrApp() {
                 MapScreen(onOpenSetup = { navController.navigate(SetupDestination) })
             }
             composable<SavedRoutesDestination> {
-                SavedRoutesScreen()
+                SavedRoutesScreen(
+                    onRouteLoaded = {
+                        navController.navigate(MapDestination) {
+                            popUpTo(navController.graph.id) { saveState = true }
+                            launchSingleTop = true
+                            restoreState = true
+                        }
+                    },
+                )
             }
             composable<SettingsDestination> {
                 SettingsScreen()

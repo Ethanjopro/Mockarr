@@ -15,7 +15,7 @@ Android app that plays back road routes through Android's built-in mock location
 | M1 — Mock location walking skeleton | ✅ Done | **Verified on emulator incl. Google Maps blue dot at mocked coords.** Physical-device spot-check still worthwhile before M3 (OEM quirks). |
 | M2 — Map + waypoints + OSRM | ✅ Done | Emulator-verified: road-following route in Paris + airplane-mode fallback. |
 | M3 — Simulation engine + playback service | ✅ Done | Emulator-verified: Google Maps blue dot drives the route; screen-off survival; notification controls. |
-| M4 — Persistence + settings | ⬜ Not started | |
+| M4 — Persistence + settings | ✅ Done | Emulator-verified: offline replay after force-stop; settings + test-connection live. |
 | M5 — Hardening + polish | ⬜ Not started | |
 | M6 — Open-source readiness | ⬜ Not started | License still TBD (user chose "decide later"). |
 
@@ -97,8 +97,13 @@ Verified end-to-end like a human: app-drawer swipe → tapped the Mockarr icon �
 - Emulator-verified end-to-end: permission dialogs → playback → **Google Maps blue dot drove Av. de la Grande Armée to the Arc de Triomphe** with direction beam (bearing working); fused fixes showed vel≈6.7 m/s, jittered accuracy; **screen-off 25 s: still moving**; notification Pause → vel=0.0 (held, jitter-only wander); notification Stop → 0 mock providers left.
 - Notes: uiautomator dumps can go stale while permission dialogs animate in — re-dump or tap visible coords from a screenshot; system dialog sequence = location then notifications, launcher callback fires once after both.
 
+### 2026-08-13 — Session 2 (M4)
+
+- **M4 complete**: `core:data` = Room (SavedRouteEntity: polyline6 + legs JSON blob, v1, exportSchema off) + SavedRoutesRepository (save/delete/restore/toRoute) + SettingsRepository (Preferences DataStore → hot StateFlow via injected app scope; osrmBaseUrl/tileStyleUrl/tickHz/jitter/sigma/defaultProfile; `customServerConfigured` gates walk/bike chips). App: Save dialog on map, SavedRoutesScreen (list, load→RouteHandoff singleton→MapViewModel, delete w/ Undo snackbar), full SettingsScreen (URL fields w/ Apply + **Test connection** hitting a Berlin hop, realism sliders, default profile), MockarrMap takes dynamic styleUrl (re-adds layers on style reload), PlaybackService reads SimulationParams from settings, RouteProvider base URL reads settings live.
+- Emulator-verified: save → force-stop → airplane mode → reopen → route listed → loads → **plays offline** (3 mock providers, no network); Settings renders; "✓ Server responded with a route" from Test connection.
+- Deviation from plan: FavoritePlace entity/UI deferred (waypoint reuse is low-value until there's a geocoder; long-press is taken by pin-mock).
+
 ## Next steps (in order)
 
-1. M4: Room saved routes + favorite places + SavedRoutesScreen; DataStore settings + SettingsScreen; wire OSRM base URL + walk/bike chips to custom server setting; offline replay.
-2. M5: hardening + first-run polish; physical-device spot-check.
-3. M6: open-source readiness (PLAN.md §12); license decision still pending (user).
+1. M5: hardening + first-run polish (first-run setup flow, battery exemption row, notification-permission row in checklist, process-death recovery check); physical-device spot-check.
+2. M6: open-source readiness (PLAN.md §12); license decision still pending (user).

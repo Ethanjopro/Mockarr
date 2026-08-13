@@ -15,6 +15,7 @@ import androidx.core.app.ServiceCompat
 import dagger.hilt.android.AndroidEntryPoint
 import dev.mockarr.app.MainActivity
 import dev.mockarr.app.R
+import dev.mockarr.core.data.SettingsRepository
 import dev.mockarr.core.mocklocation.MockLocationController
 import dev.mockarr.core.mocklocation.MockStartResult
 import dev.mockarr.core.model.PlaybackState
@@ -44,6 +45,9 @@ class PlaybackService : Service() {
 
     @Inject
     lateinit var mockController: MockLocationController
+
+    @Inject
+    lateinit var settingsRepository: SettingsRepository
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     private var sessionJob: Job? = null
@@ -107,9 +111,14 @@ class PlaybackService : Service() {
     private fun runSession(route: Route) {
         acquireWakeLock()
         routeDistanceMeters = route.distanceMeters
+        val settings = settingsRepository.settings.value
         val engine = SimulationEngine(
             route = route,
-            params = SimulationParams(),
+            params = SimulationParams(
+                tickHz = settings.tickHz,
+                jitterEnabled = settings.jitterEnabled,
+                jitterSigmaMeters = settings.jitterSigmaMeters,
+            ),
             clock = SimClock { SystemClock.elapsedRealtimeNanos() },
             random = Random(SystemClock.elapsedRealtimeNanos()),
         )
