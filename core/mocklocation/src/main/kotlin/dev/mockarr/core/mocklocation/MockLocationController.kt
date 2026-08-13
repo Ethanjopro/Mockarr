@@ -8,6 +8,8 @@ import dev.mockarr.core.model.SimulatedFix
  * keeps consumers testable and the sink swappable.
  */
 interface MockLocationController {
+    val isRunning: Boolean
+
     fun start(): MockStartResult
 
     fun push(fix: SimulatedFix)
