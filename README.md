@@ -11,7 +11,7 @@ Built on a fully open stack: Kotlin, Jetpack Compose, MapLibre, OpenStreetMap ti
 Early development. See [PLAN.md](PLAN.md) for the full project plan and milestone roadmap.
 
 - [x] **M0** — Project skeleton, module structure, CI
-- [ ] **M1** — Mock location walking skeleton
+- [x] **M1** — Mock location walking skeleton (verified: Google Maps follows the mocked location)
 - [ ] **M2** — Map, waypoints, OSRM routing
 - [ ] **M3** — Simulation engine + playback service
 - [ ] **M4** — Persistence + settings

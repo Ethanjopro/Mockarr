@@ -12,7 +12,7 @@ Android app that plays back road routes through Android's built-in mock location
 |---|---|---|
 | Plan document | ✅ Done | PLAN.md, commit `2c9632c` |
 | M0 — Skeleton + CI | ✅ Done | Commits `7f495f8`, `19e7098`, `bed0cc7`. CI green. |
-| M1 — Mock location walking skeleton | 🔨 Code written | **Pending: verification on a physical device** (see M1 acceptance in PLAN.md §10). |
+| M1 — Mock location walking skeleton | ✅ Done | **Verified on emulator incl. Google Maps blue dot at mocked coords.** Physical-device spot-check still worthwhile before M3 (OEM quirks). |
 | M2 — Map + waypoints + OSRM | ⬜ Not started | |
 | M3 — Simulation engine + playback service | ⬜ Not started | |
 | M4 — Persistence + settings | ⬜ Not started | |
@@ -47,12 +47,28 @@ export JAVA_HOME="/Applications/Android Studio.app/Contents/jbr/Contents/Home"
 
 CI: `.github/workflows/ci.yml`, runs `./gradlew build` on every push/PR to main. Check with `gh run list`.
 
-## M1 device verification procedure (the pending step)
+## Autonomous emulator testing (set up 2026-08-13 — use this to test without the user)
 
-1. Physical phone, USB debugging on, plugged in → `./gradlew :app:installDebug`.
-2. On phone: Settings → Developer Options → **Select mock location app** → Mockarr (the in-app Setup checklist deep-links there).
-3. In Mockarr: Map tab → **Mock here (debug)** → open Google Maps → blue dot should sit at the Eiffel Tower (48.8584, 2.2945).
-4. **Stop** in Mockarr → blue dot returns to real location. No crash when Mockarr is NOT selected as mock app (should show friendly error).
+A dedicated AVD **`mockarr_test`** exists (Pixel 7, API 35, google_apis arm64 — includes Google Maps). The user's other AVDs (Pixel_7, Pixel_7_API35) must not be touched.
+
+```sh
+SDK=~/Library/Android/sdk
+$SDK/emulator/emulator -avd mockarr_test -no-window -no-audio -no-boot-anim -no-snapshot &   # boots in ~15 s
+$SDK/platform-tools/adb wait-for-device   # then poll: adb shell getprop sys.boot_completed == 1
+./gradlew :app:installDebug
+
+# Select Mockarr as mock location app WITHOUT touching the Settings UI:
+adb shell settings put global development_settings_enabled 1
+adb shell appops set dev.mockarr.app android:mock_location allow    # deny = simulate not-selected
+
+# Drive the UI: uiautomator dump /sdcard/ui.xml for button bounds, adb shell input tap X Y
+# Verify mocking at OS level (should show gps/network/fused with [mock] + the mocked coords):
+adb shell dumpsys location | grep -E "provider \[mock\]|last location"
+# Screenshots: adb shell screencap -p /sdcard/s.png && adb pull /sdcard/s.png
+adb emu kill   # ALWAYS shut down when done
+```
+
+M1 verification results (2026-08-13, emulator): all three providers mocked to Eiffel Tower and `dumpsys location` confirmed `[mock]` fixes; **Google Maps showed the blue dot at Tour Eiffel**; Stop removed all test providers (0 left); appop `deny` produced the friendly "not selected" error, no crash. Physical-device spot-check still recommended before M3 (OEM quirks the emulator can't show).
 
 ## Session log
 
@@ -61,10 +77,11 @@ CI: `.github/workflows/ci.yml`, runs `./gradlew build` on every push/PR to main.
 - Researched Google Maps Platform pricing for user (Routes API: 10K free/month then $5/1K; Maps SDK free) — user chose open stack instead. License: decide later.
 - Wrote PLAN.md (full architecture/design/milestones) — reviewed by Plan agent, approved by user.
 - **M0 complete**: scaffolded everything (see Key decisions). Fixed compileSdk 36→37 and added material-icons-core along the way. Local build + detekt green, both CI runs green (~8 min each). CI actions bumped to checkout@v7/setup-java@v5/setup-gradle@v6/upload-artifact@v7.
-- **M1 code written** (this session, see below): AndroidMockLocationController, SetupStatusRepository, real SetupScreen with deep links, debug "Mock here" pin on MapScreen, Hilt DI module, added `androidx.hilt:hilt-navigation-compose:1.4.0`. Device verification NOT yet done — user needs to plug in a phone.
+- **M1 code written**: AndroidMockLocationController, SetupStatusRepository, real SetupScreen with deep links, debug "Mock here" pin on MapScreen, Hilt DI module, added `androidx.hilt:hilt-navigation-compose:1.4.0`.
+- **Emulator testing set up + M1 verified** (user asked for autonomous testing): created `mockarr_test` AVD, full verification pass incl. Google Maps blue dot in Paris — see "Autonomous emulator testing" section. detekt lessons this session: no inline `/* param */` comments (CommentWrapping), `javax` imports go last (ImportOrdering), ReturnCount/LoopWithTooManyJumpStatements limits; Android lint wants `ProviderProperties` constants (safe pre-31 — compile-time inlined).
 
 ## Next steps (in order)
 
-1. **Verify M1 on a physical device** (procedure above). Nothing else proceeds until the blue dot moves (PLAN.md M1 gate).
-2. M2: MapLibre map + tap waypoints + OSRM route fetch + polyline render (PLAN.md §3, §8).
-3. M3: simulation engine + foreground playback service (PLAN.md §4, §5) — the flagship.
+1. M2: MapLibre map + tap waypoints + OSRM route fetch + polyline render (PLAN.md §3, §8).
+2. M3: simulation engine + foreground playback service (PLAN.md §4, §5) — the flagship. Do a physical-device spot-check of mocking before/during M3.
+3. M4+: persistence, settings, hardening (PLAN.md §10).
