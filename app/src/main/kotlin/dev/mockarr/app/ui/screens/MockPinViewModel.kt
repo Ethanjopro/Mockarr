@@ -3,8 +3,8 @@ package dev.mockarr.app.ui.screens
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
+import dev.mockarr.app.ui.errorMessageOrNull
 import dev.mockarr.core.mocklocation.MockLocationController
-import dev.mockarr.core.mocklocation.MockStartResult
 import dev.mockarr.core.model.LatLng
 import dev.mockarr.core.model.SimulatedFix
 import kotlinx.coroutines.Job
@@ -37,34 +37,26 @@ class MockPinViewModel @Inject constructor(
     private var ticker: Job? = null
 
     fun startMocking(position: LatLng) {
-        when (val result = controller.start()) {
-            MockStartResult.Ok -> {
-                ticker?.cancel()
-                val fix = SimulatedFix(
-                    position = position,
-                    speedMetersPerSecond = 0.0,
-                    bearingDegrees = 0.0,
-                    accuracyMeters = PIN_ACCURACY_METERS,
-                    altitudeMeters = PIN_ALTITUDE_METERS,
-                )
-                ticker = viewModelScope.launch {
-                    while (isActive) {
-                        controller.push(fix)
-                        delay(TICK_MILLIS)
-                    }
-                }
-                _uiState.value = UiState.Mocking(position)
-            }
-            MockStartResult.NotSelectedAsMockApp -> {
-                _uiState.value = UiState.Error(
-                    "Mockarr isn't selected as the mock location app yet — " +
-                        "open the Setup checklist.",
-                )
-            }
-            is MockStartResult.ProviderError -> {
-                _uiState.value = UiState.Error(result.message)
+        val error = controller.start().errorMessageOrNull()
+        if (error != null) {
+            _uiState.value = UiState.Error(error)
+            return
+        }
+        ticker?.cancel()
+        val fix = SimulatedFix(
+            position = position,
+            speedMetersPerSecond = 0.0,
+            bearingDegrees = 0.0,
+            accuracyMeters = PIN_ACCURACY_METERS,
+            altitudeMeters = PIN_ALTITUDE_METERS,
+        )
+        ticker = viewModelScope.launch {
+            while (isActive) {
+                controller.push(fix)
+                delay(TICK_MILLIS)
             }
         }
+        _uiState.value = UiState.Mocking(position)
     }
 
     fun stopMocking() {

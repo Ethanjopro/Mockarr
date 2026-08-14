@@ -1,5 +1,7 @@
 package dev.mockarr.core.simulation
 
+import dev.mockarr.core.model.GeoMath
+import dev.mockarr.core.model.LatLng
 import dev.mockarr.core.model.PlaybackState
 import dev.mockarr.core.model.Route
 import dev.mockarr.core.model.SimulatedFix
@@ -12,10 +14,12 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.isActive
 import kotlin.math.PI
+import kotlin.math.abs
 import kotlin.math.cos
 import kotlin.math.ln
 import kotlin.math.max
 import kotlin.math.min
+import kotlin.math.sin
 import kotlin.math.sqrt
 import kotlin.random.Random
 
@@ -54,7 +58,7 @@ class SimulationEngine(
             val dt = ((now - lastNanos) / NANOS_PER_SECOND).coerceIn(MIN_DT, MAX_DT)
             lastNanos = now
             tick(dt)?.let { emit(it) }
-            running = _state.value !is PlaybackState.Finished && _state.value !is PlaybackState.Idle
+            running = _state.value !is PlaybackState.Finished
         }
     }
 
@@ -77,7 +81,7 @@ class SimulationEngine(
             }
             currentFix()
         }
-        PlaybackState.Idle, PlaybackState.Finished -> null
+        PlaybackState.Finished -> null
     }
 
     fun pause() {
@@ -113,10 +117,10 @@ class SimulationEngine(
         val cruise = geometry.segmentSpeeds[segment] * speedMultiplier
         val allowedAtVertex = geometry.allowedVertexSpeeds[nextVertex] * speedMultiplier
         val distToVertex = geometry.distanceToVertex(distance, nextVertex)
-        val brakingLimit = sqrt(
-            allowedAtVertex * allowedAtVertex + 2 * params.decelerationMps2 * distToVertex,
+        val target = min(
+            cruise,
+            RouteGeometry.brakingLimit(allowedAtVertex, params.decelerationMps2, distToVertex),
         )
-        val target = min(cruise, brakingLimit)
         speed = if (target >= speed) {
             min(speed + params.accelerationMps2 * dt, target)
         } else {
@@ -151,7 +155,7 @@ class SimulationEngine(
     private fun currentFix(): SimulatedFix {
         val truePosition = geometry.positionAt(distance)
         val reported = if (params.jitterEnabled) jitter(truePosition) else truePosition
-        val accuracy = (params.minAccuracyMeters + kotlin.math.abs(gaussian()) * ACCURACY_SIGMA)
+        val accuracy = (params.minAccuracyMeters + abs(gaussian()) * ACCURACY_SIGMA)
             .coerceIn(params.minAccuracyMeters, params.maxAccuracyMeters)
         return SimulatedFix(
             position = reported,
@@ -163,10 +167,10 @@ class SimulationEngine(
     }
 
     /** Jitter the reported position only — along-track state never drifts. */
-    private fun jitter(position: dev.mockarr.core.model.LatLng): dev.mockarr.core.model.LatLng {
-        val offsetMeters = kotlin.math.abs(gaussian()) * params.jitterSigmaMeters
+    private fun jitter(position: LatLng): LatLng {
+        val offsetMeters = abs(gaussian()) * params.jitterSigmaMeters
         val direction = random.nextDouble() * FULL_CIRCLE_DEGREES
-        return dev.mockarr.core.model.GeoMath.destination(position, direction, offsetMeters)
+        return GeoMath.destination(position, direction, offsetMeters)
     }
 
     private var spareGaussian: Double? = null
@@ -181,7 +185,7 @@ class SimulationEngine(
         while (u1 <= 1e-12) u1 = random.nextDouble()
         val u2 = random.nextDouble()
         val radius = sqrt(-2.0 * ln(u1))
-        spareGaussian = radius * kotlin.math.sin(2.0 * PI * u2)
+        spareGaussian = radius * sin(2.0 * PI * u2)
         return radius * cos(2.0 * PI * u2)
     }
 

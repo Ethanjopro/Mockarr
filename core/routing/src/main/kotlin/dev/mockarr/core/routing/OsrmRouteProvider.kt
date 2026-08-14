@@ -157,7 +157,7 @@ class OsrmRouteProvider(
 
     companion object {
         const val DEFAULT_BASE_URL = "https://router.project-osrm.org"
-        private const val FALLBACK_BASE_URL = "https://router.project-osrm.org/"
+        private const val FALLBACK_BASE_URL = "$DEFAULT_BASE_URL/"
         private const val MIN_REQUEST_INTERVAL_MILLIS = 1_000L
         private const val HTTP_TOO_MANY_REQUESTS = 429
         private const val CODE_OK = "Ok"

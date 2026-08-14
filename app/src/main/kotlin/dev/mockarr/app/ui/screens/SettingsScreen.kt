@@ -29,6 +29,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import dev.mockarr.app.ui.label
+import dev.mockarr.core.data.MockarrSettings
 import dev.mockarr.core.model.RoutingProfile
 
 @Composable
@@ -67,7 +69,7 @@ fun SettingsScreen(viewModel: SettingsViewModel = hiltViewModel()) {
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
             Button(
                 onClick = { viewModel.applyOsrmBaseUrl(osrmField) },
-                enabled = osrmField.trim().trimEnd('/') != settings.osrmBaseUrl,
+                enabled = MockarrSettings.normalizeBaseUrl(osrmField) != settings.osrmBaseUrl,
             ) { Text("Apply") }
             OutlinedButton(
                 onClick = { viewModel.testConnection(osrmField) },
@@ -99,14 +101,18 @@ fun SettingsScreen(viewModel: SettingsViewModel = hiltViewModel()) {
 
         Text("Playback realism", style = MaterialTheme.typography.titleMedium)
         Spacer(Modifier.height(8.dp))
+        // Sliders hold drag state locally and persist once per gesture — a DataStore
+        // write per drag event would be a full file rewrite each time.
+        var tickHzDrag by remember(settings.tickHz) { mutableStateOf(settings.tickHz.toFloat()) }
         Text(
-            "Update rate: %.1f Hz".format(settings.tickHz),
+            "Update rate: %.1f Hz".format(tickHzDrag),
             style = MaterialTheme.typography.bodyMedium,
         )
         Slider(
-            value = settings.tickHz.toFloat(),
-            onValueChange = { viewModel.setTickHz(it.toDouble()) },
-            valueRange = 0.5f..5f,
+            value = tickHzDrag,
+            onValueChange = { tickHzDrag = it },
+            onValueChangeFinished = { viewModel.setTickHz(tickHzDrag.toDouble()) },
+            valueRange = TICK_HZ_RANGE,
             steps = 8,
         )
         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -117,14 +123,18 @@ fun SettingsScreen(viewModel: SettingsViewModel = hiltViewModel()) {
             )
         }
         if (settings.jitterEnabled) {
+            var sigmaDrag by remember(settings.jitterSigmaMeters) {
+                mutableStateOf(settings.jitterSigmaMeters.toFloat())
+            }
             Text(
-                "Jitter σ: %.1f m".format(settings.jitterSigmaMeters),
+                "Jitter σ: %.1f m".format(sigmaDrag),
                 style = MaterialTheme.typography.bodyMedium,
             )
             Slider(
-                value = settings.jitterSigmaMeters.toFloat(),
-                onValueChange = { viewModel.setJitterSigmaMeters(it.toDouble()) },
-                valueRange = 0.5f..10f,
+                value = sigmaDrag,
+                onValueChange = { sigmaDrag = it },
+                onValueChangeFinished = { viewModel.setJitterSigmaMeters(sigmaDrag.toDouble()) },
+                valueRange = JITTER_SIGMA_RANGE,
             )
         }
         Spacer(Modifier.height(8.dp))
@@ -182,8 +192,7 @@ private fun TestStateLabel(testState: SettingsViewModel.TestState) {
     }
 }
 
-private fun RoutingProfile.label(): String = when (this) {
-    RoutingProfile.DRIVING -> "Driving"
-    RoutingProfile.WALKING -> "Walking"
-    RoutingProfile.CYCLING -> "Cycling"
-}
+private val TICK_HZ_RANGE =
+    MockarrSettings.TICK_HZ_MIN.toFloat()..MockarrSettings.TICK_HZ_MAX.toFloat()
+private val JITTER_SIGMA_RANGE =
+    MockarrSettings.JITTER_SIGMA_MIN.toFloat()..MockarrSettings.JITTER_SIGMA_MAX.toFloat()

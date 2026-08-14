@@ -40,5 +40,5 @@ class SavedRoutesRepository(
     )
 
     fun profileOf(entity: SavedRouteEntity): RoutingProfile =
-        runCatching { RoutingProfile.valueOf(entity.profile) }.getOrDefault(RoutingProfile.DRIVING)
+        RoutingProfile.fromNameOrDefault(entity.profile)
 }

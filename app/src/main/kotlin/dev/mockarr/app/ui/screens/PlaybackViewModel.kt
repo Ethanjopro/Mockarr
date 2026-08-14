@@ -28,8 +28,7 @@ class PlaybackViewModel @Inject constructor(
     val speedMultiplier: StateFlow<Double> = _speedMultiplier.asStateFlow()
 
     fun play(route: Route) {
-        repository.pendingRoute = route
-        repository.setSpeedMultiplier(_speedMultiplier.value)
+        repository.requestStart(route)
         val intent = Intent(context, PlaybackService::class.java)
             .setAction(PlaybackService.ACTION_START)
         ContextCompat.startForegroundService(context, intent)

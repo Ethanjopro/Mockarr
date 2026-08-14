@@ -2,7 +2,6 @@ package dev.mockarr.core.mocklocation
 
 import android.content.Context
 import android.location.LocationManager
-import android.location.provider.ProviderProperties
 import android.provider.Settings
 
 data class SetupStatus(
@@ -59,21 +58,8 @@ class SetupStatusRepository(
         }
     }
 
-    // Positional args (Java API): requiresNetwork, requiresSatellite, requiresCell,
-    // hasMonetaryCost, supportsAltitude, supportsSpeed, supportsBearing.
     private fun probeAddRemove() {
-        locationManager.addTestProvider(
-            LocationManager.NETWORK_PROVIDER,
-            false,
-            false,
-            false,
-            false,
-            false,
-            false,
-            false,
-            ProviderProperties.POWER_USAGE_LOW,
-            ProviderProperties.ACCURACY_FINE,
-        )
+        locationManager.registerTestProvider(LocationManager.NETWORK_PROVIDER)
         locationManager.removeTestProvider(LocationManager.NETWORK_PROVIDER)
     }
 }

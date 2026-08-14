@@ -25,10 +25,12 @@ import org.maplibre.android.style.layers.CircleLayer
 import org.maplibre.android.style.layers.LineLayer
 import org.maplibre.android.style.layers.Property
 import org.maplibre.android.style.layers.PropertyFactory
+import org.maplibre.android.style.sources.GeoJsonSource
 import org.maplibre.geojson.Feature
 import org.maplibre.geojson.FeatureCollection
 import org.maplibre.geojson.LineString
 import org.maplibre.geojson.Point
+import org.maplibre.android.geometry.LatLng as MapLibreLatLng
 
 private const val ROUTE_SOURCE = "route-source"
 private const val ROUTE_LAYER = "route-layer"
@@ -113,9 +115,13 @@ fun MockarrMap(
         }
     }
 
-    LaunchedEffect(style, waypoints, routePoints, routeIsFallback) {
+    LaunchedEffect(style, waypoints) {
         val loadedStyle = style ?: return@LaunchedEffect
         updateWaypoints(loadedStyle, waypoints)
+    }
+
+    LaunchedEffect(style, routePoints, routeIsFallback) {
+        val loadedStyle = style ?: return@LaunchedEffect
         updateRoute(loadedStyle, routePoints, routeIsFallback)
     }
 
@@ -124,8 +130,7 @@ fun MockarrMap(
         val features = playbackPosition?.let {
             FeatureCollection.fromFeature(Feature.fromGeometry(it.toPoint()))
         } ?: FeatureCollection.fromFeatures(emptyList())
-        loadedStyle.getSourceAs<org.maplibre.android.style.sources.GeoJsonSource>(PLAYBACK_SOURCE)
-            ?.setGeoJson(features)
+        loadedStyle.getSourceAs<GeoJsonSource>(PLAYBACK_SOURCE)?.setGeoJson(features)
     }
 
     LaunchedEffect(map, routePoints) {
@@ -158,14 +163,14 @@ private const val FOLLOW_EASE_MILLIS = 900
 private val INITIAL_CENTER = LatLng(48.8584, 2.2945)
 private const val INITIAL_ZOOM = 12.0
 
-private fun LatLng.toMapLibre() = org.maplibre.android.geometry.LatLng(latitude, longitude)
+private fun LatLng.toMapLibre() = MapLibreLatLng(latitude, longitude)
 
 private fun LatLng.toPoint(): Point = Point.fromLngLat(longitude, latitude)
 
 private fun setUpLayers(style: Style) {
-    style.addSource(org.maplibre.android.style.sources.GeoJsonSource(ROUTE_SOURCE))
-    style.addSource(org.maplibre.android.style.sources.GeoJsonSource(FALLBACK_SOURCE))
-    style.addSource(org.maplibre.android.style.sources.GeoJsonSource(WAYPOINT_SOURCE))
+    style.addSource(GeoJsonSource(ROUTE_SOURCE))
+    style.addSource(GeoJsonSource(FALLBACK_SOURCE))
+    style.addSource(GeoJsonSource(WAYPOINT_SOURCE))
     style.addLayer(
         LineLayer(ROUTE_LAYER, ROUTE_SOURCE).withProperties(
             PropertyFactory.lineColor("#1A73E8"),
@@ -181,7 +186,7 @@ private fun setUpLayers(style: Style) {
             PropertyFactory.lineDasharray(arrayOf(1.5f, 1.5f)),
         ),
     )
-    style.addSource(org.maplibre.android.style.sources.GeoJsonSource(PLAYBACK_SOURCE))
+    style.addSource(GeoJsonSource(PLAYBACK_SOURCE))
     style.addLayer(
         CircleLayer(PLAYBACK_LAYER, PLAYBACK_SOURCE).withProperties(
             PropertyFactory.circleRadius(8f),
@@ -218,7 +223,7 @@ private fun updateWaypoints(style: Style, waypoints: List<LatLng>) {
             addStringProperty(ROLE_KEY, role)
         }
     }
-    style.getSourceAs<org.maplibre.android.style.sources.GeoJsonSource>(WAYPOINT_SOURCE)
+    style.getSourceAs<GeoJsonSource>(WAYPOINT_SOURCE)
         ?.setGeoJson(FeatureCollection.fromFeatures(features))
 }
 
@@ -231,8 +236,6 @@ private fun updateRoute(style: Style, routePoints: List<LatLng>, isFallback: Boo
         FeatureCollection.fromFeatures(emptyList())
     }
     val empty = FeatureCollection.fromFeatures(emptyList())
-    style.getSourceAs<org.maplibre.android.style.sources.GeoJsonSource>(ROUTE_SOURCE)
-        ?.setGeoJson(if (isFallback) empty else line)
-    style.getSourceAs<org.maplibre.android.style.sources.GeoJsonSource>(FALLBACK_SOURCE)
-        ?.setGeoJson(if (isFallback) line else empty)
+    style.getSourceAs<GeoJsonSource>(ROUTE_SOURCE)?.setGeoJson(if (isFallback) empty else line)
+    style.getSourceAs<GeoJsonSource>(FALLBACK_SOURCE)?.setGeoJson(if (isFallback) line else empty)
 }

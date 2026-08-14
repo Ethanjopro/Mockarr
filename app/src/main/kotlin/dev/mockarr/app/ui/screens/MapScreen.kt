@@ -1,6 +1,7 @@
 package dev.mockarr.app.ui.screens
 
 import android.Manifest
+import android.content.Context
 import android.content.pm.PackageManager
 import android.os.Build
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -16,6 +17,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -24,6 +26,7 @@ import androidx.compose.material3.FilterChip
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -39,12 +42,17 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
+import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import dev.mockarr.app.ui.formatRouteTimestamp
+import dev.mockarr.app.ui.label
 import dev.mockarr.app.ui.map.MockarrMap
+import dev.mockarr.app.ui.summaryText
 import dev.mockarr.core.model.PlaybackState
 import dev.mockarr.core.model.Route
 import dev.mockarr.core.model.RoutingProfile
-import kotlin.math.roundToInt
+import dev.mockarr.core.model.progressOrZero
+import dev.mockarr.core.simulation.SimulationEngine
 
 @Composable
 fun MapScreen(
@@ -55,9 +63,10 @@ fun MapScreen(
     setupViewModel: SetupViewModel = hiltViewModel(),
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
+    val customServerConfigured by viewModel.customServerConfigured.collectAsStateWithLifecycle()
     val setupStatus by setupViewModel.status.collectAsStateWithLifecycle()
 
-    androidx.lifecycle.compose.LifecycleResumeEffect(Unit) {
+    LifecycleResumeEffect(Unit) {
         setupViewModel.refresh()
         onPauseOrDispose { }
     }
@@ -197,6 +206,7 @@ fun MapScreen(
         } else {
             ControlCard(
                 state = state,
+                customServerConfigured = customServerConfigured,
                 onProfileSelected = viewModel::setProfile,
                 onClear = viewModel::clearWaypoints,
                 onOpenSetup = onOpenSetup,
@@ -211,7 +221,10 @@ fun MapScreen(
     }
 }
 
-private fun android.content.Context.hasPermission(permission: String): Boolean =
+private val SPEED_MULTIPLIER_RANGE =
+    SimulationEngine.MIN_MULTIPLIER.toFloat()..SimulationEngine.MAX_MULTIPLIER.toFloat()
+
+private fun Context.hasPermission(permission: String): Boolean =
     ContextCompat.checkSelfPermission(this, permission) == PackageManager.PERMISSION_GRANTED
 
 @Composable
@@ -264,11 +277,7 @@ private fun PlaybackCard(
     onStop: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val progress = when (val s = playbackState) {
-        is PlaybackState.Playing -> s.progress
-        is PlaybackState.Paused -> s.progress
-        else -> 0.0
-    }
+    val progress = playbackState.progressOrZero
     val paused = playbackState is PlaybackState.Paused
     val stopping = playbackState is PlaybackState.Stopping
     val km = (route?.distanceMeters ?: 0.0) / 1000.0
@@ -301,7 +310,7 @@ private fun PlaybackCard(
                 Slider(
                     value = speedMultiplier.toFloat(),
                     onValueChange = { onSpeedChange(it.toDouble()) },
-                    valueRange = 0.25f..4f,
+                    valueRange = SPEED_MULTIPLIER_RANGE,
                     modifier = Modifier.weight(1f),
                 )
             }
@@ -320,6 +329,7 @@ private fun PlaybackCard(
 @Composable
 private fun ControlCard(
     state: MapViewModel.UiState,
+    customServerConfigured: Boolean,
     onProfileSelected: (RoutingProfile) -> Unit,
     onClear: () -> Unit,
     onOpenSetup: () -> Unit,
@@ -330,23 +340,14 @@ private fun ControlCard(
     Card(modifier = modifier) {
         Column(modifier = Modifier.padding(16.dp)) {
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                FilterChip(
-                    selected = state.profile == RoutingProfile.DRIVING,
-                    onClick = { onProfileSelected(RoutingProfile.DRIVING) },
-                    label = { Text("Driving") },
-                )
-                FilterChip(
-                    selected = state.profile == RoutingProfile.WALKING,
-                    onClick = { onProfileSelected(RoutingProfile.WALKING) },
-                    enabled = state.customServerConfigured,
-                    label = { Text("Walking") },
-                )
-                FilterChip(
-                    selected = state.profile == RoutingProfile.CYCLING,
-                    onClick = { onProfileSelected(RoutingProfile.CYCLING) },
-                    enabled = state.customServerConfigured,
-                    label = { Text("Cycling") },
-                )
+                RoutingProfile.entries.forEach { profile ->
+                    FilterChip(
+                        selected = state.profile == profile,
+                        onClick = { onProfileSelected(profile) },
+                        enabled = profile == RoutingProfile.DRIVING || customServerConfigured,
+                        label = { Text(profile.label()) },
+                    )
+                }
             }
             Spacer(Modifier.height(8.dp))
             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -387,16 +388,13 @@ private fun SaveRouteDialog(
     onConfirm: (String) -> Unit,
     onDismiss: () -> Unit,
 ) {
-    val defaultName = remember {
-        "Route " + java.text.SimpleDateFormat("MMM d, HH:mm", java.util.Locale.getDefault())
-            .format(java.util.Date())
-    }
+    val defaultName = remember { "Route " + formatRouteTimestamp(System.currentTimeMillis()) }
     var name by remember { mutableStateOf(defaultName) }
-    androidx.compose.material3.AlertDialog(
+    AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text("Save route") },
         text = {
-            androidx.compose.material3.OutlinedTextField(
+            OutlinedTextField(
                 value = name,
                 onValueChange = { name = it },
                 label = { Text("Name") },
@@ -410,10 +408,4 @@ private fun SaveRouteDialog(
             TextButton(onClick = onDismiss) { Text("Cancel") }
         },
     )
-}
-
-private fun Route.summaryText(): String {
-    val km = distanceMeters / 1000.0
-    val minutes = (durationSeconds / 60.0).roundToInt().coerceAtLeast(1)
-    return "%.1f km · about %d min".format(km, minutes)
 }

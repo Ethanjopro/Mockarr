@@ -11,6 +11,7 @@ import dagger.Provides
 import dagger.hilt.InstallIn
 import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
+import dev.mockarr.app.BuildConfig
 import dev.mockarr.core.data.MockarrDatabase
 import dev.mockarr.core.data.SavedRoutesRepository
 import dev.mockarr.core.data.SettingsRepository
@@ -24,7 +25,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import javax.inject.Singleton
 
-const val USER_AGENT = "Mockarr/0.1.0 (+https://github.com/Ethanjopro/Mockarr)"
+val USER_AGENT = "Mockarr/${BuildConfig.VERSION_NAME} (+https://github.com/Ethanjopro/Mockarr)"
 
 private val Context.settingsDataStore: DataStore<Preferences> by preferencesDataStore(name = "settings")
 

@@ -15,11 +15,12 @@ import androidx.core.app.ServiceCompat
 import dagger.hilt.android.AndroidEntryPoint
 import dev.mockarr.app.MainActivity
 import dev.mockarr.app.R
+import dev.mockarr.app.ui.errorMessageOrNull
 import dev.mockarr.core.data.SettingsRepository
 import dev.mockarr.core.mocklocation.MockLocationController
-import dev.mockarr.core.mocklocation.MockStartResult
 import dev.mockarr.core.model.PlaybackState
 import dev.mockarr.core.model.Route
+import dev.mockarr.core.model.progressOrZero
 import dev.mockarr.core.simulation.SimClock
 import dev.mockarr.core.simulation.SimulationEngine
 import dev.mockarr.core.simulation.SimulationParams
@@ -53,6 +54,19 @@ class PlaybackService : Service() {
     private var sessionJob: Job? = null
     private var wakeLock: PowerManager.WakeLock? = null
     private var routeDistanceMeters: Double = 0.0
+    private var lastNotified: Pair<Int, Boolean>? = null
+
+    private val contentIntent by lazy {
+        PendingIntent.getActivity(
+            this,
+            0,
+            Intent(this, MainActivity::class.java),
+            PendingIntent.FLAG_IMMUTABLE,
+        )
+    }
+    private val pauseIntent by lazy { servicePendingIntent(ACTION_PAUSE, requestCode = 1) }
+    private val resumeIntent by lazy { servicePendingIntent(ACTION_RESUME, requestCode = 2) }
+    private val stopIntent by lazy { servicePendingIntent(ACTION_STOP, requestCode = 3) }
 
     override fun onBind(intent: Intent?): IBinder? = null
 
@@ -85,7 +99,7 @@ class PlaybackService : Service() {
 
     private fun startSession() {
         if (sessionJob?.isActive == true) return
-        val route = repository.pendingRoute.also { repository.pendingRoute = null }
+        val route = repository.consumePendingRoute()
         if (route != null && beginMocking() && promoteToForeground()) {
             runSession(route)
         } else {
@@ -94,18 +108,10 @@ class PlaybackService : Service() {
         }
     }
 
-    private fun beginMocking(): Boolean = when (val result = mockController.start()) {
-        MockStartResult.Ok -> true
-        MockStartResult.NotSelectedAsMockApp -> {
-            repository.reportError(
-                "Mockarr isn't selected as the mock location app — open the Setup checklist.",
-            )
-            false
-        }
-        is MockStartResult.ProviderError -> {
-            repository.reportError(result.message)
-            false
-        }
+    private fun beginMocking(): Boolean {
+        val error = mockController.start().errorMessageOrNull()
+        if (error != null) repository.reportError(error)
+        return error == null
     }
 
     private fun runSession(route: Route) {
@@ -122,7 +128,7 @@ class PlaybackService : Service() {
             clock = SimClock { SystemClock.elapsedRealtimeNanos() },
             random = Random(SystemClock.elapsedRealtimeNanos()),
         )
-        repository.sessionStarted(engine, route)
+        repository.sessionStarted(engine)
 
         sessionJob = scope.launch {
             val stateJob = launch {
@@ -196,6 +202,10 @@ class PlaybackService : Service() {
     }
 
     private fun refreshNotification() {
+        val state = repository.state.value
+        val key = (state.progressOrZero * PROGRESS_MAX).toInt() to (state is PlaybackState.Paused)
+        if (key == lastNotified) return
+        lastNotified = key
         getSystemService(NotificationManager::class.java)
             .notify(NOTIFICATION_ID, buildNotification())
     }
@@ -203,18 +213,14 @@ class PlaybackService : Service() {
     private fun buildNotification(): Notification {
         val state = repository.state.value
         val paused = state is PlaybackState.Paused
-        val progress = when (state) {
-            is PlaybackState.Playing -> state.progress
-            is PlaybackState.Paused -> state.progress
-            else -> 0.0
-        }
+        val progress = state.progressOrZero
         val km = routeDistanceMeters / 1000.0
         val text = "%.1f / %.1f km%s".format(km * progress, km, if (paused) " · paused" else "")
 
         val toggleAction = if (paused) {
-            NotificationCompat.Action(0, "Resume", servicePendingIntent(ACTION_RESUME, 1))
+            NotificationCompat.Action(0, "Resume", resumeIntent)
         } else {
-            NotificationCompat.Action(0, "Pause", servicePendingIntent(ACTION_PAUSE, 1))
+            NotificationCompat.Action(0, "Pause", pauseIntent)
         }
 
         return NotificationCompat.Builder(this, CHANNEL_ID)
@@ -224,16 +230,9 @@ class PlaybackService : Service() {
             .setOngoing(true)
             .setOnlyAlertOnce(true)
             .setProgress(PROGRESS_MAX, (progress * PROGRESS_MAX).toInt(), false)
-            .setContentIntent(
-                PendingIntent.getActivity(
-                    this,
-                    0,
-                    Intent(this, MainActivity::class.java),
-                    PendingIntent.FLAG_IMMUTABLE,
-                ),
-            )
+            .setContentIntent(contentIntent)
             .addAction(toggleAction)
-            .addAction(NotificationCompat.Action(0, "Stop", servicePendingIntent(ACTION_STOP, 2)))
+            .addAction(NotificationCompat.Action(0, "Stop", stopIntent))
             .build()
     }
 

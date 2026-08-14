@@ -27,13 +27,15 @@ class PlaybackSessionRepository @Inject constructor() {
     private val _error = MutableStateFlow<String?>(null)
     val error: StateFlow<String?> = _error.asStateFlow()
 
-    private val _activeRoute = MutableStateFlow<Route?>(null)
-    val activeRoute: StateFlow<Route?> = _activeRoute.asStateFlow()
-
     private var engine: SimulationEngine? = null
 
-    /** Route handed from the UI to the service (too large for intent extras). */
-    var pendingRoute: Route? = null
+    /** Staged for the service, which consumes it (routes exceed intent-extra limits). */
+    private var pendingRoute: Route? = null
+
+    /** Stage a route for the next session; the caller then starts the service. */
+    fun requestStart(route: Route) {
+        pendingRoute = route
+    }
 
     fun pause() {
         engine?.pause()
@@ -55,9 +57,10 @@ class PlaybackSessionRepository @Inject constructor() {
         _error.value = null
     }
 
-    internal fun sessionStarted(engine: SimulationEngine, route: Route) {
+    internal fun consumePendingRoute(): Route? = pendingRoute.also { pendingRoute = null }
+
+    internal fun sessionStarted(engine: SimulationEngine) {
         this.engine = engine
-        _activeRoute.value = route
         _error.value = null
     }
 
@@ -73,7 +76,6 @@ class PlaybackSessionRepository @Inject constructor() {
         engine = null
         _state.value = null
         _latestFix.value = null
-        _activeRoute.value = null
     }
 
     internal fun reportError(message: String) {

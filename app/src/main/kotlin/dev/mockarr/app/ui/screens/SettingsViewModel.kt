@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dev.mockarr.app.di.USER_AGENT
+import dev.mockarr.core.data.MockarrSettings
 import dev.mockarr.core.data.SettingsRepository
 import dev.mockarr.core.model.LatLng
 import dev.mockarr.core.model.RoutingProfile
@@ -61,7 +62,7 @@ class SettingsViewModel @Inject constructor(
         _testState.value = TestState.Testing
         viewModelScope.launch {
             val provider = OsrmRouteProvider(
-                baseUrlProvider = { url.trim().trimEnd('/') },
+                baseUrlProvider = { MockarrSettings.normalizeBaseUrl(url) },
                 userAgent = USER_AGENT,
             )
             provider.route(TEST_WAYPOINTS, RoutingProfile.DRIVING).fold(

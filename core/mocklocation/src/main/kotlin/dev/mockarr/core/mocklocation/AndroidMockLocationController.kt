@@ -2,7 +2,6 @@ package dev.mockarr.core.mocklocation
 
 import android.location.Location
 import android.location.LocationManager
-import android.location.provider.ProviderProperties
 import android.os.Build
 import android.os.SystemClock
 import dev.mockarr.core.model.SimulatedFix
@@ -54,7 +53,11 @@ class AndroidMockLocationController(
     /** Returns null on success; a failure result only when the session cannot proceed. */
     private fun tryRegister(provider: String, added: MutableList<String>): MockStartResult? = try {
         removeQuietly(provider)
-        addTestProvider(provider)
+        locationManager.registerTestProvider(
+            provider,
+            requiresSatellite = provider == LocationManager.GPS_PROVIDER,
+            supportsMotion = true,
+        )
         locationManager.setTestProviderEnabled(provider, true)
         added += provider
         null
@@ -98,25 +101,6 @@ class AndroidMockLocationController(
     override fun stop() {
         activeProviders.forEach(::removeQuietly)
         activeProviders = emptyList()
-    }
-
-    // Positional args (Java API): requiresNetwork, requiresSatellite, requiresCell,
-    // hasMonetaryCost, supportsAltitude, supportsSpeed, supportsBearing.
-    // ProviderProperties constants are compile-time-inlined ints, safe below API 31.
-    private fun addTestProvider(provider: String) {
-        val requiresSatellite = provider == LocationManager.GPS_PROVIDER
-        locationManager.addTestProvider(
-            provider,
-            false,
-            requiresSatellite,
-            false,
-            false,
-            true,
-            true,
-            true,
-            ProviderProperties.POWER_USAGE_LOW,
-            ProviderProperties.ACCURACY_FINE,
-        )
     }
 
     /** Stale enabled test providers freeze the device's real location — always clean up. */

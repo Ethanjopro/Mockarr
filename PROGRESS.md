@@ -114,6 +114,17 @@ Verified end-to-end like a human: app-drawer swipe → tapped the Mockarr icon �
 
 - **M6 complete**: README overhauled (screenshots, features, how-it-works + fair-use note, build instructions, OSRM self-host guide, architecture, attribution, license-TBD), CONTRIBUTING.md (style/architecture/test rules, emulator appops cheatsheet, pre-license contribution note), CODE_OF_CONDUCT.md (Contributor Covenant), LICENSE placeholder (all rights reserved until chosen), issue templates (bug asks device/OS/Play-services — mock behavior is OEM-specific — plus feature) + PR template, fastlane F-Droid metadata (title/descriptions/changelog + 4 real phone screenshots from emulator verification).
 
+### 2026-08-14 — Session 3 (cleanup pass)
+
+- **/simplify sweep** (4 parallel review agents: reuse/simplification/efficiency/altitude), all fixes emulator-smoke-tested:
+  - New shared helpers: `app/ui/Formatting.kt` (route summary, timestamp, profile labels, MockStartResult→message), `PlaybackState?.progressOrZero` (core:model), `RoutingProfile.fromNameOrDefault`, `LocationManager.registerTestProvider` (core:mocklocation), `MockarrSettings.normalizeBaseUrl` + range constants, `RouteGeometry.brakingLimit`.
+  - Dead code removed: `PlaybackState.Idle` (unreachable), `PlaybackSessionRepository.activeRoute` (never read), unused deps (compose tooling, room-ktx, lifecycle-viewmodel-compose), `TopLevelDestination.routeClass`.
+  - Encapsulation: `pendingRoute` is now private behind `requestStart()`/`consumePendingRoute()`; USER_AGENT derives from BuildConfig.VERSION_NAME.
+  - Nav generalized: `navigateTopLevel()` pops ANY non-top-level overlay before tab switches (was a SetupDestination special case).
+  - Setup status: shared `SetupStatusHolder` singleton with 500 ms cache — one probe at launch instead of two, all screens share one StateFlow.
+  - Efficiency: settings sliders commit once per gesture (was a DataStore file write per drag event); notification PendingIntents cached + notify() skipped when progress/paused unchanged (was steady binder spam incl. while paused); map waypoint/route GeoJSON updates split into independent effects.
+  - Skipped (noted, deliberate): re-enabling detekt MagicNumber (would churn unit-conversion literals in core math for little clarity), unifying RouteHandoff with the playback mailbox (different observer patterns), initial speed-multiplier handoff to new sessions (latent behavior quirk — a /code-review matter, not cleanup).
+
 ## PLAN COMPLETE — remaining items are the user's
 
 1. **License decision** (GPL-3.0 vs Apache-2.0 vs other) — swap LICENSE, update README/CONTRIBUTING, then the repo can go public.

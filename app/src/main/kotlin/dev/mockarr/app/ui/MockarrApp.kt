@@ -19,6 +19,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
+import androidx.navigation.NavController
+import androidx.navigation.NavDestination
 import androidx.navigation.NavDestination.Companion.hasRoute
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -33,25 +35,38 @@ import dev.mockarr.app.ui.screens.SavedRoutesScreen
 import dev.mockarr.app.ui.screens.SettingsScreen
 import dev.mockarr.app.ui.screens.SetupScreen
 import dev.mockarr.app.ui.screens.SetupViewModel
-import kotlin.reflect.KClass
 
 private data class TopLevelDestination(
     val route: Any,
-    val routeClass: KClass<*>,
     val label: String,
     val icon: ImageVector,
 )
 
 private val topLevelDestinations = listOf(
-    TopLevelDestination(MapDestination, MapDestination::class, "Map", Icons.Filled.Place),
-    TopLevelDestination(
-        SavedRoutesDestination,
-        SavedRoutesDestination::class,
-        "Routes",
-        Icons.AutoMirrored.Filled.List,
-    ),
-    TopLevelDestination(SettingsDestination, SettingsDestination::class, "Settings", Icons.Filled.Settings),
+    TopLevelDestination(MapDestination, "Map", Icons.Filled.Place),
+    TopLevelDestination(SavedRoutesDestination, "Routes", Icons.AutoMirrored.Filled.List),
+    TopLevelDestination(SettingsDestination, "Settings", Icons.Filled.Settings),
 )
+
+private fun NavDestination?.isTopLevel(): Boolean =
+    this != null && topLevelDestinations.any { hasRoute(it.route::class) }
+
+/**
+ * Switch tabs. Overlays (e.g. Setup) don't belong in a tab's saved state — if
+ * one is showing, pop back to a top-level destination first so tab restore
+ * can never resurrect it.
+ */
+private fun NavController.navigateTopLevel(route: Any) {
+    var popped = true
+    while (popped && !currentDestination.isTopLevel() && previousBackStackEntry != null) {
+        popped = popBackStack()
+    }
+    navigate(route) {
+        popUpTo(graph.id) { saveState = true }
+        launchSingleTop = true
+        restoreState = true
+    }
+}
 
 @Composable
 fun MockarrApp(setupViewModel: SetupViewModel = hiltViewModel()) {
@@ -74,21 +89,10 @@ fun MockarrApp(setupViewModel: SetupViewModel = hiltViewModel()) {
         bottomBar = {
             NavigationBar {
                 topLevelDestinations.forEach { destination ->
-                    val selected = currentDestination?.hasRoute(destination.routeClass) == true
+                    val selected = currentDestination?.hasRoute(destination.route::class) == true
                     NavigationBarItem(
                         selected = selected,
-                        onClick = {
-                            // Setup is pushed within a tab's stack; pop it first so it
-                            // isn't captured in the tab's saved state and restored later.
-                            if (currentDestination?.hasRoute(SetupDestination::class) == true) {
-                                navController.popBackStack()
-                            }
-                            navController.navigate(destination.route) {
-                                popUpTo(navController.graph.id) { saveState = true }
-                                launchSingleTop = true
-                                restoreState = true
-                            }
-                        },
+                        onClick = { navController.navigateTopLevel(destination.route) },
                         icon = { Icon(destination.icon, contentDescription = destination.label) },
                         label = { Text(destination.label) },
                     )
@@ -106,13 +110,7 @@ fun MockarrApp(setupViewModel: SetupViewModel = hiltViewModel()) {
             }
             composable<SavedRoutesDestination> {
                 SavedRoutesScreen(
-                    onRouteLoaded = {
-                        navController.navigate(MapDestination) {
-                            popUpTo(navController.graph.id) { saveState = true }
-                            launchSingleTop = true
-                            restoreState = true
-                        }
-                    },
+                    onRouteLoaded = { navController.navigateTopLevel(MapDestination) },
                 )
             }
             composable<SettingsDestination> {

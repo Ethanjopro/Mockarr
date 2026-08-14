@@ -3,6 +3,7 @@ package dev.mockarr.app.ui.screens
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -31,12 +32,12 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import dev.mockarr.app.ui.formatRouteTimestamp
+import dev.mockarr.app.ui.label
+import dev.mockarr.app.ui.routeSummaryText
 import dev.mockarr.core.data.SavedRouteEntity
+import dev.mockarr.core.model.RoutingProfile
 import kotlinx.coroutines.launch
-import java.text.SimpleDateFormat
-import java.util.Date
-import java.util.Locale
-import kotlin.math.roundToInt
 
 @Composable
 fun SavedRoutesScreen(
@@ -71,7 +72,7 @@ fun SavedRoutesScreen(
         } else {
             LazyColumn(
                 modifier = Modifier.fillMaxSize(),
-                contentPadding = androidx.compose.foundation.layout.PaddingValues(12.dp),
+                contentPadding = PaddingValues(12.dp),
                 verticalArrangement = Arrangement.spacedBy(8.dp),
             ) {
                 items(routes, key = { it.id }) { entity ->
@@ -110,7 +111,6 @@ private fun SavedRouteCard(
     onClick: () -> Unit,
     onDelete: () -> Unit,
 ) {
-    val dateFormat = remember { SimpleDateFormat("MMM d, HH:mm", Locale.getDefault()) }
     Card(onClick = onClick, modifier = Modifier.fillMaxWidth()) {
         Row(
             modifier = Modifier.padding(start = 16.dp, top = 12.dp, bottom = 12.dp, end = 4.dp),
@@ -123,11 +123,10 @@ private fun SavedRouteCard(
                 )
                 Spacer(Modifier.height(2.dp))
                 Text(
-                    text = "%.1f km · ~%d min · %s · %s".format(
-                        entity.distanceMeters / 1000.0,
-                        (entity.durationSeconds / 60.0).roundToInt().coerceAtLeast(1),
-                        entity.profile.lowercase().replaceFirstChar { it.uppercase() },
-                        dateFormat.format(Date(entity.createdAtEpochMillis)),
+                    text = "%s · %s · %s".format(
+                        routeSummaryText(entity.distanceMeters, entity.durationSeconds),
+                        RoutingProfile.fromNameOrDefault(entity.profile).label(),
+                        formatRouteTimestamp(entity.createdAtEpochMillis),
                     ),
                     style = MaterialTheme.typography.bodySmall,
                 )

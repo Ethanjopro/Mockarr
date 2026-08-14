@@ -39,7 +39,6 @@ class MapViewModel @Inject constructor(
         val routeIsFallback: Boolean = false,
         val isRouting: Boolean = false,
         val errorMessage: String? = null,
-        val customServerConfigured: Boolean = false,
         val savedConfirmation: String? = null,
     )
 
@@ -57,14 +56,17 @@ class MapViewModel @Inject constructor(
             settingsRepository.settings.value.tileStyleUrl,
         )
 
+    val customServerConfigured: StateFlow<Boolean> = settingsRepository.settings
+        .map { it.customServerConfigured }
+        .stateIn(
+            viewModelScope,
+            SharingStarted.Eagerly,
+            settingsRepository.settings.value.customServerConfigured,
+        )
+
     private var routeJob: Job? = null
 
     init {
-        viewModelScope.launch {
-            settingsRepository.settings.collect { settings ->
-                _uiState.update { it.copy(customServerConfigured = settings.customServerConfigured) }
-            }
-        }
         viewModelScope.launch {
             routeHandoff.pending.collect { loaded ->
                 if (loaded != null) {
