@@ -1,5 +1,6 @@
 package dev.mockarr.app.playback
 
+import dev.mockarr.core.model.LatLng
 import dev.mockarr.core.model.PlaybackState
 import dev.mockarr.core.model.Route
 import dev.mockarr.core.model.SimulatedFix
@@ -10,13 +11,30 @@ import kotlinx.coroutines.flow.asStateFlow
 import javax.inject.Inject
 import javax.inject.Singleton
 
+/** What the mocked location is doing right now, app-wide. */
+sealed interface MockSessionState {
+    /** No test providers registered — the device sees its real location. */
+    data object Idle : MockSessionState
+
+    /** A route playback session is feeding fixes. */
+    data object Playing : MockSessionState
+
+    /** The location is pinned to one spot until released or replaced. */
+    data class Holding(val position: LatLng, val source: HoldSource) : MockSessionState
+}
+
+enum class HoldSource { PIN, DESTINATION }
+
 /**
- * Single source of truth for the active playback session. The service hosts the
- * engine and pushes state here; ViewModels observe and send control calls back.
- * No Binder plumbing needed.
+ * Single source of truth for the active mock session. The service hosts the
+ * engine/hold ticker and pushes state here; ViewModels observe and send
+ * control calls back. No Binder plumbing needed.
  */
 @Singleton
-class PlaybackSessionRepository @Inject constructor() {
+class MockSessionRepository @Inject constructor() {
+
+    private val _session = MutableStateFlow<MockSessionState>(MockSessionState.Idle)
+    val session: StateFlow<MockSessionState> = _session.asStateFlow()
 
     private val _state = MutableStateFlow<PlaybackState?>(null)
     val state: StateFlow<PlaybackState?> = _state.asStateFlow()
@@ -59,9 +77,10 @@ class PlaybackSessionRepository @Inject constructor() {
 
     internal fun consumePendingRoute(): Route? = pendingRoute.also { pendingRoute = null }
 
-    internal fun sessionStarted(engine: SimulationEngine) {
+    internal fun playingStarted(engine: SimulationEngine) {
         this.engine = engine
         _error.value = null
+        _session.value = MockSessionState.Playing
     }
 
     internal fun updateState(state: PlaybackState) {
@@ -72,14 +91,24 @@ class PlaybackSessionRepository @Inject constructor() {
         _latestFix.value = fix
     }
 
-    internal fun sessionEnded() {
+    internal fun holdStarted(position: LatLng, source: HoldSource) {
+        _session.value = MockSessionState.Holding(position, source)
+    }
+
+    /** The playback engine is done; the session may continue as a hold. */
+    internal fun engineEnded() {
         engine = null
         _state.value = null
         _latestFix.value = null
     }
 
+    /** Test providers were removed — the device is back on its real location. */
+    internal fun sessionReleased() {
+        engineEnded()
+        _session.value = MockSessionState.Idle
+    }
+
     internal fun reportError(message: String) {
         _error.value = message
-        sessionEnded()
     }
 }

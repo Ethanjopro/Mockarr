@@ -1,5 +1,7 @@
 package dev.mockarr.app.ui
 
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.List
@@ -9,6 +11,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -30,7 +33,10 @@ import dev.mockarr.app.ui.navigation.MapDestination
 import dev.mockarr.app.ui.navigation.SavedRoutesDestination
 import dev.mockarr.app.ui.navigation.SettingsDestination
 import dev.mockarr.app.ui.navigation.SetupDestination
+import dev.mockarr.app.ui.screens.MapLayer
 import dev.mockarr.app.ui.screens.MapScreen
+import dev.mockarr.app.ui.screens.MapViewModel
+import dev.mockarr.app.ui.screens.MockSessionViewModel
 import dev.mockarr.app.ui.screens.SavedRoutesScreen
 import dev.mockarr.app.ui.screens.SettingsScreen
 import dev.mockarr.app.ui.screens.SetupScreen
@@ -74,6 +80,12 @@ fun MockarrApp(setupViewModel: SetupViewModel = hiltViewModel()) {
     val backStackEntry by navController.currentBackStackEntryAsState()
     val currentDestination = backStackEntry?.destination
 
+    // Activity-scoped: the map layer and the Map tab's overlay must share these
+    // exact instances (hiltViewModel() inside a destination would scope a
+    // second copy to that backstack entry).
+    val mapViewModel: MapViewModel = hiltViewModel()
+    val sessionViewModel: MockSessionViewModel = hiltViewModel()
+
     // First-run guidance: if mocking can't work yet, open the checklist once.
     var checkedOnLaunch by rememberSaveable { mutableStateOf(false) }
     LaunchedEffect(Unit) {
@@ -84,6 +96,8 @@ fun MockarrApp(setupViewModel: SetupViewModel = hiltViewModel()) {
             }
         }
     }
+
+    val onMapTab = currentDestination == null || currentDestination.hasRoute(MapDestination::class)
 
     Scaffold(
         bottomBar = {
@@ -100,25 +114,50 @@ fun MockarrApp(setupViewModel: SetupViewModel = hiltViewModel()) {
             }
         },
     ) { innerPadding ->
-        NavHost(
-            navController = navController,
-            startDestination = MapDestination,
-            modifier = Modifier.padding(innerPadding),
-        ) {
-            composable<MapDestination> {
-                MapScreen(onOpenSetup = { navController.navigate(SetupDestination) })
-            }
-            composable<SavedRoutesDestination> {
-                SavedRoutesScreen(
-                    onRouteLoaded = { navController.navigateTopLevel(MapDestination) },
-                )
-            }
-            composable<SettingsDestination> {
-                SettingsScreen()
-            }
-            composable<SetupDestination> {
-                SetupScreen(onBack = { navController.popBackStack() })
+        Box(modifier = Modifier.padding(innerPadding)) {
+            // The map lives BEHIND the NavHost for the whole app lifetime —
+            // tab switches neither recreate it nor move its camera. Non-map
+            // destinations cover it with an opaque Surface.
+            MapLayer(
+                viewModel = mapViewModel,
+                sessionViewModel = sessionViewModel,
+                visible = onMapTab,
+                modifier = Modifier.fillMaxSize(),
+            )
+            NavHost(
+                navController = navController,
+                startDestination = MapDestination,
+            ) {
+                composable<MapDestination> {
+                    MapScreen(
+                        onOpenSetup = { navController.navigate(SetupDestination) },
+                        viewModel = mapViewModel,
+                        sessionViewModel = sessionViewModel,
+                        setupViewModel = setupViewModel,
+                    )
+                }
+                composable<SavedRoutesDestination> {
+                    OpaqueScreen {
+                        SavedRoutesScreen(
+                            onRouteLoaded = { navController.navigateTopLevel(MapDestination) },
+                        )
+                    }
+                }
+                composable<SettingsDestination> {
+                    OpaqueScreen { SettingsScreen() }
+                }
+                composable<SetupDestination> {
+                    OpaqueScreen { SetupScreen(onBack = { navController.popBackStack() }) }
+                }
             }
         }
+    }
+}
+
+/** Fully covers the persistent map layer while a non-map destination shows. */
+@Composable
+private fun OpaqueScreen(content: @Composable () -> Unit) {
+    Surface(modifier = Modifier.fillMaxSize()) {
+        content()
     }
 }

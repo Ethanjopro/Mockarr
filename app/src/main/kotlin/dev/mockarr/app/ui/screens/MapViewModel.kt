@@ -13,7 +13,7 @@ import dev.mockarr.core.model.MapCamera
 import dev.mockarr.core.model.Route
 import dev.mockarr.core.model.RoutingProfile
 import dev.mockarr.core.routing.GeocodingResult
-import dev.mockarr.core.routing.NominatimGeocoder
+import dev.mockarr.core.routing.PhotonGeocoder
 import dev.mockarr.core.routing.RouteProvider
 import dev.mockarr.core.routing.RoutingException
 import dev.mockarr.core.routing.StraightLineRouteProvider
@@ -35,7 +35,7 @@ import javax.inject.Inject
 @HiltViewModel
 class MapViewModel @Inject constructor(
     private val routeProvider: RouteProvider,
-    private val geocoder: NominatimGeocoder,
+    private val geocoder: PhotonGeocoder,
     private val settingsRepository: SettingsRepository,
     private val savedRoutesRepository: SavedRoutesRepository,
     private val routeHandoff: RouteHandoff,
@@ -94,19 +94,23 @@ class MapViewModel @Inject constructor(
             settingsRepository.settings.value.units,
         )
 
-    /** Where the camera was last left; the map restores this on (re)creation. */
-    val lastCamera: StateFlow<MapCamera?> = settingsRepository.settings
-        .map { it.lastCamera }
+    val map3dEnabled: StateFlow<Boolean> = settingsRepository.settings
+        .map { it.map3dEnabled }
         .stateIn(
             viewModelScope,
             SharingStarted.Eagerly,
-            settingsRepository.settings.value.lastCamera,
+            settingsRepository.settings.value.map3dEnabled,
         )
+
+    /** Whether the camera tracks the playback dot; a user pan turns it off. */
+    private val _followCamera = MutableStateFlow(true)
+    val followCamera: StateFlow<Boolean> = _followCamera.asStateFlow()
 
     private var routeJob: Job? = null
     private var searchJob: Job? = null
     private var cameraSeq = 0L
     private var profileTouched = false
+    private var lastKnownCamera: MapCamera? = null
     private val cameraSaves = MutableStateFlow<MapCamera?>(null)
 
     init {
@@ -138,6 +142,11 @@ class MapViewModel @Inject constructor(
                 delay(CAMERA_SAVE_DEBOUNCE_MILLIS)
                 settingsRepository.setLastCamera(camera)
             }
+        }
+        // Seed the search bias so pre-pan queries still rank nearby places first.
+        viewModelScope.launch {
+            val saved = settingsRepository.awaitLoaded().lastCamera
+            if (lastKnownCamera == null) lastKnownCamera = saved
         }
     }
 
@@ -190,40 +199,68 @@ class MapViewModel @Inject constructor(
         _uiState.update { it.copy(savedConfirmation = null) }
     }
 
+    /** One-shot cold-start camera restore, read straight from disk (no default-value race). */
+    suspend fun initialCamera(): MapCamera? = settingsRepository.awaitLoaded().lastCamera
+
     fun saveCamera(camera: MapCamera) {
+        lastKnownCamera = camera
         cameraSaves.value = camera
     }
 
-    fun setSearchQuery(query: String) {
-        _search.update { it.copy(query = query) }
+    fun setFollowCamera(follow: Boolean) {
+        _followCamera.value = follow
     }
 
+    fun toggleMap3d() {
+        viewModelScope.launch {
+            settingsRepository.setMap3dEnabled(!settingsRepository.settings.value.map3dEnabled)
+        }
+    }
+
+    /** As-you-type: debounce, cancel the in-flight lookup, bias results toward the camera. */
+    fun setSearchQuery(query: String) {
+        _search.update { it.copy(query = query) }
+        searchJob?.cancel()
+        val trimmed = query.trim()
+        if (trimmed.length < MIN_QUERY_LENGTH) {
+            _search.update { it.copy(searching = false, results = emptyList(), errorMessage = null) }
+            return
+        }
+        searchJob = viewModelScope.launch {
+            delay(SEARCH_DEBOUNCE_MILLIS)
+            runSearch(trimmed)
+        }
+    }
+
+    /** IME search action — skip the debounce. */
     fun submitSearch() {
         val query = _search.value.query.trim()
         if (query.isEmpty()) return
         searchJob?.cancel()
-        searchJob = viewModelScope.launch {
-            _search.update { it.copy(searching = true, results = emptyList(), errorMessage = null) }
-            geocoder.search(query).fold(
-                onSuccess = { results ->
-                    _search.update {
-                        it.copy(
-                            searching = false,
-                            results = results,
-                            errorMessage = if (results.isEmpty()) "No places found" else null,
-                        )
-                    }
-                },
-                onFailure = { error ->
-                    _search.update {
-                        it.copy(
-                            searching = false,
-                            errorMessage = "Search failed: ${error.message ?: "network error"}",
-                        )
-                    }
-                },
-            )
-        }
+        searchJob = viewModelScope.launch { runSearch(query) }
+    }
+
+    private suspend fun runSearch(query: String) {
+        _search.update { it.copy(searching = true, errorMessage = null) }
+        geocoder.search(query, bias = lastKnownCamera?.target).fold(
+            onSuccess = { results ->
+                _search.update {
+                    it.copy(
+                        searching = false,
+                        results = results,
+                        errorMessage = if (results.isEmpty()) "No places found" else null,
+                    )
+                }
+            },
+            onFailure = { error ->
+                _search.update {
+                    it.copy(
+                        searching = false,
+                        errorMessage = "Search failed: ${error.message ?: "network error"}",
+                    )
+                }
+            },
+        )
     }
 
     fun selectSearchResult(result: GeocodingResult) {
@@ -293,6 +330,8 @@ class MapViewModel @Inject constructor(
     private companion object {
         const val DEBOUNCE_MILLIS = 500L
         const val CAMERA_SAVE_DEBOUNCE_MILLIS = 1_000L
+        const val SEARCH_DEBOUNCE_MILLIS = 300L
+        const val MIN_QUERY_LENGTH = 3
         const val SEARCH_ZOOM = 14.0
     }
 }

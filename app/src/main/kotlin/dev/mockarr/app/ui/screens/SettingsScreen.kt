@@ -41,29 +41,46 @@ fun SettingsScreen(viewModel: SettingsViewModel = hiltViewModel()) {
         Text("Settings", style = MaterialTheme.typography.headlineMedium)
         Spacer(Modifier.height(16.dp))
 
-        Text("Distance units", style = MaterialTheme.typography.titleMedium)
+        Text("Distance units", style = MaterialTheme.typography.titleLarge)
         Spacer(Modifier.height(8.dp))
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             FilterChip(
                 selected = settings.units == DistanceUnits.MILES,
                 onClick = { viewModel.setUnits(DistanceUnits.MILES) },
-                label = { Text("Miles") },
+                label = { Text("Miles", style = MaterialTheme.typography.bodyLarge) },
             )
             FilterChip(
                 selected = settings.units == DistanceUnits.KILOMETERS,
                 onClick = { viewModel.setUnits(DistanceUnits.KILOMETERS) },
-                label = { Text("Kilometers") },
+                label = { Text("Kilometers", style = MaterialTheme.typography.bodyLarge) },
             )
         }
-        Spacer(Modifier.height(16.dp))
-        HorizontalDivider()
-        Spacer(Modifier.height(16.dp))
+        SectionBreak()
 
-        Text("Location updates", style = MaterialTheme.typography.titleMedium)
+        Text("After a route ends", style = MaterialTheme.typography.titleLarge)
+        Spacer(Modifier.height(8.dp))
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text("Stay at destination", style = MaterialTheme.typography.bodyLarge)
+                Text(
+                    text = "Keep your location at the endpoint until you press Stop. " +
+                        "When off, Mockarr returns to a held pin if you set one, " +
+                        "otherwise to your real location.",
+                    style = MaterialTheme.typography.bodyMedium,
+                )
+            }
+            Switch(
+                checked = settings.stayAtDestination,
+                onCheckedChange = viewModel::setStayAtDestination,
+            )
+        }
+        SectionBreak()
+
+        Text("Location updates", style = MaterialTheme.typography.titleLarge)
         Spacer(Modifier.height(4.dp))
         Text(
             text = "How the mocked location behaves while a route plays.",
-            style = MaterialTheme.typography.bodySmall,
+            style = MaterialTheme.typography.bodyMedium,
         )
         Spacer(Modifier.height(8.dp))
         // Sliders hold drag state locally and persist once per gesture — a DataStore
@@ -71,11 +88,11 @@ fun SettingsScreen(viewModel: SettingsViewModel = hiltViewModel()) {
         var tickHzDrag by remember(settings.tickHz) { mutableStateOf(settings.tickHz.toFloat()) }
         Text(
             "Updates per second: %.1f".format(tickHzDrag),
-            style = MaterialTheme.typography.bodyMedium,
+            style = MaterialTheme.typography.bodyLarge,
         )
         Text(
             text = "How often Mockarr publishes a new position. Real phones report about once per second.",
-            style = MaterialTheme.typography.bodySmall,
+            style = MaterialTheme.typography.bodyMedium,
         )
         Slider(
             value = tickHzDrag,
@@ -86,10 +103,10 @@ fun SettingsScreen(viewModel: SettingsViewModel = hiltViewModel()) {
         )
         Row(verticalAlignment = Alignment.CenterVertically) {
             Column(modifier = Modifier.weight(1f)) {
-                Text("Realistic GPS wobble", style = MaterialTheme.typography.bodyMedium)
+                Text("Realistic GPS wobble", style = MaterialTheme.typography.bodyLarge)
                 Text(
                     text = "Adds tiny random offsets so positions look like real GPS instead of a perfect line.",
-                    style = MaterialTheme.typography.bodySmall,
+                    style = MaterialTheme.typography.bodyMedium,
                 )
             }
             Switch(
@@ -104,7 +121,7 @@ fun SettingsScreen(viewModel: SettingsViewModel = hiltViewModel()) {
             Spacer(Modifier.height(4.dp))
             Text(
                 "Wobble amount: %.1f m".format(sigmaDrag),
-                style = MaterialTheme.typography.bodyMedium,
+                style = MaterialTheme.typography.bodyLarge,
             )
             Slider(
                 value = sigmaDrag,
@@ -113,20 +130,25 @@ fun SettingsScreen(viewModel: SettingsViewModel = hiltViewModel()) {
                 valueRange = JITTER_SIGMA_RANGE,
             )
         }
-        Spacer(Modifier.height(16.dp))
-        HorizontalDivider()
-        Spacer(Modifier.height(16.dp))
+        SectionBreak()
 
-        Text("About", style = MaterialTheme.typography.titleMedium)
+        Text("About", style = MaterialTheme.typography.titleLarge)
         Spacer(Modifier.height(4.dp))
         Text(
             text = "Mockarr uses Android's built-in mock location testing feature.\n\n" +
                 "Map data © OpenStreetMap contributors · Routing by OSRM · " +
-                "Search by Nominatim · Map rendering by MapLibre · Tiles by OpenFreeMap.",
-            style = MaterialTheme.typography.bodySmall,
+                "Search by Photon (komoot) · Map rendering by MapLibre · Tiles by OpenFreeMap.",
+            style = MaterialTheme.typography.bodyMedium,
         )
         Spacer(Modifier.height(24.dp))
     }
+}
+
+@Composable
+private fun SectionBreak() {
+    Spacer(Modifier.height(16.dp))
+    HorizontalDivider()
+    Spacer(Modifier.height(16.dp))
 }
 
 private val TICK_HZ_RANGE =

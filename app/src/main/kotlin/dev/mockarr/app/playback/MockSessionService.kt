@@ -19,8 +19,10 @@ import dev.mockarr.app.ui.errorMessageOrNull
 import dev.mockarr.app.ui.formatDistanceProgress
 import dev.mockarr.core.data.SettingsRepository
 import dev.mockarr.core.mocklocation.MockLocationController
+import dev.mockarr.core.model.LatLng
 import dev.mockarr.core.model.PlaybackState
 import dev.mockarr.core.model.Route
+import dev.mockarr.core.model.SimulatedFix
 import dev.mockarr.core.model.progressOrZero
 import dev.mockarr.core.simulation.SimClock
 import dev.mockarr.core.simulation.SimulationEngine
@@ -30,20 +32,23 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 import kotlin.random.Random
 
 /**
- * Foreground service (location type) that owns a playback session: it collects
- * the engine's fixes and feeds them into the mock location providers, keeping
- * playback alive while the app is backgrounded or the screen is off.
+ * Foreground service (location type) that owns every mock session: route
+ * playback and stationary holds. Owning both in one place is what guarantees
+ * zero real-location leakage — test providers are registered once and removed
+ * in exactly one place ([release]), never torn down between transitions.
  */
 @AndroidEntryPoint
-class PlaybackService : Service() {
+class MockSessionService : Service() {
 
     @Inject
-    lateinit var repository: PlaybackSessionRepository
+    lateinit var repository: MockSessionRepository
 
     @Inject
     lateinit var mockController: MockLocationController
@@ -53,9 +58,13 @@ class PlaybackService : Service() {
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     private var sessionJob: Job? = null
+    private var holdJob: Job? = null
     private var wakeLock: PowerManager.WakeLock? = null
     private var routeDistanceMeters: Double = 0.0
     private var lastNotified: Pair<Int, Boolean>? = null
+
+    /** The pin held when playback began — the fallback if "stay at destination" is off. */
+    private var rememberedPin: LatLng? = null
 
     private val contentIntent by lazy {
         PendingIntent.getActivity(
@@ -68,17 +77,24 @@ class PlaybackService : Service() {
     private val pauseIntent by lazy { servicePendingIntent(ACTION_PAUSE, requestCode = 1) }
     private val resumeIntent by lazy { servicePendingIntent(ACTION_RESUME, requestCode = 2) }
     private val stopIntent by lazy { servicePendingIntent(ACTION_STOP, requestCode = 3) }
+    private val releaseIntent by lazy { servicePendingIntent(ACTION_RELEASE, requestCode = 4) }
 
     override fun onBind(intent: Intent?): IBinder? = null
 
     override fun onCreate() {
         super.onCreate()
-        createNotificationChannel()
+        val channel = NotificationChannel(
+            CHANNEL_ID,
+            "Mock location session",
+            NotificationManager.IMPORTANCE_LOW,
+        )
+        getSystemService(NotificationManager::class.java).createNotificationChannel(channel)
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         when (intent?.action) {
-            ACTION_START -> startSession()
+            ACTION_START -> startRouteSession()
+            ACTION_HOLD -> startPinHold(intent)
             ACTION_PAUSE -> {
                 repository.pause()
                 refreshNotification()
@@ -87,26 +103,59 @@ class PlaybackService : Service() {
                 repository.resume()
                 refreshNotification()
             }
-            ACTION_STOP -> repository.stop() // engine decelerates, then the session ends
+            ACTION_STOP -> repository.stop() // engine decelerates, then the end-of-route chain runs
+            ACTION_RELEASE -> release()
         }
         return START_NOT_STICKY
     }
 
     override fun onDestroy() {
-        cleanUp()
+        // Safety net (system kill): stale enabled test providers would freeze
+        // the device's location, so always clean up here.
+        sessionJob?.cancel()
+        sessionJob = null
+        holdJob?.cancel()
+        holdJob = null
+        mockController.stop()
+        repository.sessionReleased()
+        releaseWakeLock()
         scope.cancel()
         super.onDestroy()
     }
 
-    private fun startSession() {
+    private fun startRouteSession() {
         if (sessionJob?.isActive == true) return
+        val previousHold = repository.session.value as? MockSessionState.Holding
         val route = repository.consumePendingRoute()
-        if (route != null && beginMocking() && promoteToForeground()) {
-            runSession(route)
-        } else {
-            mockController.stop() // no-op when never started
-            stopSelf()
+        if (route == null) {
+            if (previousHold == null) stopSelf()
+            return
         }
+        if (previousHold?.source == HoldSource.PIN) rememberedPin = previousHold.position
+        holdJob?.cancel()
+        holdJob = null
+        // beginMocking() never touches already-registered providers (start() is
+        // idempotent), so a Holding → Playing transition has no provider gap.
+        if (beginMocking() && promoteToForeground()) {
+            runSession(route)
+        } else if (previousHold != null && mockController.isRunning) {
+            enterHold(previousHold.position, previousHold.source) // resume the hold untouched
+        } else {
+            release()
+        }
+    }
+
+    private fun startPinHold(intent: Intent) {
+        if (sessionJob?.isActive == true) return // no pin swaps mid-playback
+        val lat = intent.getDoubleExtra(EXTRA_LAT, Double.NaN)
+        val lng = intent.getDoubleExtra(EXTRA_LNG, Double.NaN)
+        if (lat.isNaN() || lng.isNaN()) return
+        if (!mockController.isRunning && !(beginMocking() && promoteToForeground())) {
+            release()
+            return
+        }
+        acquireWakeLock()
+        enterHold(LatLng(lat, lng), HoldSource.PIN)
     }
 
     private fun beginMocking(): Boolean {
@@ -129,7 +178,7 @@ class PlaybackService : Service() {
             clock = SimClock { SystemClock.elapsedRealtimeNanos() },
             random = Random(SystemClock.elapsedRealtimeNanos()),
         )
-        repository.sessionStarted(engine)
+        repository.playingStarted(engine)
 
         sessionJob = scope.launch {
             val stateJob = launch {
@@ -142,8 +191,57 @@ class PlaybackService : Service() {
                 if (tick++ % NOTIFICATION_UPDATE_TICKS == 0) refreshNotification()
             }
             stateJob.cancel()
-            endSession()
+            onEngineEnded()
         }
+    }
+
+    /** End-of-route chain: destination hold → remembered pin → real location. */
+    private fun onEngineEnded() {
+        val endPosition = repository.latestFix.value?.position
+        repository.engineEnded()
+        lastNotified = null
+        val pin = rememberedPin
+        when {
+            settingsRepository.settings.value.stayAtDestination && endPosition != null ->
+                enterHold(endPosition, HoldSource.DESTINATION)
+            pin != null -> enterHold(pin, HoldSource.PIN)
+            else -> release()
+        }
+    }
+
+    private fun enterHold(position: LatLng, source: HoldSource) {
+        holdJob?.cancel()
+        repository.holdStarted(position, source)
+        val fix = SimulatedFix(
+            position = position,
+            speedMetersPerSecond = 0.0,
+            bearingDegrees = 0.0,
+            accuracyMeters = HOLD_ACCURACY_METERS,
+            altitudeMeters = HOLD_ALTITUDE_METERS,
+        )
+        mockController.push(fix) // synchronous first push — no gap in the handoff
+        holdJob = scope.launch {
+            while (isActive) {
+                delay(HOLD_TICK_MILLIS)
+                mockController.push(fix)
+            }
+        }
+        getSystemService(NotificationManager::class.java)
+            .notify(NOTIFICATION_ID, buildNotification())
+    }
+
+    /** The ONLY path that removes test providers and reveals the real location. */
+    private fun release() {
+        sessionJob?.cancel()
+        sessionJob = null
+        holdJob?.cancel()
+        holdJob = null
+        rememberedPin = null
+        mockController.stop()
+        repository.sessionReleased()
+        releaseWakeLock()
+        ServiceCompat.stopForeground(this, ServiceCompat.STOP_FOREGROUND_REMOVE)
+        stopSelf()
     }
 
     private fun promoteToForeground(): Boolean = try {
@@ -155,32 +253,17 @@ class PlaybackService : Service() {
         )
         true
     } catch (e: IllegalStateException) {
-        repository.reportError("Could not start playback: ${e.message}")
+        repository.reportError("Could not start mocking: ${e.message}")
         false
     } catch (e: SecurityException) {
         repository.reportError(
-            "Playback needs the location permission (Android requires it for background playback): ${e.message}",
+            "Mocking needs the location permission (Android requires it for background use): ${e.message}",
         )
         false
     }
 
-    private fun endSession() {
-        mockController.stop()
-        repository.sessionEnded()
-        releaseWakeLock()
-        ServiceCompat.stopForeground(this, ServiceCompat.STOP_FOREGROUND_REMOVE)
-        stopSelf()
-    }
-
-    private fun cleanUp() {
-        sessionJob?.cancel()
-        sessionJob = null
-        mockController.stop()
-        repository.sessionEnded()
-        releaseWakeLock()
-    }
-
     private fun acquireWakeLock() {
+        if (wakeLock?.isHeld == true) return
         val powerManager = getSystemService(PowerManager::class.java)
         wakeLock = powerManager.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, WAKE_LOCK_TAG).apply {
             setReferenceCounted(false)
@@ -193,15 +276,6 @@ class PlaybackService : Service() {
         wakeLock = null
     }
 
-    private fun createNotificationChannel() {
-        val channel = NotificationChannel(
-            CHANNEL_ID,
-            "Route playback",
-            NotificationManager.IMPORTANCE_LOW,
-        )
-        getSystemService(NotificationManager::class.java).createNotificationChannel(channel)
-    }
-
     private fun refreshNotification() {
         val state = repository.state.value
         val key = (state.progressOrZero * PROGRESS_MAX).toInt() to (state is PlaybackState.Paused)
@@ -212,6 +286,28 @@ class PlaybackService : Service() {
     }
 
     private fun buildNotification(): Notification {
+        val holding = repository.session.value as? MockSessionState.Holding
+        return if (holding != null) holdingNotification(holding) else playingNotification()
+    }
+
+    private fun holdingNotification(holding: MockSessionState.Holding): Notification {
+        val coords = "%.4f, %.4f".format(holding.position.latitude, holding.position.longitude)
+        val text = when (holding.source) {
+            HoldSource.DESTINATION -> "Holding at destination"
+            HoldSource.PIN -> "Holding at $coords"
+        }
+        return NotificationCompat.Builder(this, CHANNEL_ID)
+            .setSmallIcon(R.drawable.ic_stat_pin)
+            .setContentTitle("Mockarr — holding location")
+            .setContentText(text)
+            .setOngoing(true)
+            .setOnlyAlertOnce(true)
+            .setContentIntent(contentIntent)
+            .addAction(NotificationCompat.Action(0, "Stop", releaseIntent))
+            .build()
+    }
+
+    private fun playingNotification(): Notification {
         val state = repository.state.value
         val paused = state is PlaybackState.Paused
         val progress = state.progressOrZero
@@ -243,7 +339,7 @@ class PlaybackService : Service() {
         PendingIntent.getService(
             this,
             requestCode,
-            Intent(this, PlaybackService::class.java).setAction(action),
+            Intent(this, MockSessionService::class.java).setAction(action),
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
         )
 
@@ -252,11 +348,20 @@ class PlaybackService : Service() {
         const val ACTION_PAUSE = "dev.mockarr.app.playback.PAUSE"
         const val ACTION_RESUME = "dev.mockarr.app.playback.RESUME"
         const val ACTION_STOP = "dev.mockarr.app.playback.STOP"
+        const val ACTION_HOLD = "dev.mockarr.app.playback.HOLD"
+        const val ACTION_RELEASE = "dev.mockarr.app.playback.RELEASE"
+        const val EXTRA_LAT = "lat"
+        const val EXTRA_LNG = "lng"
         private const val CHANNEL_ID = "playback"
         private const val NOTIFICATION_ID = 42
         private const val NOTIFICATION_UPDATE_TICKS = 5
         private const val PROGRESS_MAX = 100
+        private const val HOLD_TICK_MILLIS = 1_000L
+        private const val HOLD_ACCURACY_METERS = 5.0
+        private const val HOLD_ALTITUDE_METERS = 35.0
         private const val WAKE_LOCK_TAG = "mockarr:playback"
-        private const val WAKE_LOCK_TIMEOUT_MILLIS = 6 * 60 * 60 * 1000L // 6 h safety cap
+
+        // 6 h cap: long holds in deep doze may see deferred ticks after this — acceptable.
+        private const val WAKE_LOCK_TIMEOUT_MILLIS = 6 * 60 * 60 * 1000L
     }
 }

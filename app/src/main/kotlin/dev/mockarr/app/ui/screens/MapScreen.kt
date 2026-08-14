@@ -27,6 +27,7 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.FilledTonalIconButton
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -43,23 +44,25 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
-import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import dev.mockarr.app.playback.HoldSource
+import dev.mockarr.app.playback.MockSessionState
 import dev.mockarr.app.ui.formatDistanceProgress
 import dev.mockarr.app.ui.formatRouteTimestamp
 import dev.mockarr.app.ui.label
 import dev.mockarr.app.ui.map.MockarrMap
 import dev.mockarr.app.ui.summaryText
 import dev.mockarr.core.model.DistanceUnits
+import dev.mockarr.core.model.LatLng
 import dev.mockarr.core.model.PlaybackState
 import dev.mockarr.core.model.Route
 import dev.mockarr.core.model.RoutingProfile
@@ -67,13 +70,86 @@ import dev.mockarr.core.model.progressOrZero
 import dev.mockarr.core.routing.GeocodingResult
 import dev.mockarr.core.simulation.SimulationEngine
 
+/**
+ * The persistent map itself — hosted by MockarrApp BEHIND the NavHost so it
+ * survives tab switches. [visible] gates rendering and input while another
+ * tab's opaque screen covers it.
+ */
+@Composable
+fun MapLayer(
+    viewModel: MapViewModel,
+    sessionViewModel: MockSessionViewModel,
+    visible: Boolean,
+    modifier: Modifier = Modifier,
+) {
+    val state by viewModel.uiState.collectAsStateWithLifecycle()
+    val tileStyleUrl by viewModel.tileStyleUrl.collectAsStateWithLifecycle()
+    val map3d by viewModel.map3dEnabled.collectAsStateWithLifecycle()
+    val followCamera by viewModel.followCamera.collectAsStateWithLifecycle()
+    val cameraCommand by viewModel.cameraCommand.collectAsStateWithLifecycle()
+    val session by sessionViewModel.session.collectAsStateWithLifecycle()
+    val latestFix by sessionViewModel.latestFix.collectAsStateWithLifecycle()
+    val focusManager = LocalFocusManager.current
+    val context = LocalContext.current
+
+    val playing = session is MockSessionState.Playing
+    var holdAwaitingPermission by remember { mutableStateOf<LatLng?>(null) }
+    val holdPermissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestMultiplePermissions(),
+    ) { grants ->
+        val position = holdAwaitingPermission
+        holdAwaitingPermission = null
+        if (grants[Manifest.permission.ACCESS_FINE_LOCATION] == true && position != null) {
+            sessionViewModel.hold(position)
+        }
+    }
+
+    fun requestHold(position: LatLng) {
+        val needed = context.missingMockPermissions()
+        if (needed.isEmpty()) {
+            sessionViewModel.hold(position)
+        } else {
+            holdAwaitingPermission = position
+            holdPermissionLauncher.launch(needed.toTypedArray())
+        }
+    }
+
+    MockarrMap(
+        waypoints = state.waypoints,
+        routePoints = state.route?.points.orEmpty(),
+        routeIsFallback = state.routeIsFallback,
+        onMapTap = {
+            focusManager.clearFocus()
+            if (!playing) viewModel.addWaypoint(it)
+        },
+        onMapLongPress = {
+            focusManager.clearFocus()
+            if (!playing) requestHold(it)
+        },
+        styleUrl = tileStyleUrl,
+        visible = visible,
+        loadInitialCamera = viewModel::initialCamera,
+        onCameraIdle = viewModel::saveCamera,
+        onUserGesture = {
+            viewModel.setFollowCamera(false)
+            focusManager.clearFocus()
+        },
+        threeDimensional = map3d,
+        cameraCommand = cameraCommand,
+        pinPosition = (session as? MockSessionState.Holding)?.position,
+        playbackPosition = if (playing) latestFix?.position else null,
+        cameraFollow = followCamera && playing,
+        modifier = modifier,
+    )
+}
+
+/** The Map tab's controls — a transparent overlay above the persistent map. */
 @Composable
 fun MapScreen(
     onOpenSetup: () -> Unit,
-    viewModel: MapViewModel = hiltViewModel(),
-    pinViewModel: MockPinViewModel = hiltViewModel(),
-    playbackViewModel: PlaybackViewModel = hiltViewModel(),
-    setupViewModel: SetupViewModel = hiltViewModel(),
+    viewModel: MapViewModel,
+    sessionViewModel: MockSessionViewModel,
+    setupViewModel: SetupViewModel,
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val customServerConfigured by viewModel.customServerConfigured.collectAsStateWithLifecycle()
@@ -83,19 +159,17 @@ fun MapScreen(
         setupViewModel.refresh()
         onPauseOrDispose { }
     }
-    val tileStyleUrl by viewModel.tileStyleUrl.collectAsStateWithLifecycle()
     val units by viewModel.units.collectAsStateWithLifecycle()
     val searchState by viewModel.search.collectAsStateWithLifecycle()
-    val cameraCommand by viewModel.cameraCommand.collectAsStateWithLifecycle()
-    val lastCamera by viewModel.lastCamera.collectAsStateWithLifecycle()
-    val pinState by pinViewModel.uiState.collectAsStateWithLifecycle()
-    val playbackState by playbackViewModel.playbackState.collectAsStateWithLifecycle()
-    val latestFix by playbackViewModel.latestFix.collectAsStateWithLifecycle()
-    val playbackError by playbackViewModel.error.collectAsStateWithLifecycle()
-    val speedMultiplier by playbackViewModel.speedMultiplier.collectAsStateWithLifecycle()
+    val map3d by viewModel.map3dEnabled.collectAsStateWithLifecycle()
+    val followCamera by viewModel.followCamera.collectAsStateWithLifecycle()
+    val session by sessionViewModel.session.collectAsStateWithLifecycle()
+    val playbackState by sessionViewModel.playbackState.collectAsStateWithLifecycle()
+    val playbackError by sessionViewModel.error.collectAsStateWithLifecycle()
+    val speedMultiplier by sessionViewModel.speedMultiplier.collectAsStateWithLifecycle()
 
     val context = LocalContext.current
-    var followCamera by rememberSaveable { mutableStateOf(true) }
+    val focusManager = LocalFocusManager.current
     var routeAwaitingPermission by remember { mutableStateOf<Route?>(null) }
     val permissionLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions(),
@@ -103,68 +177,63 @@ fun MapScreen(
         val route = routeAwaitingPermission
         routeAwaitingPermission = null
         if (grants[Manifest.permission.ACCESS_FINE_LOCATION] == true && route != null) {
-            pinViewModel.stopMocking()
-            playbackViewModel.play(route)
+            viewModel.setFollowCamera(true)
+            sessionViewModel.play(route)
         }
     }
 
     fun requestPlay(route: Route) {
-        val needed = buildList {
-            if (!context.hasPermission(Manifest.permission.ACCESS_FINE_LOCATION)) {
-                add(Manifest.permission.ACCESS_FINE_LOCATION)
-            }
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
-                !context.hasPermission(Manifest.permission.POST_NOTIFICATIONS)
-            ) {
-                add(Manifest.permission.POST_NOTIFICATIONS)
-            }
-        }
+        val needed = context.missingMockPermissions()
         if (needed.isEmpty()) {
-            pinViewModel.stopMocking() // one mock source at a time
-            playbackViewModel.play(route)
+            // No pin teardown here: the service hands Holding → Playing off
+            // without ever touching the test providers.
+            viewModel.setFollowCamera(true)
+            sessionViewModel.play(route)
         } else {
             routeAwaitingPermission = route
             permissionLauncher.launch(needed.toTypedArray())
         }
     }
 
-    val sessionActive = playbackState != null
+    val playing = session is MockSessionState.Playing
+    val holding = session as? MockSessionState.Holding
     var showSaveDialog by remember { mutableStateOf(false) }
 
     Box(modifier = Modifier.fillMaxSize()) {
-        MockarrMap(
-            waypoints = state.waypoints,
-            routePoints = state.route?.points.orEmpty(),
-            routeIsFallback = state.routeIsFallback,
-            onMapTap = { if (!sessionActive) viewModel.addWaypoint(it) },
-            onMapLongPress = { if (!sessionActive) pinViewModel.startMocking(it) },
-            styleUrl = tileStyleUrl,
-            initialCamera = lastCamera,
-            onCameraIdle = viewModel::saveCamera,
-            cameraCommand = cameraCommand,
-            pinPosition = (pinState as? MockPinViewModel.UiState.Mocking)?.position,
-            playbackPosition = if (sessionActive) latestFix?.position else null,
-            cameraFollow = followCamera && sessionActive,
-            modifier = Modifier.fillMaxSize(),
-        )
-
         Column(
             modifier = Modifier
                 .align(Alignment.TopCenter)
                 .fillMaxWidth()
                 .padding(12.dp),
         ) {
-            if (!sessionActive) {
+            if (!playing) {
                 MapSearchBar(
                     state = searchState,
                     onQueryChange = viewModel::setSearchQuery,
                     onSearch = viewModel::submitSearch,
-                    onResultSelected = viewModel::selectSearchResult,
-                    onDismiss = viewModel::clearSearchResults,
+                    onResultSelected = {
+                        focusManager.clearFocus()
+                        viewModel.selectSearchResult(it)
+                    },
+                    onDismiss = {
+                        focusManager.clearFocus()
+                        viewModel.clearSearchResults()
+                    },
                 )
                 Spacer(Modifier.height(8.dp))
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.End,
+                ) {
+                    FilledTonalIconButton(onClick = viewModel::toggleMap3d) {
+                        Text(
+                            text = if (map3d) "2D" else "3D",
+                            style = MaterialTheme.typography.labelLarge,
+                        )
+                    }
+                }
             }
-            if (setupStatus?.readyToMock == false && !sessionActive) {
+            if (setupStatus?.readyToMock == false && !playing) {
                 StatusCard(
                     text = "Mocking isn't set up yet — routes will draw, but playback won't move your location.",
                     actionLabel = "Fix",
@@ -173,36 +242,32 @@ fun MapScreen(
                 )
                 Spacer(Modifier.height(8.dp))
             }
-            when (val pin = pinState) {
-                is MockPinViewModel.UiState.Mocking -> StatusCard(
-                    text = "Holding your location at %.4f, %.4f"
-                        .format(pin.position.latitude, pin.position.longitude),
+            if (holding != null) {
+                val coords = "%.4f, %.4f".format(holding.position.latitude, holding.position.longitude)
+                StatusCard(
+                    text = when (holding.source) {
+                        HoldSource.DESTINATION -> "Holding at destination"
+                        HoldSource.PIN -> "Holding your location at $coords"
+                    },
                     actionLabel = "Stop",
-                    onAction = pinViewModel::stopMocking,
+                    onAction = sessionViewModel::release,
                 )
-                is MockPinViewModel.UiState.Error -> StatusCard(
-                    text = pin.message,
-                    actionLabel = "Dismiss",
-                    onAction = pinViewModel::dismissError,
-                    isError = true,
-                )
-                MockPinViewModel.UiState.Idle -> Unit
+                Spacer(Modifier.height(8.dp))
             }
             playbackError?.let { message ->
-                Spacer(Modifier.height(8.dp))
                 StatusCard(
                     text = message,
                     actionLabel = "Dismiss",
-                    onAction = playbackViewModel::consumeError,
+                    onAction = sessionViewModel::consumeError,
                     isError = true,
                 )
+                Spacer(Modifier.height(8.dp))
             }
             state.errorMessage?.let { message ->
-                Spacer(Modifier.height(8.dp))
                 StatusCard(text = message, isError = true)
+                Spacer(Modifier.height(8.dp))
             }
             state.savedConfirmation?.let { message ->
-                Spacer(Modifier.height(8.dp))
                 StatusCard(
                     text = message,
                     actionLabel = "OK",
@@ -221,18 +286,18 @@ fun MapScreen(
             )
         }
 
-        if (sessionActive) {
+        if (playing) {
             PlaybackCard(
                 playbackState = playbackState,
                 route = state.route,
                 units = units,
                 speedMultiplier = speedMultiplier,
                 followCamera = followCamera,
-                onToggleFollow = { followCamera = !followCamera },
-                onSpeedChange = playbackViewModel::setSpeedMultiplier,
-                onPause = playbackViewModel::pause,
-                onResume = playbackViewModel::resume,
-                onStop = playbackViewModel::stopPlayback,
+                onToggleFollow = { viewModel.setFollowCamera(!followCamera) },
+                onSpeedChange = sessionViewModel::setSpeedMultiplier,
+                onPause = sessionViewModel::pause,
+                onResume = sessionViewModel::resume,
+                onStop = sessionViewModel::stopPlayback,
                 modifier = Modifier
                     .align(Alignment.BottomCenter)
                     .fillMaxWidth()
@@ -266,6 +331,18 @@ private const val WAYPOINT_HINT = "Tap the map to add stops (2 or more make a ro
 
 private fun Context.hasPermission(permission: String): Boolean =
     ContextCompat.checkSelfPermission(this, permission) == PackageManager.PERMISSION_GRANTED
+
+/** Permissions the mock session service needs before it can start. */
+private fun Context.missingMockPermissions(): List<String> = buildList {
+    if (!hasPermission(Manifest.permission.ACCESS_FINE_LOCATION)) {
+        add(Manifest.permission.ACCESS_FINE_LOCATION)
+    }
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+        !hasPermission(Manifest.permission.POST_NOTIFICATIONS)
+    ) {
+        add(Manifest.permission.POST_NOTIFICATIONS)
+    }
+}
 
 @Composable
 private fun StatusCard(

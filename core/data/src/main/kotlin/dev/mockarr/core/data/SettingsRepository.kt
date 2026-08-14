@@ -15,6 +15,7 @@ import dev.mockarr.core.routing.OsrmRouteProvider
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import java.util.Locale
@@ -28,6 +29,8 @@ data class MockarrSettings(
     val defaultProfile: RoutingProfile = RoutingProfile.DRIVING,
     val units: DistanceUnits = DistanceUnits.defaultForCountry(Locale.getDefault().country),
     val lastCamera: MapCamera? = null,
+    val stayAtDestination: Boolean = true,
+    val map3dEnabled: Boolean = true,
 ) {
     /** Walking/cycling need a full OSRM install; the public demo only serves driving. */
     val customServerConfigured: Boolean
@@ -55,6 +58,12 @@ class SettingsRepository(
         .map { it.toSettings() }
         .stateIn(scope, SharingStarted.Eagerly, MockarrSettings())
 
+    /**
+     * Settings straight from disk — unlike [settings], this can't return the
+     * in-memory defaults before DataStore has loaded (the cold-start race).
+     */
+    suspend fun awaitLoaded(): MockarrSettings = dataStore.data.first().toSettings()
+
     suspend fun setOsrmBaseUrl(url: String) = edit { prefs ->
         prefs[KEY_OSRM_URL] = MockarrSettings.normalizeBaseUrl(url)
             .ifEmpty { MockarrSettings.DEFAULT_OSRM_BASE_URL }
@@ -81,6 +90,10 @@ class SettingsRepository(
 
     suspend fun setUnits(units: DistanceUnits) = edit { it[KEY_UNITS] = units.name }
 
+    suspend fun setStayAtDestination(value: Boolean) = edit { it[KEY_STAY_AT_DESTINATION] = value }
+
+    suspend fun setMap3dEnabled(value: Boolean) = edit { it[KEY_MAP_3D] = value }
+
     suspend fun setLastCamera(camera: MapCamera) = edit {
         it[KEY_CAMERA_LAT] = camera.target.latitude
         it[KEY_CAMERA_LNG] = camera.target.longitude
@@ -102,6 +115,8 @@ class SettingsRepository(
             ?: DEFAULTS.defaultProfile,
         units = DistanceUnits.fromNameOrNull(this[KEY_UNITS]) ?: DEFAULTS.units,
         lastCamera = toCamera(),
+        stayAtDestination = this[KEY_STAY_AT_DESTINATION] ?: DEFAULTS.stayAtDestination,
+        map3dEnabled = this[KEY_MAP_3D] ?: DEFAULTS.map3dEnabled,
     )
 
     private fun Preferences.toCamera(): MapCamera? {
@@ -120,6 +135,8 @@ class SettingsRepository(
         val KEY_JITTER_SIGMA = doublePreferencesKey("jitter_sigma_m")
         val KEY_PROFILE = stringPreferencesKey("default_profile")
         val KEY_UNITS = stringPreferencesKey("distance_units")
+        val KEY_STAY_AT_DESTINATION = booleanPreferencesKey("stay_at_destination")
+        val KEY_MAP_3D = booleanPreferencesKey("map_3d_enabled")
         val KEY_CAMERA_LAT = doublePreferencesKey("camera_lat")
         val KEY_CAMERA_LNG = doublePreferencesKey("camera_lng")
         val KEY_CAMERA_ZOOM = doublePreferencesKey("camera_zoom")

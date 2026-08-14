@@ -27,7 +27,7 @@
         </activity>
 
         <service
-            android:name=".playback.PlaybackService"
+            android:name=".playback.MockSessionService"
             android:exported="false"
             android:foregroundServiceType="location" />
     </application>

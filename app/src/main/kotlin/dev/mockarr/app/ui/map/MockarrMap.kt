@@ -16,14 +16,15 @@ import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import dev.mockarr.core.model.LatLng
 import dev.mockarr.core.model.MapCamera
+import org.maplibre.android.camera.CameraPosition
 import org.maplibre.android.camera.CameraUpdateFactory
 import org.maplibre.android.geometry.LatLngBounds
 import org.maplibre.android.maps.MapLibreMap
-import org.maplibre.android.maps.MapLibreMapOptions
 import org.maplibre.android.maps.MapView
 import org.maplibre.android.maps.Style
 import org.maplibre.android.style.expressions.Expression
 import org.maplibre.android.style.layers.CircleLayer
+import org.maplibre.android.style.layers.FillExtrusionLayer
 import org.maplibre.android.style.layers.LineLayer
 import org.maplibre.android.style.layers.Property
 import org.maplibre.android.style.layers.PropertyFactory
@@ -49,7 +50,13 @@ private const val PLAYBACK_LAYER = "playback-layer"
 private const val ROLE_KEY = "role"
 private const val LABEL_KEY = "label"
 
-/** MapLibre map with waypoint markers, the route polyline, and the live playback dot. */
+/**
+ * MapLibre map with waypoint markers, the route polyline, the hold pin, and
+ * the live playback dot. Hosted ONCE behind the NavHost (see MockarrApp) so it
+ * survives tab switches — default SurfaceView rendering (fast path); opaque
+ * screens simply cover it. Never animate this composable's alpha (SurfaceView
+ * ignores it) and never toggle its visibility (that would destroy the surface).
+ */
 @Composable
 fun MockarrMap(
     waypoints: List<LatLng>,
@@ -58,8 +65,11 @@ fun MockarrMap(
     onMapTap: (LatLng) -> Unit,
     onMapLongPress: (LatLng) -> Unit,
     styleUrl: String,
-    initialCamera: MapCamera?,
+    visible: Boolean,
+    loadInitialCamera: suspend () -> MapCamera?,
     onCameraIdle: (MapCamera) -> Unit,
+    onUserGesture: () -> Unit,
+    threeDimensional: Boolean,
     cameraCommand: CameraCommand? = null,
     pinPosition: LatLng? = null,
     playbackPosition: LatLng? = null,
@@ -70,33 +80,33 @@ fun MockarrMap(
     val currentOnTap by rememberUpdatedState(onMapTap)
     val currentOnLongPress by rememberUpdatedState(onMapLongPress)
     val currentOnCameraIdle by rememberUpdatedState(onCameraIdle)
-    val currentInitialCamera by rememberUpdatedState(initialCamera)
+    val currentOnUserGesture by rememberUpdatedState(onUserGesture)
+    val currentVisible by rememberUpdatedState(visible)
+    val currentLoadInitialCamera by rememberUpdatedState(loadInitialCamera)
     var map by remember { mutableStateOf<MapLibreMap?>(null) }
     var style by remember { mutableStateOf<Style?>(null) }
-    var cameraRestored by remember { mutableStateOf(false) }
+    var userMovedCamera by remember { mutableStateOf(false) }
 
     val mapView = remember {
-        // Texture mode composes correctly with navigation transitions — the
-        // default SurfaceView lingers on screen while a tab switch animates.
-        val options = MapLibreMapOptions.createFromAttributes(context).textureMode(true)
-        MapView(context, options).apply {
+        MapView(context).apply {
             onCreate(null)
             getMapAsync { libreMap ->
-                val saved = currentInitialCamera
-                if (saved != null) cameraRestored = true
                 libreMap.moveCamera(
-                    CameraUpdateFactory.newLatLngZoom(
-                        (saved?.target ?: FALLBACK_CENTER).toMapLibre(),
-                        saved?.zoom ?: FALLBACK_ZOOM,
-                    ),
+                    CameraUpdateFactory.newLatLngZoom(FALLBACK_CENTER.toMapLibre(), FALLBACK_ZOOM),
                 )
                 libreMap.addOnMapClickListener { p ->
-                    currentOnTap(LatLng(p.latitude, p.longitude))
-                    true
+                    if (currentVisible) currentOnTap(LatLng(p.latitude, p.longitude))
+                    currentVisible
                 }
                 libreMap.addOnMapLongClickListener { p ->
-                    currentOnLongPress(LatLng(p.latitude, p.longitude))
-                    true
+                    if (currentVisible) currentOnLongPress(LatLng(p.latitude, p.longitude))
+                    currentVisible
+                }
+                libreMap.addOnCameraMoveStartedListener { reason ->
+                    if (reason == MapLibreMap.OnCameraMoveStartedListener.REASON_API_GESTURE) {
+                        userMovedCamera = true
+                        currentOnUserGesture()
+                    }
                 }
                 libreMap.addOnCameraIdleListener {
                     val position = libreMap.cameraPosition
@@ -110,14 +120,26 @@ fun MockarrMap(
         }
     }
 
+    // START/STOP follow the activity; RESUME requires the map to actually be on
+    // screen, so the render thread rests while another tab covers it.
+    var lifecycleStarted by remember { mutableStateOf(false) }
+    var mapResumed by remember { mutableStateOf(false) }
     val lifecycle = LocalLifecycleOwner.current.lifecycle
     DisposableEffect(lifecycle) {
         val observer = LifecycleEventObserver { _, event ->
             when (event) {
-                Lifecycle.Event.ON_START -> mapView.onStart()
-                Lifecycle.Event.ON_RESUME -> mapView.onResume()
-                Lifecycle.Event.ON_PAUSE -> mapView.onPause()
-                Lifecycle.Event.ON_STOP -> mapView.onStop()
+                Lifecycle.Event.ON_START -> {
+                    mapView.onStart()
+                    lifecycleStarted = true
+                }
+                Lifecycle.Event.ON_STOP -> {
+                    if (mapResumed) {
+                        mapView.onPause()
+                        mapResumed = false
+                    }
+                    mapView.onStop()
+                    lifecycleStarted = false
+                }
                 else -> Unit
             }
         }
@@ -127,16 +149,23 @@ fun MockarrMap(
             mapView.onDestroy()
         }
     }
+    LaunchedEffect(lifecycleStarted, visible) {
+        if (lifecycleStarted && visible && !mapResumed) {
+            mapView.onResume()
+            mapResumed = true
+        } else if (mapResumed && !(lifecycleStarted && visible)) {
+            mapView.onPause()
+            mapResumed = false
+        }
+    }
 
     AndroidView(factory = { mapView }, modifier = modifier)
 
-    // The saved camera can arrive after the map does (DataStore loads async on
-    // cold start) — restore once, and only if we haven't already.
-    LaunchedEffect(map, initialCamera) {
+    // One-shot cold-start restore, skipped if the user already panned away.
+    LaunchedEffect(map) {
         val libreMap = map ?: return@LaunchedEffect
-        val camera = initialCamera ?: return@LaunchedEffect
-        if (!cameraRestored) {
-            cameraRestored = true
+        val camera = currentLoadInitialCamera() ?: return@LaunchedEffect
+        if (!userMovedCamera) {
             libreMap.moveCamera(
                 CameraUpdateFactory.newLatLngZoom(camera.target.toMapLibre(), camera.zoom),
             )
@@ -155,6 +184,11 @@ fun MockarrMap(
                 style = loadedStyle
             }
         }
+    }
+
+    LaunchedEffect(style, threeDimensional) {
+        val loadedStyle = style ?: return@LaunchedEffect
+        applyMapMode(loadedStyle, map, threeDimensional)
     }
 
     LaunchedEffect(style, waypoints) {
@@ -223,6 +257,23 @@ private fun LatLng.toPoint(): Point = Point.fromLngLat(longitude, latitude)
 private fun LatLng?.toFeatures(): FeatureCollection = this?.let {
     FeatureCollection.fromFeature(Feature.fromGeometry(it.toPoint()))
 } ?: FeatureCollection.fromFeatures(emptyList())
+
+/** 2D hides the style's building extrusions and flattens/locks the camera tilt. */
+private fun applyMapMode(style: Style, map: MapLibreMap?, threeDimensional: Boolean) {
+    val visibility = if (threeDimensional) Property.VISIBLE else Property.NONE
+    style.layers.filterIsInstance<FillExtrusionLayer>().forEach { layer ->
+        layer.setProperties(PropertyFactory.visibility(visibility))
+    }
+    val libreMap = map ?: return
+    libreMap.uiSettings.isTiltGesturesEnabled = threeDimensional
+    if (!threeDimensional && libreMap.cameraPosition.tilt > 0.0) {
+        libreMap.animateCamera(
+            CameraUpdateFactory.newCameraPosition(
+                CameraPosition.Builder(libreMap.cameraPosition).tilt(0.0).build(),
+            ),
+        )
+    }
+}
 
 private fun setUpLayers(style: Style) {
     listOf(ROUTE_SOURCE, FALLBACK_SOURCE, WAYPOINT_SOURCE, PIN_SOURCE, PLAYBACK_SOURCE)

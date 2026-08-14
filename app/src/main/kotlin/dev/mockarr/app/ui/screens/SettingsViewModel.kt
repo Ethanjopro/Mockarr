@@ -62,6 +62,10 @@ class SettingsViewModel @Inject constructor(
         viewModelScope.launch { repository.setUnits(units) }
     }
 
+    fun setStayAtDestination(value: Boolean) {
+        viewModelScope.launch { repository.setStayAtDestination(value) }
+    }
+
     /** Fires a tiny fixed route request against the given server. */
     fun testConnection(url: String) {
         _testState.value = TestState.Testing

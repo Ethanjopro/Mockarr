@@ -18,8 +18,8 @@ import dev.mockarr.core.data.SettingsRepository
 import dev.mockarr.core.mocklocation.AndroidMockLocationController
 import dev.mockarr.core.mocklocation.MockLocationController
 import dev.mockarr.core.mocklocation.SetupStatusRepository
-import dev.mockarr.core.routing.NominatimGeocoder
 import dev.mockarr.core.routing.OsrmRouteProvider
+import dev.mockarr.core.routing.PhotonGeocoder
 import dev.mockarr.core.routing.RouteProvider
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -75,7 +75,7 @@ object AppModule {
 
     @Provides
     @Singleton
-    fun provideGeocoder(): NominatimGeocoder = NominatimGeocoder(userAgent = USER_AGENT)
+    fun provideGeocoder(): PhotonGeocoder = PhotonGeocoder(userAgent = USER_AGENT)
 
     @Provides
     @Singleton
