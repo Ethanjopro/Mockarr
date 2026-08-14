@@ -6,6 +6,7 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import dev.mockarr.app.di.USER_AGENT
 import dev.mockarr.core.data.MockarrSettings
 import dev.mockarr.core.data.SettingsRepository
+import dev.mockarr.core.model.DistanceUnits
 import dev.mockarr.core.model.LatLng
 import dev.mockarr.core.model.RoutingProfile
 import dev.mockarr.core.routing.OsrmRouteProvider
@@ -55,6 +56,10 @@ class SettingsViewModel @Inject constructor(
 
     fun setDefaultProfile(profile: RoutingProfile) {
         viewModelScope.launch { repository.setDefaultProfile(profile) }
+    }
+
+    fun setUnits(units: DistanceUnits) {
+        viewModelScope.launch { repository.setUnits(units) }
     }
 
     /** Fires a tiny fixed route request against the given server. */

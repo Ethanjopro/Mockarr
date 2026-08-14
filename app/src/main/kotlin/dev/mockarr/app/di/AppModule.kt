@@ -18,6 +18,7 @@ import dev.mockarr.core.data.SettingsRepository
 import dev.mockarr.core.mocklocation.AndroidMockLocationController
 import dev.mockarr.core.mocklocation.MockLocationController
 import dev.mockarr.core.mocklocation.SetupStatusRepository
+import dev.mockarr.core.routing.NominatimGeocoder
 import dev.mockarr.core.routing.OsrmRouteProvider
 import dev.mockarr.core.routing.RouteProvider
 import kotlinx.coroutines.CoroutineScope
@@ -71,6 +72,10 @@ object AppModule {
         baseUrlProvider = { settingsRepository.settings.value.osrmBaseUrl },
         userAgent = USER_AGENT,
     )
+
+    @Provides
+    @Singleton
+    fun provideGeocoder(): NominatimGeocoder = NominatimGeocoder(userAgent = USER_AGENT)
 
     @Provides
     @Singleton

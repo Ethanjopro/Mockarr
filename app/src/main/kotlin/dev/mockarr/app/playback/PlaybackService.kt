@@ -16,6 +16,7 @@ import dagger.hilt.android.AndroidEntryPoint
 import dev.mockarr.app.MainActivity
 import dev.mockarr.app.R
 import dev.mockarr.app.ui.errorMessageOrNull
+import dev.mockarr.app.ui.formatDistanceProgress
 import dev.mockarr.core.data.SettingsRepository
 import dev.mockarr.core.mocklocation.MockLocationController
 import dev.mockarr.core.model.PlaybackState
@@ -214,8 +215,10 @@ class PlaybackService : Service() {
         val state = repository.state.value
         val paused = state is PlaybackState.Paused
         val progress = state.progressOrZero
-        val km = routeDistanceMeters / 1000.0
-        val text = "%.1f / %.1f km%s".format(km * progress, km, if (paused) " · paused" else "")
+        val units = settingsRepository.settings.value.units
+        val progressText =
+            formatDistanceProgress(routeDistanceMeters * progress, routeDistanceMeters, units)
+        val text = progressText + if (paused) " · paused" else ""
 
         val toggleAction = if (paused) {
             NotificationCompat.Action(0, "Resume", resumeIntent)

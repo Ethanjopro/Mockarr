@@ -1,6 +1,7 @@
 package dev.mockarr.app.ui
 
 import dev.mockarr.core.mocklocation.MockStartResult
+import dev.mockarr.core.model.DistanceUnits
 import dev.mockarr.core.model.Route
 import dev.mockarr.core.model.RoutingProfile
 import java.text.SimpleDateFormat
@@ -8,18 +9,43 @@ import java.util.Date
 import java.util.Locale
 import kotlin.math.roundToInt
 
+private const val METERS_PER_KILOMETER = 1000.0
+private const val METERS_PER_MILE = 1609.344
+
 // Main-thread only (SimpleDateFormat is not thread-safe; all callers are composables).
 private val routeTimestampFormat = SimpleDateFormat("MMM d, HH:mm", Locale.getDefault())
 
 fun formatRouteTimestamp(epochMillis: Long): String = routeTimestampFormat.format(Date(epochMillis))
 
-fun routeSummaryText(distanceMeters: Double, durationSeconds: Double): String {
-    val km = distanceMeters / 1000.0
-    val minutes = (durationSeconds / 60.0).roundToInt().coerceAtLeast(1)
-    return "%.1f km · about %d min".format(km, minutes)
+/** Meters converted into the unit's headline value (km or mi). */
+fun DistanceUnits.fromMeters(meters: Double): Double = when (this) {
+    DistanceUnits.KILOMETERS -> meters / METERS_PER_KILOMETER
+    DistanceUnits.MILES -> meters / METERS_PER_MILE
 }
 
-fun Route.summaryText(): String = routeSummaryText(distanceMeters, durationSeconds)
+fun DistanceUnits.abbreviation(): String = when (this) {
+    DistanceUnits.KILOMETERS -> "km"
+    DistanceUnits.MILES -> "mi"
+}
+
+fun formatDistance(meters: Double, units: DistanceUnits): String =
+    "%.1f %s".format(units.fromMeters(meters), units.abbreviation())
+
+/** "3.2 / 5.0 km" progress pair used by the playback card and notification. */
+fun formatDistanceProgress(doneMeters: Double, totalMeters: Double, units: DistanceUnits): String =
+    "%.1f / %.1f %s".format(
+        units.fromMeters(doneMeters),
+        units.fromMeters(totalMeters),
+        units.abbreviation(),
+    )
+
+fun routeSummaryText(distanceMeters: Double, durationSeconds: Double, units: DistanceUnits): String {
+    val minutes = (durationSeconds / 60.0).roundToInt().coerceAtLeast(1)
+    return "${formatDistance(distanceMeters, units)} · about $minutes min"
+}
+
+fun Route.summaryText(units: DistanceUnits): String =
+    routeSummaryText(distanceMeters, durationSeconds, units)
 
 fun RoutingProfile.label(): String = when (this) {
     RoutingProfile.DRIVING -> "Driving"

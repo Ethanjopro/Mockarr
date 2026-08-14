@@ -125,6 +125,22 @@ Verified end-to-end like a human: app-drawer swipe → tapped the Mockarr icon �
   - Efficiency: settings sliders commit once per gesture (was a DataStore file write per drag event); notification PendingIntents cached + notify() skipped when progress/paused unchanged (was steady binder spam incl. while paused); map waypoint/route GeoJSON updates split into independent effects.
   - Skipped (noted, deliberate): re-enabling detekt MagicNumber (would churn unit-conversion literals in core math for little clarity), unifying RouteHandoff with the playback mailbox (different observer patterns), initial speed-multiplier handoff to new sessions (latent behavior quirk — a /code-review matter, not cleanup).
 
+### 2026-08-14 — Session 4 (user testing feedback round 1)
+
+- Addressed the user's first hands-on testing notes. All changes emulator-verified (screenshots under the job tmp dir during the session):
+  - **Settings simplified**: Routing server, Map tiles, and Default profile hidden from the UI (backend + repository support kept; profile chips on the Map only appear when a custom OSRM server is configured — the demo server is driving-only, so the picker was dead weight). Remaining settings renamed to plain language ("Updates per second", "Realistic GPS wobble", "Wobble amount") with helper text under each.
+  - **Distance units**: new `DistanceUnits` (core:model) + `distance_units` setting; default from locale (US/GB/LR/MM → miles, else km). Used in route summaries, playback card, saved-route cards, and the playback notification. Settings has a Miles/Kilometers picker.
+  - **Paris camera bug fixed**: camera target+zoom persisted to DataStore on camera-idle (debounced 1 s via `collectLatest`); `MockarrMap` restores it on tab switches AND cold starts (late-arrival guard for async DataStore load). Paris is now only the fresh-install fallback.
+  - **Numbered waypoint markers**: SymbolLayer with white bold numbers over the circle markers ("Noto Sans Bold" glyphs — render fine on the OpenFreeMap liberty style).
+  - **Pin-mock made visible + clearer**: purple map marker at the held position; copy renamed from "pin-mocking" to "Holding your location at …"; hint text rewritten. Playback now stops any active pin-hold first (one mock source at a time).
+  - **Undo button** next to Clear (removes last waypoint, refetches route).
+  - **Place search on the Map tab**: `NominatimGeocoder` in core:routing (shared `UserAgentInterceptor` + `MinIntervalInterceptor` extracted from OsrmRouteProvider; 1.1 s min interval + UA per Nominatim policy). Search bar → up to 5 results → tap flies camera there (zoom 14).
+  - **Tab-transition fix**: MapView now uses `textureMode(true)` — the default SurfaceView sat opaque on top during navigation crossfades ("map stays on screen too long"); texture mode composites into the fade correctly.
+  - **Default-profile race fixed**: MapViewModel read `settings.value.defaultProfile` at construction, racing the async DataStore load; it now follows the settings flow until the user picks a profile by hand.
+- Emulator facts learned: `scripts/emu.sh` assumes `adb` resolvable — background shells here need `$HOME/Library/Android/sdk/platform-tools/adb` full path; killing a background task kills child processes (the emulator!) — launch it with `nohup ... & disown`.
+- Verified live: OSRM demo routes across water via ferries (Dover→Calais = 86 km, code Ok); impossible crossings (SF→Honolulu) return NoRoute → dashed straight-line fallback.
+- Deferred/answered-only (user's notes that need no code): notifications are optional for background playback (foreground service runs without POST_NOTIFICATIONS; the permission only makes the progress notification visible — checklist already marks it "Recommended"); on route finish/stop the mock providers are removed and the device reverts to its real location (a "hold at destination" toggle is a possible future feature); emulator pinch-zoom needs Cmd/Ctrl+drag, double-tap zoom also works — not an app bug; long-press tooltips on settings noted as a future idea.
+
 ## PLAN COMPLETE — remaining items are the user's
 
 1. **License decision** (GPL-3.0 vs Apache-2.0 vs other) — swap LICENSE, update README/CONTRIBUTING, then the repo can go public.

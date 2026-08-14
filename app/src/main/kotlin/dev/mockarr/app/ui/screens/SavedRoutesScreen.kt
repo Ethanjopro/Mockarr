@@ -36,6 +36,7 @@ import dev.mockarr.app.ui.formatRouteTimestamp
 import dev.mockarr.app.ui.label
 import dev.mockarr.app.ui.routeSummaryText
 import dev.mockarr.core.data.SavedRouteEntity
+import dev.mockarr.core.model.DistanceUnits
 import dev.mockarr.core.model.RoutingProfile
 import kotlinx.coroutines.launch
 
@@ -45,6 +46,7 @@ fun SavedRoutesScreen(
     viewModel: SavedRoutesViewModel = hiltViewModel(),
 ) {
     val routes by viewModel.routes.collectAsStateWithLifecycle()
+    val units by viewModel.units.collectAsStateWithLifecycle()
     val snackbarHost = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
 
@@ -78,6 +80,7 @@ fun SavedRoutesScreen(
                 items(routes, key = { it.id }) { entity ->
                     SavedRouteCard(
                         entity = entity,
+                        units = units,
                         onClick = {
                             viewModel.load(entity)
                             onRouteLoaded()
@@ -108,6 +111,7 @@ fun SavedRoutesScreen(
 @Composable
 private fun SavedRouteCard(
     entity: SavedRouteEntity,
+    units: DistanceUnits,
     onClick: () -> Unit,
     onDelete: () -> Unit,
 ) {
@@ -124,7 +128,7 @@ private fun SavedRouteCard(
                 Spacer(Modifier.height(2.dp))
                 Text(
                     text = "%s · %s · %s".format(
-                        routeSummaryText(entity.distanceMeters, entity.durationSeconds),
+                        routeSummaryText(entity.distanceMeters, entity.durationSeconds, units),
                         RoutingProfile.fromNameOrDefault(entity.profile).label(),
                         formatRouteTimestamp(entity.createdAtEpochMillis),
                     ),

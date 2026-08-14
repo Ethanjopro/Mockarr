@@ -7,10 +7,8 @@ import dev.mockarr.core.model.RoutingProfile
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
-import okhttp3.Interceptor
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
-import okhttp3.Response
 import retrofit2.HttpException
 import retrofit2.Retrofit
 import retrofit2.converter.kotlinx.serialization.asConverterFactory
@@ -131,29 +129,6 @@ class OsrmRouteProvider(
         val distance: List<Double> = emptyList(),
         val duration: List<Double> = emptyList(),
     )
-
-    private class UserAgentInterceptor(private val userAgent: String) : Interceptor {
-        override fun intercept(chain: Interceptor.Chain): Response = chain.proceed(
-            chain.request().newBuilder().header("User-Agent", userAgent).build(),
-        )
-    }
-
-    /** Demo-server etiquette: never fire requests closer together than the interval. */
-    private class MinIntervalInterceptor(private val minIntervalMillis: Long) : Interceptor {
-        private val lock = Any()
-        private var lastRequestAt = 0L
-
-        override fun intercept(chain: Interceptor.Chain): Response {
-            synchronized(lock) {
-                val wait = lastRequestAt + minIntervalMillis - System.currentTimeMillis()
-                if (wait > 0) {
-                    Thread.sleep(wait)
-                }
-                lastRequestAt = System.currentTimeMillis()
-            }
-            return chain.proceed(chain.request())
-        }
-    }
 
     companion object {
         const val DEFAULT_BASE_URL = "https://router.project-osrm.org"

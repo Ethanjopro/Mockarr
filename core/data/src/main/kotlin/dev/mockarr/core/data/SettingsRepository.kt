@@ -7,6 +7,9 @@ import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.doublePreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
+import dev.mockarr.core.model.DistanceUnits
+import dev.mockarr.core.model.LatLng
+import dev.mockarr.core.model.MapCamera
 import dev.mockarr.core.model.RoutingProfile
 import dev.mockarr.core.routing.OsrmRouteProvider
 import kotlinx.coroutines.CoroutineScope
@@ -14,6 +17,7 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
+import java.util.Locale
 
 data class MockarrSettings(
     val osrmBaseUrl: String = DEFAULT_OSRM_BASE_URL,
@@ -22,6 +26,8 @@ data class MockarrSettings(
     val jitterEnabled: Boolean = true,
     val jitterSigmaMeters: Double = 3.0,
     val defaultProfile: RoutingProfile = RoutingProfile.DRIVING,
+    val units: DistanceUnits = DistanceUnits.defaultForCountry(Locale.getDefault().country),
+    val lastCamera: MapCamera? = null,
 ) {
     /** Walking/cycling need a full OSRM install; the public demo only serves driving. */
     val customServerConfigured: Boolean
@@ -73,6 +79,14 @@ class SettingsRepository(
 
     suspend fun setDefaultProfile(profile: RoutingProfile) = edit { it[KEY_PROFILE] = profile.name }
 
+    suspend fun setUnits(units: DistanceUnits) = edit { it[KEY_UNITS] = units.name }
+
+    suspend fun setLastCamera(camera: MapCamera) = edit {
+        it[KEY_CAMERA_LAT] = camera.target.latitude
+        it[KEY_CAMERA_LNG] = camera.target.longitude
+        it[KEY_CAMERA_ZOOM] = camera.zoom
+    }
+
     private suspend fun edit(transform: (MutablePreferences) -> Unit) {
         dataStore.edit { transform(it) }
     }
@@ -86,7 +100,16 @@ class SettingsRepository(
         defaultProfile = this[KEY_PROFILE]
             ?.let { RoutingProfile.fromNameOrDefault(it) }
             ?: DEFAULTS.defaultProfile,
+        units = DistanceUnits.fromNameOrNull(this[KEY_UNITS]) ?: DEFAULTS.units,
+        lastCamera = toCamera(),
     )
+
+    private fun Preferences.toCamera(): MapCamera? {
+        val lat = this[KEY_CAMERA_LAT] ?: return null
+        val lng = this[KEY_CAMERA_LNG] ?: return null
+        val zoom = this[KEY_CAMERA_ZOOM] ?: return null
+        return MapCamera(LatLng(lat, lng), zoom)
+    }
 
     private companion object {
         val DEFAULTS = MockarrSettings()
@@ -96,5 +119,9 @@ class SettingsRepository(
         val KEY_JITTER_ENABLED = booleanPreferencesKey("jitter_enabled")
         val KEY_JITTER_SIGMA = doublePreferencesKey("jitter_sigma_m")
         val KEY_PROFILE = stringPreferencesKey("default_profile")
+        val KEY_UNITS = stringPreferencesKey("distance_units")
+        val KEY_CAMERA_LAT = doublePreferencesKey("camera_lat")
+        val KEY_CAMERA_LNG = doublePreferencesKey("camera_lng")
+        val KEY_CAMERA_ZOOM = doublePreferencesKey("camera_zoom")
     }
 }

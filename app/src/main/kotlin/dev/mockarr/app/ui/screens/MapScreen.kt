@@ -6,6 +6,7 @@ import android.content.pm.PackageManager
 import android.os.Build
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -17,16 +18,24 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.FilterChip
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -39,19 +48,23 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import dev.mockarr.app.ui.formatDistanceProgress
 import dev.mockarr.app.ui.formatRouteTimestamp
 import dev.mockarr.app.ui.label
 import dev.mockarr.app.ui.map.MockarrMap
 import dev.mockarr.app.ui.summaryText
+import dev.mockarr.core.model.DistanceUnits
 import dev.mockarr.core.model.PlaybackState
 import dev.mockarr.core.model.Route
 import dev.mockarr.core.model.RoutingProfile
 import dev.mockarr.core.model.progressOrZero
+import dev.mockarr.core.routing.GeocodingResult
 import dev.mockarr.core.simulation.SimulationEngine
 
 @Composable
@@ -71,6 +84,10 @@ fun MapScreen(
         onPauseOrDispose { }
     }
     val tileStyleUrl by viewModel.tileStyleUrl.collectAsStateWithLifecycle()
+    val units by viewModel.units.collectAsStateWithLifecycle()
+    val searchState by viewModel.search.collectAsStateWithLifecycle()
+    val cameraCommand by viewModel.cameraCommand.collectAsStateWithLifecycle()
+    val lastCamera by viewModel.lastCamera.collectAsStateWithLifecycle()
     val pinState by pinViewModel.uiState.collectAsStateWithLifecycle()
     val playbackState by playbackViewModel.playbackState.collectAsStateWithLifecycle()
     val latestFix by playbackViewModel.latestFix.collectAsStateWithLifecycle()
@@ -86,6 +103,7 @@ fun MapScreen(
         val route = routeAwaitingPermission
         routeAwaitingPermission = null
         if (grants[Manifest.permission.ACCESS_FINE_LOCATION] == true && route != null) {
+            pinViewModel.stopMocking()
             playbackViewModel.play(route)
         }
     }
@@ -102,6 +120,7 @@ fun MapScreen(
             }
         }
         if (needed.isEmpty()) {
+            pinViewModel.stopMocking() // one mock source at a time
             playbackViewModel.play(route)
         } else {
             routeAwaitingPermission = route
@@ -120,6 +139,10 @@ fun MapScreen(
             onMapTap = { if (!sessionActive) viewModel.addWaypoint(it) },
             onMapLongPress = { if (!sessionActive) pinViewModel.startMocking(it) },
             styleUrl = tileStyleUrl,
+            initialCamera = lastCamera,
+            onCameraIdle = viewModel::saveCamera,
+            cameraCommand = cameraCommand,
+            pinPosition = (pinState as? MockPinViewModel.UiState.Mocking)?.position,
             playbackPosition = if (sessionActive) latestFix?.position else null,
             cameraFollow = followCamera && sessionActive,
             modifier = Modifier.fillMaxSize(),
@@ -131,6 +154,16 @@ fun MapScreen(
                 .fillMaxWidth()
                 .padding(12.dp),
         ) {
+            if (!sessionActive) {
+                MapSearchBar(
+                    state = searchState,
+                    onQueryChange = viewModel::setSearchQuery,
+                    onSearch = viewModel::submitSearch,
+                    onResultSelected = viewModel::selectSearchResult,
+                    onDismiss = viewModel::clearSearchResults,
+                )
+                Spacer(Modifier.height(8.dp))
+            }
             if (setupStatus?.readyToMock == false && !sessionActive) {
                 StatusCard(
                     text = "Mocking isn't set up yet — routes will draw, but playback won't move your location.",
@@ -142,7 +175,8 @@ fun MapScreen(
             }
             when (val pin = pinState) {
                 is MockPinViewModel.UiState.Mocking -> StatusCard(
-                    text = "Pin-mocking %.4f, %.4f".format(pin.position.latitude, pin.position.longitude),
+                    text = "Holding your location at %.4f, %.4f"
+                        .format(pin.position.latitude, pin.position.longitude),
                     actionLabel = "Stop",
                     onAction = pinViewModel::stopMocking,
                 )
@@ -191,6 +225,7 @@ fun MapScreen(
             PlaybackCard(
                 playbackState = playbackState,
                 route = state.route,
+                units = units,
                 speedMultiplier = speedMultiplier,
                 followCamera = followCamera,
                 onToggleFollow = { followCamera = !followCamera },
@@ -206,8 +241,10 @@ fun MapScreen(
         } else {
             ControlCard(
                 state = state,
+                units = units,
                 customServerConfigured = customServerConfigured,
                 onProfileSelected = viewModel::setProfile,
+                onUndo = viewModel::undoWaypoint,
                 onClear = viewModel::clearWaypoints,
                 onOpenSetup = onOpenSetup,
                 onPlay = { state.route?.let(::requestPlay) },
@@ -223,6 +260,9 @@ fun MapScreen(
 
 private val SPEED_MULTIPLIER_RANGE =
     SimulationEngine.MIN_MULTIPLIER.toFloat()..SimulationEngine.MAX_MULTIPLIER.toFloat()
+
+private const val WAYPOINT_HINT = "Tap the map to add stops (2 or more make a route). " +
+    "Long-press to hold your location at one spot."
 
 private fun Context.hasPermission(permission: String): Boolean =
     ContextCompat.checkSelfPermission(this, permission) == PackageManager.PERMISSION_GRANTED
@@ -268,6 +308,7 @@ private fun StatusCard(
 private fun PlaybackCard(
     playbackState: PlaybackState?,
     route: Route?,
+    units: DistanceUnits,
     speedMultiplier: Double,
     followCamera: Boolean,
     onToggleFollow: () -> Unit,
@@ -280,7 +321,8 @@ private fun PlaybackCard(
     val progress = playbackState.progressOrZero
     val paused = playbackState is PlaybackState.Paused
     val stopping = playbackState is PlaybackState.Stopping
-    val km = (route?.distanceMeters ?: 0.0) / 1000.0
+    val total = route?.distanceMeters ?: 0.0
+    val progressText = formatDistanceProgress(total * progress, total, units)
 
     Card(modifier = modifier) {
         Column(modifier = Modifier.padding(16.dp)) {
@@ -288,8 +330,8 @@ private fun PlaybackCard(
                 Text(
                     text = when {
                         stopping -> "Stopping…"
-                        paused -> "Paused · %.1f / %.1f km".format(km * progress, km)
-                        else -> "Driving · %.1f / %.1f km".format(km * progress, km)
+                        paused -> "Paused · $progressText"
+                        else -> "Driving · $progressText"
                     },
                     style = MaterialTheme.typography.titleSmall,
                     modifier = Modifier.weight(1f),
@@ -329,8 +371,10 @@ private fun PlaybackCard(
 @Composable
 private fun ControlCard(
     state: MapViewModel.UiState,
+    units: DistanceUnits,
     customServerConfigured: Boolean,
     onProfileSelected: (RoutingProfile) -> Unit,
+    onUndo: () -> Unit,
     onClear: () -> Unit,
     onOpenSetup: () -> Unit,
     onPlay: () -> Unit,
@@ -339,17 +383,20 @@ private fun ControlCard(
 ) {
     Card(modifier = modifier) {
         Column(modifier = Modifier.padding(16.dp)) {
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                RoutingProfile.entries.forEach { profile ->
-                    FilterChip(
-                        selected = state.profile == profile,
-                        onClick = { onProfileSelected(profile) },
-                        enabled = profile == RoutingProfile.DRIVING || customServerConfigured,
-                        label = { Text(profile.label()) },
-                    )
+            // The public routing server only supports driving; the profile
+            // picker appears once a custom server is configured.
+            if (customServerConfigured) {
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    RoutingProfile.entries.forEach { profile ->
+                        FilterChip(
+                            selected = state.profile == profile,
+                            onClick = { onProfileSelected(profile) },
+                            label = { Text(profile.label()) },
+                        )
+                    }
                 }
+                Spacer(Modifier.height(8.dp))
             }
-            Spacer(Modifier.height(8.dp))
             Row(verticalAlignment = Alignment.CenterVertically) {
                 if (state.isRouting) {
                     CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
@@ -357,8 +404,7 @@ private fun ControlCard(
                     Text("Fetching route…", style = MaterialTheme.typography.bodyMedium)
                 } else {
                     Text(
-                        text = state.route?.summaryText()
-                            ?: "Tap the map to add waypoints (2+ for a route). Long-press to pin-mock.",
+                        text = state.route?.summaryText(units) ?: WAYPOINT_HINT,
                         style = MaterialTheme.typography.bodyMedium,
                     )
                 }
@@ -371,12 +417,78 @@ private fun ControlCard(
                 TextButton(onClick = onSave, enabled = state.route != null && !state.routeIsFallback) {
                     Text("Save")
                 }
+                TextButton(onClick = onUndo, enabled = state.waypoints.isNotEmpty()) {
+                    Text("Undo")
+                }
                 TextButton(onClick = onClear, enabled = state.waypoints.isNotEmpty()) {
                     Text("Clear")
                 }
                 Spacer(Modifier.weight(1f))
-                OutlinedButton(onClick = onOpenSetup) {
-                    Text("Setup")
+                TextButton(onClick = onOpenSetup) {
+                    Text("Setup", maxLines = 1)
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun MapSearchBar(
+    state: MapViewModel.SearchState,
+    onQueryChange: (String) -> Unit,
+    onSearch: () -> Unit,
+    onResultSelected: (GeocodingResult) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    Column {
+        OutlinedTextField(
+            value = state.query,
+            onValueChange = onQueryChange,
+            placeholder = { Text("Search for a place") },
+            singleLine = true,
+            trailingIcon = {
+                if (state.searching) {
+                    CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
+                } else {
+                    IconButton(onClick = onSearch) {
+                        Icon(Icons.Filled.Search, contentDescription = "Search")
+                    }
+                }
+            },
+            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+            keyboardActions = KeyboardActions(onSearch = { onSearch() }),
+            colors = OutlinedTextFieldDefaults.colors(
+                unfocusedContainerColor = MaterialTheme.colorScheme.surface,
+                focusedContainerColor = MaterialTheme.colorScheme.surface,
+            ),
+            modifier = Modifier.fillMaxWidth(),
+        )
+        if (state.results.isNotEmpty() || state.errorMessage != null) {
+            Spacer(Modifier.height(4.dp))
+            Card {
+                Column {
+                    state.errorMessage?.let { message ->
+                        Text(
+                            text = message,
+                            style = MaterialTheme.typography.bodyMedium,
+                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
+                        )
+                    }
+                    state.results.forEachIndexed { index, result ->
+                        if (index > 0) HorizontalDivider()
+                        Text(
+                            text = result.name,
+                            style = MaterialTheme.typography.bodyMedium,
+                            maxLines = 2,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable { onResultSelected(result) }
+                                .padding(horizontal = 16.dp, vertical = 12.dp),
+                        )
+                    }
+                    Row(modifier = Modifier.align(Alignment.End)) {
+                        TextButton(onClick = onDismiss) { Text("Close") }
+                    }
                 }
             }
         }
