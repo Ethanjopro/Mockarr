@@ -186,6 +186,17 @@ Verified end-to-end like a human: app-drawer swipe → tapped the Mockarr icon �
 - **Search selection zooms to 16** (was 14) — verified landing on the Tour Eiffel footprint.
 - **Speed-limit question answered + driver variance shipped**: OSRM's per-segment durations already encode OSM `maxspeed` + road-class defaults, so free explicit-limit fetching (Overpass) would double-count while adding map-matching, unit-parsing, and coverage problems — not worth it. Instead `SimulationParams.speedVarianceFraction` (service passes 0.08, default 0 keeps tests bit-identical) spreads each segment's cruise speed ±8% via the engine's seeded Random inside `RouteGeometry` BEFORE duration sums, so ETAs stay consistent; composes with traffic factor and speed multiplier. Verified live (vel 6.83/6.38/6.18/6.55/5.93 across segments) + unit tests.
 
+### 2026-08-15 — Session 9 (user testing feedback round 6)
+
+- **Saved-routes thumbnails + search**: `RouteThumbnail` Canvas glyph (Polyline6-decoded, ≤64 pts, cos-lat aspect correction, primary-color stroke + green/red end dots) leads each card; search field filters by name (`combine(observeAll, query)`). Verified: the shape glyph matches the real route.
+- **Hold-after-route prompt bug fixed**: the play decision now reads `sessionViewModel.session.value` / `viewModel.uiState.value` **at click time** instead of composition-captured vals (stale captures could eat the dialog). Verified route→hold→Play prompts correctly.
+- **One held point + one waypoint playable**: Play enables with 1 waypoint while holding; prompt "Route from held location?" → confirm prepends the hold, refetches, auto-plays (verified end-to-end, vel ≈7 m/s from the pin); cancel does nothing.
+- **Ripple on the live dot**: `RIPPLE_LAYER` beneath the dot layers, driven per-frame by an `Animatable` loop writing radius/opacity straight into the style (first attempt used `SideEffect` reading the value outside composition — never re-ran; lesson: animation values must be consumed in a frame callback or read during composition). Blue while driving, purple while holding — verified expanding/fading halo across frames.
+- **Progress alert**: `progressAlertEnabled/Percent` settings (switch + 10–95% slider) → one-shot high-importance notification "Route N% complete · ETA" per session from the service's fix collector. Verified live: fired exactly at 10% (~28 s into a 0.7 mi drive), never repeated.
+- **Leaner collapsed card**: state-aware one-liners ("Tap the map to add stops" / "Add another stop to make a route" / "Play to route from your held spot" / summary); the long-press tip moved into the expanded section.
+- **Locate-button delay**: answered (cold `getCurrentLocation` fix takes seconds — expected) + mitigated: two-stage pan (instant last-known, refine only if the fresh fix is >50 m away).
+- Emulator ops: prefer `find`→awk x/y (zsh doesn't word-split `$P`); `find "Play"` matches hint TEXT containing "Play" — tap explicit coords for the button; dialogs render ~1 s after taps — screenshot before tapping dialog buttons.
+
 ## PLAN COMPLETE — remaining items are the user's
 
 1. **License decision** (GPL-3.0 vs Apache-2.0 vs other) — swap LICENSE, update README/CONTRIBUTING, then the repo can go public.

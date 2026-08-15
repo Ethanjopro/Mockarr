@@ -119,6 +119,29 @@ fun SettingsScreen(
         )
         Spacer(Modifier.height(8.dp))
         SwitchRow(
+            label = "Progress alert",
+            description = "Sends a notification when a playing route reaches the " +
+                "percentage you choose below.",
+            checked = settings.progressAlertEnabled,
+            onCheckedChange = viewModel::setProgressAlertEnabled,
+        )
+        if (settings.progressAlertEnabled) {
+            var percentDrag by remember(settings.progressAlertPercent) {
+                mutableStateOf(settings.progressAlertPercent.toFloat())
+            }
+            SettingLabel(
+                text = "Alert at: ${percentDrag.toInt()}%",
+                description = "How far through the route playback must be before the alert fires.",
+            )
+            Slider(
+                value = percentDrag,
+                onValueChange = { percentDrag = it },
+                onValueChangeFinished = { viewModel.setProgressAlertPercent(percentDrag.toInt()) },
+                valueRange = PROGRESS_ALERT_RANGE,
+                steps = PROGRESS_ALERT_STEPS,
+            )
+        }
+        SwitchRow(
             label = "Realistic GPS wobble",
             description = "Adds tiny random offsets so positions look like real GPS " +
                 "instead of a perfect line.",
@@ -200,6 +223,13 @@ private fun SectionBreak() {
 
 private val JITTER_SIGMA_RANGE =
     MockarrSettings.JITTER_SIGMA_MIN.toFloat()..MockarrSettings.JITTER_SIGMA_MAX.toFloat()
+
+private val PROGRESS_ALERT_RANGE =
+    MockarrSettings.PROGRESS_ALERT_MIN.toFloat()..MockarrSettings.PROGRESS_ALERT_MAX.toFloat()
+
+// 5%-granularity detents across the 10-95 range.
+private val PROGRESS_ALERT_STEPS =
+    (MockarrSettings.PROGRESS_ALERT_MAX - MockarrSettings.PROGRESS_ALERT_MIN) / 5 - 1
 
 private val LN_TICK_MIN = ln(MockarrSettings.TICK_HZ_MIN)
 private val LN_TICK_MAX = ln(MockarrSettings.TICK_HZ_MAX)

@@ -221,18 +221,29 @@ fun MapScreen(
     val holding = session as? MockSessionState.Holding
     var showSaveDialog by remember { mutableStateOf(false) }
 
-    // Play while holding: offer to route from the held spot first.
+    // Play while holding: offer to route from the held spot first. All session
+    // reads happen AT CLICK TIME via .value — never from composition-captured
+    // vals — so the prompt appears no matter which order route and hold were
+    // created in (a stale capture previously ate the prompt).
     var startChoiceRoute by remember { mutableStateOf<Route?>(null) }
+    var showRouteFromHoldPrompt by remember { mutableStateOf(false) }
     var playWhenRouteReady by remember { mutableStateOf(false) }
 
-    fun playOrAskStart(route: Route) {
-        val hold = holding
-        val startsAtHold = hold != null &&
-            GeoMath.distanceMeters(route.points.first(), hold.position) <= START_FROM_HOLD_METERS
-        if (hold != null && !startsAtHold) {
-            startChoiceRoute = route
-        } else {
-            requestPlay(route)
+    fun currentHold(): MockSessionState.Holding? =
+        sessionViewModel.session.value as? MockSessionState.Holding
+
+    fun playOrAskStart() {
+        val hold = currentHold()
+        val ui = viewModel.uiState.value
+        val route = ui.route
+        when {
+            route != null -> {
+                val startsAtHold = hold != null &&
+                    GeoMath.distanceMeters(route.points.first(), hold.position) <= START_FROM_HOLD_METERS
+                if (hold != null && !startsAtHold) startChoiceRoute = route else requestPlay(route)
+            }
+            ui.waypoints.size == 1 && hold != null -> showRouteFromHoldPrompt = true
+            else -> Unit
         }
     }
 
@@ -259,7 +270,7 @@ fun MapScreen(
                 TextButton(
                     onClick = {
                         startChoiceRoute = null
-                        holding?.position?.let(viewModel::prependWaypoint)
+                        currentHold()?.position?.let(viewModel::prependWaypoint)
                         playWhenRouteReady = true
                     },
                 ) { Text("From held spot") }
@@ -271,6 +282,28 @@ fun MapScreen(
                         requestPlay(pendingRoute)
                     },
                 ) { Text("As built") }
+            },
+        )
+    }
+
+    if (showRouteFromHoldPrompt) {
+        AlertDialog(
+            onDismissRequest = { showRouteFromHoldPrompt = false },
+            title = { Text("Route from held location?") },
+            text = { Text("Build a route from your held spot to this stop and play it?") },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        showRouteFromHoldPrompt = false
+                        currentHold()?.position?.let { hold ->
+                            viewModel.prependWaypoint(hold)
+                            playWhenRouteReady = true
+                        }
+                    },
+                ) { Text("Route and play") }
+            },
+            dismissButton = {
+                TextButton(onClick = { showRouteFromHoldPrompt = false }) { Text("Cancel") }
             },
         )
     }
@@ -418,11 +451,12 @@ fun MapScreen(
                 RouteCreatorCard(
                     state = state,
                     units = units,
+                    holdActive = holding != null,
                     customServerConfigured = customServerConfigured,
                     onProfileSelected = viewModel::setProfile,
                     onUndo = viewModel::undoWaypoint,
                     onClear = viewModel::clearWaypoints,
-                    onPlay = { state.route?.let(::playOrAskStart) },
+                    onPlay = ::playOrAskStart,
                     onSave = {
                         viewModel.requestNameSuggestion()
                         showSaveDialog = true
@@ -441,7 +475,6 @@ private const val WAYPOINT_HINT = "Tap the map to add stops (2 or more make a ro
     "Long-press to hold your location at one spot."
 
 private const val HALF_TURN = 180f
-private const val HINT_MAX_LINES = 4
 private const val START_FROM_HOLD_METERS = 30.0
 
 private fun Context.hasPermission(permission: String): Boolean =
@@ -572,6 +605,7 @@ private fun PlaybackCard(
 private fun RouteCreatorCard(
     state: MapViewModel.UiState,
     units: DistanceUnits,
+    holdActive: Boolean,
     customServerConfigured: Boolean,
     onProfileSelected: (RoutingProfile) -> Unit,
     onUndo: () -> Unit,
@@ -597,18 +631,25 @@ private fun RouteCreatorCard(
                     CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
                     Spacer(Modifier.width(8.dp))
                 }
+                val route = state.route
                 Text(
                     text = when {
                         state.isRouting -> "Fetching route…"
-                        else -> state.route?.summaryText(units, state.trafficFactor) ?: WAYPOINT_HINT
+                        route != null -> route.summaryText(units, state.trafficFactor)
+                        state.waypoints.size == 1 && holdActive -> "Play to route from your held spot"
+                        state.waypoints.isNotEmpty() -> "Add another stop to make a route"
+                        else -> "Tap the map to add stops"
                     },
                     style = MaterialTheme.typography.bodyMedium,
-                    maxLines = if (state.route != null) 2 else HINT_MAX_LINES,
+                    maxLines = if (route != null) 2 else 1,
                     overflow = TextOverflow.Ellipsis,
                     modifier = Modifier.weight(1f),
                 )
                 Spacer(Modifier.width(8.dp))
-                Button(onClick = onPlay, enabled = state.route != null) {
+                Button(
+                    onClick = onPlay,
+                    enabled = route != null || (state.waypoints.size == 1 && holdActive),
+                ) {
                     Icon(Icons.Filled.PlayArrow, contentDescription = "Play")
                 }
                 val rotation by animateFloatAsState(if (expanded) HALF_TURN else 0f, label = "chevron")
@@ -622,6 +663,13 @@ private fun RouteCreatorCard(
             }
             AnimatedVisibility(visible = expanded) {
                 Column {
+                    if (state.route == null) {
+                        Text(
+                            text = WAYPOINT_HINT,
+                            style = MaterialTheme.typography.bodySmall,
+                        )
+                        Spacer(Modifier.height(4.dp))
+                    }
                     // The public routing server only supports driving; the profile
                     // picker appears once a custom server is configured.
                     if (customServerConfigured) {

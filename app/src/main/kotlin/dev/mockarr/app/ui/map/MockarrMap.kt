@@ -1,5 +1,8 @@
 package dev.mockarr.app.ui.map
 
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.tween
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -16,6 +19,7 @@ import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import dev.mockarr.core.model.LatLng
 import dev.mockarr.core.model.MapCamera
+import kotlinx.coroutines.isActive
 import org.maplibre.android.camera.CameraPosition
 import org.maplibre.android.camera.CameraUpdateFactory
 import org.maplibre.android.geometry.LatLngBounds
@@ -45,6 +49,8 @@ private const val WAYPOINT_LAYER = "waypoint-layer"
 private const val WAYPOINT_LABEL_LAYER = "waypoint-label-layer"
 private const val PIN_SOURCE = "pin-source"
 private const val PIN_LAYER = "pin-layer"
+private const val RIPPLE_SOURCE = "ripple-source"
+private const val RIPPLE_LAYER = "ripple-layer"
 private const val PLAYBACK_SOURCE = "playback-source"
 private const val PLAYBACK_LAYER = "playback-layer"
 private const val ROLE_KEY = "role"
@@ -214,6 +220,19 @@ fun MockarrMap(
         loadedStyle.getSourceAs<GeoJsonSource>(PIN_SOURCE)?.setGeoJson(pinPosition.toFeatures())
     }
 
+    // Expanding, fading ripple under the live mock dot — blue while a route
+    // drives, purple while holding a pin.
+    val ripplePosition = playbackPosition ?: pinPosition
+    LaunchedEffect(style, ripplePosition) {
+        val loadedStyle = style ?: return@LaunchedEffect
+        loadedStyle.getSourceAs<GeoJsonSource>(RIPPLE_SOURCE)?.setGeoJson(ripplePosition.toFeatures())
+    }
+    RippleAnimator(
+        style = style,
+        active = ripplePosition != null,
+        color = if (playbackPosition != null) "#1A73E8" else "#8E24AA",
+    )
+
     LaunchedEffect(style, playbackPosition) {
         val loadedStyle = style ?: return@LaunchedEffect
         loadedStyle.getSourceAs<GeoJsonSource>(PLAYBACK_SOURCE)
@@ -258,6 +277,39 @@ private const val FOLLOW_EASE_MILLIS = 900
 private val FALLBACK_CENTER = LatLng(48.8584, 2.2945)
 private const val FALLBACK_ZOOM = 12.0
 
+private const val RIPPLE_MIN_RADIUS = 8f
+private const val RIPPLE_MAX_RADIUS = 26f
+private const val RIPPLE_MAX_OPACITY = 0.35f
+private const val RIPPLE_PERIOD_MILLIS = 1600
+
+/**
+ * Drives the ripple layer's radius/opacity each animation frame straight into
+ * the style (no recomposition involved — the frame callback is the loop).
+ */
+@Composable
+private fun RippleAnimator(style: Style?, active: Boolean, color: String) {
+    val loadedStyle = style ?: return
+    LaunchedEffect(loadedStyle, active, color) {
+        if (!active) {
+            loadedStyle.getLayer(RIPPLE_LAYER)?.setProperties(PropertyFactory.circleOpacity(0f))
+            return@LaunchedEffect
+        }
+        val ripple = Animatable(0f)
+        while (isActive) {
+            ripple.snapTo(0f)
+            ripple.animateTo(1f, tween(RIPPLE_PERIOD_MILLIS, easing = LinearEasing)) {
+                loadedStyle.getLayer(RIPPLE_LAYER)?.setProperties(
+                    PropertyFactory.circleRadius(
+                        RIPPLE_MIN_RADIUS + (RIPPLE_MAX_RADIUS - RIPPLE_MIN_RADIUS) * value,
+                    ),
+                    PropertyFactory.circleOpacity((1f - value) * RIPPLE_MAX_OPACITY),
+                    PropertyFactory.circleColor(color),
+                )
+            }
+        }
+    }
+}
+
 private fun LatLng.toMapLibre() = MapLibreLatLng(latitude, longitude)
 
 private fun LatLng.toPoint(): Point = Point.fromLngLat(longitude, latitude)
@@ -300,7 +352,7 @@ private fun applyMapMode(
 }
 
 private fun setUpLayers(style: Style) {
-    listOf(ROUTE_SOURCE, FALLBACK_SOURCE, WAYPOINT_SOURCE, PIN_SOURCE, PLAYBACK_SOURCE)
+    listOf(ROUTE_SOURCE, FALLBACK_SOURCE, WAYPOINT_SOURCE, PIN_SOURCE, PLAYBACK_SOURCE, RIPPLE_SOURCE)
         .forEach { style.addSource(GeoJsonSource(it)) }
     style.addLayer(
         LineLayer(ROUTE_LAYER, ROUTE_SOURCE).withProperties(
@@ -321,6 +373,13 @@ private fun setUpLayers(style: Style) {
 }
 
 private fun addPointLayers(style: Style) {
+    style.addLayer(
+        CircleLayer(RIPPLE_LAYER, RIPPLE_SOURCE).withProperties(
+            PropertyFactory.circleRadius(RIPPLE_MIN_RADIUS),
+            PropertyFactory.circleColor("#1A73E8"),
+            PropertyFactory.circleOpacity(0f),
+        ),
+    )
     style.addLayer(
         CircleLayer(PLAYBACK_LAYER, PLAYBACK_SOURCE).withProperties(
             PropertyFactory.circleRadius(8f),

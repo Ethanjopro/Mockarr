@@ -95,12 +95,14 @@ class MockSessionService : Service() {
 
     override fun onCreate() {
         super.onCreate()
-        val channel = NotificationChannel(
-            CHANNEL_ID,
-            "Mock location session",
-            NotificationManager.IMPORTANCE_LOW,
+        val manager = getSystemService(NotificationManager::class.java)
+        manager.createNotificationChannel(
+            NotificationChannel(CHANNEL_ID, "Mock location session", NotificationManager.IMPORTANCE_LOW),
         )
-        getSystemService(NotificationManager::class.java).createNotificationChannel(channel)
+        // Separate audible channel: progress alerts should actually ping.
+        manager.createNotificationChannel(
+            NotificationChannel(ALERT_CHANNEL_ID, "Progress alerts", NotificationManager.IMPORTANCE_HIGH),
+        )
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
@@ -200,20 +202,42 @@ class MockSessionService : Service() {
             random = Random(SystemClock.elapsedRealtimeNanos()),
         )
         repository.playingStarted(engine)
+        val alertPercent = settings.progressAlertPercent.takeIf { settings.progressAlertEnabled }
 
         sessionJob = scope.launch {
             val stateJob = launch {
                 engine.state.collect { repository.updateState(it) }
             }
             var tick = 0
+            var alerted = false
             engine.fixes.collect { fix ->
                 mockController.push(fix)
                 repository.updateFix(fix)
                 if (tick++ % NOTIFICATION_UPDATE_TICKS == 0) refreshNotification()
+                if (alertPercent != null && !alerted &&
+                    repository.state.value.progressOrZero * PROGRESS_MAX >= alertPercent
+                ) {
+                    alerted = true
+                    postProgressAlert(alertPercent)
+                }
             }
             stateJob.cancel()
             onEngineEnded()
         }
+    }
+
+    private fun postProgressAlert(percent: Int) {
+        val eta = repository.state.value.remainingSecondsOrNull
+            ?.let { " · ${formatTimeRemaining(it)}" }
+            .orEmpty()
+        val notification = NotificationCompat.Builder(this, ALERT_CHANNEL_ID)
+            .setSmallIcon(R.drawable.ic_stat_pin)
+            .setContentTitle("Route $percent% complete")
+            .setContentText("Mocked drive is $percent% done$eta")
+            .setAutoCancel(true)
+            .setContentIntent(contentIntent)
+            .build()
+        getSystemService(NotificationManager::class.java).notify(ALERT_NOTIFICATION_ID, notification)
     }
 
     /** End-of-route chain: destination hold → remembered pin → real location. */
@@ -396,7 +420,9 @@ class MockSessionService : Service() {
         const val EXTRA_LAT = "lat"
         const val EXTRA_LNG = "lng"
         private const val CHANNEL_ID = "playback"
+        private const val ALERT_CHANNEL_ID = "progress_alerts"
         private const val NOTIFICATION_ID = 42
+        private const val ALERT_NOTIFICATION_ID = 43
         private const val NOTIFICATION_UPDATE_TICKS = 5
         private const val PROGRESS_MAX = 100
         private const val HOLD_TICK_MILLIS = 1_000L

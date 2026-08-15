@@ -8,8 +8,11 @@ import dev.mockarr.core.data.SavedRouteEntity
 import dev.mockarr.core.data.SavedRoutesRepository
 import dev.mockarr.core.data.SettingsRepository
 import dev.mockarr.core.model.DistanceUnits
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
@@ -22,8 +25,18 @@ class SavedRoutesViewModel @Inject constructor(
     settingsRepository: SettingsRepository,
 ) : ViewModel() {
 
-    val routes: StateFlow<List<SavedRouteEntity>> = repository.observeAll()
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(STOP_TIMEOUT_MILLIS), emptyList())
+    private val _query = MutableStateFlow("")
+    val query: StateFlow<String> = _query.asStateFlow()
+
+    val routes: StateFlow<List<SavedRouteEntity>> =
+        combine(repository.observeAll(), _query) { all, query ->
+            val trimmed = query.trim()
+            if (trimmed.isEmpty()) all else all.filter { it.name.contains(trimmed, ignoreCase = true) }
+        }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(STOP_TIMEOUT_MILLIS), emptyList())
+
+    fun setQuery(value: String) {
+        _query.value = value
+    }
 
     val units: StateFlow<DistanceUnits> = settingsRepository.settings
         .map { it.units }

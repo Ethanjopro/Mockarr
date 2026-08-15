@@ -264,7 +264,16 @@ class MapViewModel @Inject constructor(
     /** Pans to the device's REAL location; requires fine-location permission. */
     fun locateReal() {
         viewModelScope.launch {
-            currentRealLocation()?.let { panTo(LatLng(it.latitude, it.longitude)) }
+            // Two-stage: jump to the cached fix instantly, refine once a fresh
+            // fix arrives and only if it's meaningfully different.
+            val cached = locationManager.quickLastKnown()
+                ?.let { LatLng(it.latitude, it.longitude) }
+                ?.also(::panTo)
+            val fresh = currentRealLocation()?.let { LatLng(it.latitude, it.longitude) }
+                ?: return@launch
+            if (cached == null || GeoMath.distanceMeters(cached, fresh) > LOCATE_REFINE_METERS) {
+                panTo(fresh)
+            }
         }
     }
 
@@ -276,12 +285,8 @@ class MapViewModel @Inject constructor(
             is MockSessionState.Playing -> sessionRepository.latestFix.value?.position
             else -> null
         }
-        val lastKnown =
-            runCatching { locationManager.getLastKnownLocation(LocationManager.GPS_PROVIDER) }.getOrNull()
-                ?: runCatching { locationManager.getLastKnownLocation(LocationManager.NETWORK_PROVIDER) }
-                    .getOrNull()
         return mocked
-            ?: lastKnown?.let { LatLng(it.latitude, it.longitude) }
+            ?: locationManager.quickLastKnown()?.let { LatLng(it.latitude, it.longitude) }
             ?: lastKnownCamera?.target
     }
 
@@ -311,9 +316,7 @@ class MapViewModel @Inject constructor(
         } else {
             null
         }
-        return current
-            ?: runCatching { locationManager.getLastKnownLocation(LocationManager.GPS_PROVIDER) }.getOrNull()
-            ?: runCatching { locationManager.getLastKnownLocation(LocationManager.NETWORK_PROVIDER) }.getOrNull()
+        return current ?: locationManager.quickLastKnown()
     }
 
     /** One-shot cold-start camera restore, read straight from disk (no default-value race). */
@@ -479,8 +482,15 @@ class MapViewModel @Inject constructor(
         const val SEARCH_ZOOM = 16.0
         const val LOCATE_ZOOM = 15.0
         const val LOCATE_TIMEOUT_MILLIS = 5_000L
+        const val LOCATE_REFINE_METERS = 50.0
     }
 }
+
+// Permission is gated by the UI before callers reach this.
+@SuppressLint("MissingPermission")
+private fun LocationManager.quickLastKnown(): Location? =
+    runCatching { getLastKnownLocation(LocationManager.GPS_PROVIDER) }.getOrNull()
+        ?: runCatching { getLastKnownLocation(LocationManager.NETWORK_PROVIDER) }.getOrNull()
 
 private fun friendlyMessage(error: Throwable): String {
     val base = when (error) {
