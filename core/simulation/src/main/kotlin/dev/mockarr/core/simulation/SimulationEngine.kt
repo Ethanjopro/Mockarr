@@ -36,7 +36,7 @@ class SimulationEngine(
     private val random: Random = Random(0),
     initialSpeedMultiplier: Double = 1.0,
 ) {
-    private val geometry = RouteGeometry(route, params.decelerationMps2)
+    private val geometry = RouteGeometry(route, params.decelerationMps2, params.durationScale)
 
     @Volatile
     private var speedMultiplier = initialSpeedMultiplier.coerceIn(MIN_MULTIPLIER, MAX_MULTIPLIER)

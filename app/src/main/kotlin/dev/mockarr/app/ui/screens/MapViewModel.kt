@@ -7,11 +7,14 @@ import android.os.Build
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
+import dev.mockarr.app.playback.MockSessionRepository
+import dev.mockarr.app.playback.MockSessionState
 import dev.mockarr.app.ui.RouteHandoff
 import dev.mockarr.app.ui.map.CameraCommand
 import dev.mockarr.core.data.SavedRoutesRepository
 import dev.mockarr.core.data.SettingsRepository
 import dev.mockarr.core.model.DistanceUnits
+import dev.mockarr.core.model.GeoMath
 import dev.mockarr.core.model.LatLng
 import dev.mockarr.core.model.MapCamera
 import dev.mockarr.core.model.Route
@@ -23,6 +26,7 @@ import dev.mockarr.core.routing.PhotonGeocoder
 import dev.mockarr.core.routing.RouteProvider
 import dev.mockarr.core.routing.RoutingException
 import dev.mockarr.core.routing.StraightLineRouteProvider
+import dev.mockarr.core.simulation.TrafficModel
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -38,6 +42,7 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withTimeoutOrNull
+import java.time.LocalDateTime
 import javax.inject.Inject
 import kotlin.coroutines.resume
 
@@ -47,6 +52,7 @@ class MapViewModel @Inject constructor(
     private val geocoder: PhotonGeocoder,
     private val elevationClient: OpenMeteoElevationClient,
     private val locationManager: LocationManager,
+    private val sessionRepository: MockSessionRepository,
     private val settingsRepository: SettingsRepository,
     private val savedRoutesRepository: SavedRoutesRepository,
     private val routeHandoff: RouteHandoff,
@@ -60,12 +66,19 @@ class MapViewModel @Inject constructor(
         val isRouting: Boolean = false,
         val errorMessage: String? = null,
         val savedConfirmation: String? = null,
+        /** Congestion preview multiplier for the "about N min" summary. */
+        val trafficFactor: Double = 1.0,
+    )
+
+    data class SearchSuggestion(
+        val result: GeocodingResult,
+        val distanceMeters: Double?,
     )
 
     data class SearchState(
         val query: String = "",
         val searching: Boolean = false,
-        val results: List<GeocodingResult> = emptyList(),
+        val results: List<SearchSuggestion> = emptyList(),
         val errorMessage: String? = null,
     )
 
@@ -164,10 +177,25 @@ class MapViewModel @Inject constructor(
             val saved = settingsRepository.awaitLoaded().lastCamera
             if (lastKnownCamera == null) lastKnownCamera = saved
         }
+        // Keep the summary's traffic preview in sync with the setting toggle.
+        viewModelScope.launch {
+            settingsRepository.settings
+                .map { it.trafficSimEnabled }
+                .distinctUntilChanged()
+                .collect { _uiState.update { s -> s.copy(trafficFactor = currentTrafficFactor()) } }
+        }
     }
 
     fun addWaypoint(point: LatLng) {
-        _uiState.update { it.copy(waypoints = it.waypoints + point) }
+        _uiState.update {
+            // While holding a position, routes start from where you're "standing" —
+            // the first tap makes hold -> tap a route (no teleport at Play).
+            val holdPosition = (sessionRepository.session.value as? MockSessionState.Holding)
+                ?.position
+                ?.takeIf { _ -> it.waypoints.isEmpty() }
+            val seeded = if (holdPosition != null) listOf(holdPosition, point) else it.waypoints + point
+            it.copy(waypoints = seeded)
+        }
         scheduleRouteFetch()
     }
 
@@ -242,6 +270,31 @@ class MapViewModel @Inject constructor(
         }
     }
 
+    /** Ranking anchor: mocked position first, then real location, then the camera. */
+    @SuppressLint("MissingPermission")
+    private fun searchBias(): LatLng? {
+        val mocked = when (val session = sessionRepository.session.value) {
+            is MockSessionState.Holding -> session.position
+            is MockSessionState.Playing -> sessionRepository.latestFix.value?.position
+            else -> null
+        }
+        val lastKnown =
+            runCatching { locationManager.getLastKnownLocation(LocationManager.GPS_PROVIDER) }.getOrNull()
+                ?: runCatching { locationManager.getLastKnownLocation(LocationManager.NETWORK_PROVIDER) }
+                    .getOrNull()
+        return mocked
+            ?: lastKnown?.let { LatLng(it.latitude, it.longitude) }
+            ?: lastKnownCamera?.target
+    }
+
+    private fun currentTrafficFactor(): Double =
+        if (settingsRepository.settings.value.trafficSimEnabled) {
+            val now = LocalDateTime.now()
+            TrafficModel.congestionFactor(now.dayOfWeek, now.hour, now.minute)
+        } else {
+            1.0
+        }
+
     // Permission is gated by the UI before this is called.
     @SuppressLint("MissingPermission")
     private suspend fun currentRealLocation(): Location? {
@@ -308,13 +361,20 @@ class MapViewModel @Inject constructor(
 
     private suspend fun runSearch(query: String) {
         _search.update { it.copy(searching = true, errorMessage = null) }
-        geocoder.search(query, bias = lastKnownCamera?.target).fold(
+        val bias = searchBias()
+        geocoder.search(query, bias = bias).fold(
             onSuccess = { results ->
+                val suggestions = results.map { result ->
+                    SearchSuggestion(
+                        result = result,
+                        distanceMeters = bias?.let { GeoMath.distanceMeters(it, result.position) },
+                    )
+                }
                 _search.update {
                     it.copy(
                         searching = false,
-                        results = results,
-                        errorMessage = if (results.isEmpty()) "No places found" else null,
+                        results = suggestions,
+                        errorMessage = if (suggestions.isEmpty()) "No places found" else null,
                     )
                 }
             },
@@ -349,6 +409,7 @@ class MapViewModel @Inject constructor(
                 routeIsFallback = false,
                 isRouting = false,
                 errorMessage = null,
+                trafficFactor = currentTrafficFactor(),
             )
         }
         enrichWithElevations(route)
@@ -388,7 +449,12 @@ class MapViewModel @Inject constructor(
             routeProvider.route(current.waypoints, current.profile).fold(
                 onSuccess = { route ->
                     _uiState.update {
-                        it.copy(route = route, routeIsFallback = false, isRouting = false)
+                        it.copy(
+                            route = route,
+                            routeIsFallback = false,
+                            isRouting = false,
+                            trafficFactor = currentTrafficFactor(),
+                        )
                     }
                     enrichWithElevations(route)
                 },

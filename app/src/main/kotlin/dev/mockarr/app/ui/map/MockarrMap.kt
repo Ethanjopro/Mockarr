@@ -50,6 +50,10 @@ private const val PLAYBACK_LAYER = "playback-layer"
 private const val ROLE_KEY = "role"
 private const val LABEL_KEY = "label"
 
+// The liberty style's flat building-footprint layer (outlined fills, z13-14).
+private const val FLAT_BUILDING_LAYER = "building"
+private const val EXTENDED_MAX_ZOOM = 24f
+
 /**
  * MapLibre map with waypoint markers, the route polyline, the hold pin, and
  * the live playback dot. Hosted ONCE behind the NavHost (see MockarrApp) so it
@@ -186,9 +190,13 @@ fun MockarrMap(
         }
     }
 
+    var flatBuildingMaxZoom by remember { mutableStateOf<Float?>(null) }
     LaunchedEffect(style, threeDimensional) {
         val loadedStyle = style ?: return@LaunchedEffect
-        applyMapMode(loadedStyle, map, threeDimensional)
+        if (flatBuildingMaxZoom == null) {
+            flatBuildingMaxZoom = loadedStyle.getLayer(FLAT_BUILDING_LAYER)?.maxZoom
+        }
+        applyMapMode(loadedStyle, map, threeDimensional, flatBuildingMaxZoom)
     }
 
     LaunchedEffect(style, waypoints) {
@@ -258,11 +266,27 @@ private fun LatLng?.toFeatures(): FeatureCollection = this?.let {
     FeatureCollection.fromFeature(Feature.fromGeometry(it.toPoint()))
 } ?: FeatureCollection.fromFeatures(emptyList())
 
-/** 2D hides the style's building extrusions and flattens/locks the camera tilt. */
-private fun applyMapMode(style: Style, map: MapLibreMap?, threeDimensional: Boolean) {
+/**
+ * 2D hides the style's building extrusions, extends the flat building-footprint
+ * layer to all zooms (the style normally hands off to extrusions at z14, which
+ * would leave 2D with no buildings at all), and flattens/locks the camera tilt.
+ */
+private fun applyMapMode(
+    style: Style,
+    map: MapLibreMap?,
+    threeDimensional: Boolean,
+    flatBuildingOriginalMaxZoom: Float?,
+) {
     val visibility = if (threeDimensional) Property.VISIBLE else Property.NONE
     style.layers.filterIsInstance<FillExtrusionLayer>().forEach { layer ->
         layer.setProperties(PropertyFactory.visibility(visibility))
+    }
+    style.getLayer(FLAT_BUILDING_LAYER)?.let { flat ->
+        flat.maxZoom = if (threeDimensional) {
+            flatBuildingOriginalMaxZoom ?: flat.maxZoom
+        } else {
+            EXTENDED_MAX_ZOOM
+        }
     }
     val libreMap = map ?: return
     libreMap.uiSettings.isTiltGesturesEnabled = threeDimensional

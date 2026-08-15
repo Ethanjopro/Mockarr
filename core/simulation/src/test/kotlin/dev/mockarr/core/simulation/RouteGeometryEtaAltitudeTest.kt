@@ -53,4 +53,41 @@ class RouteGeometryEtaAltitudeTest {
         val geometry = RouteGeometry(straightRoute(listOf(1.0, 2.0)), decelerationMps2 = 3.0)
         assertNull(geometry.altitudeAt(100.0))
     }
+
+    @Test
+    fun `duration scale stretches durations and slows speeds`() {
+        val base = RouteGeometry(straightRoute(), decelerationMps2 = 3.0)
+        val congested = RouteGeometry(straightRoute(), decelerationMps2 = 3.0, durationScale = 1.5)
+        assertEquals(base.totalDurationSeconds * 1.5, congested.totalDurationSeconds, 1.0)
+        assertEquals(
+            base.segmentSpeeds[0] / 1.5,
+            congested.segmentSpeeds[0],
+            0.01,
+        )
+        assertEquals(
+            base.remainingDurationSeconds(500.0) * 1.5,
+            congested.remainingDurationSeconds(500.0),
+            1.0,
+        )
+    }
+
+    @Test
+    fun `scaled speeds stay consistent with the minimum-speed clamp`() {
+        // Base speed 0.6 m/s scaled by 1.5 would be 0.4 -> clamps to 0.5;
+        // durations must follow the clamped speed, not the raw scale.
+        val slowRoute = straightRoute().let { route ->
+            route.copy(
+                legs = listOf(
+                    dev.mockarr.core.model.RouteLeg(
+                        segmentDistancesMeters = List(10) { 100.0 },
+                        segmentDurationsSeconds = List(10) { 100.0 / 0.6 },
+                    ),
+                ),
+                durationSeconds = 1000.0 / 0.6,
+            )
+        }
+        val geometry = RouteGeometry(slowRoute, decelerationMps2 = 3.0, durationScale = 1.5)
+        assertEquals(0.5, geometry.segmentSpeeds[0], 0.001)
+        assertEquals(1000.0 / 0.5, geometry.totalDurationSeconds, 1.0)
+    }
 }

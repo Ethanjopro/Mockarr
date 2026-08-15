@@ -31,6 +31,7 @@ data class MockarrSettings(
     val lastCamera: MapCamera? = null,
     val stayAtDestination: Boolean = true,
     val map3dEnabled: Boolean = true,
+    val trafficSimEnabled: Boolean = true,
 ) {
     /** Walking/cycling need a full OSRM install; the public demo only serves driving. */
     val customServerConfigured: Boolean
@@ -94,6 +95,8 @@ class SettingsRepository(
 
     suspend fun setMap3dEnabled(value: Boolean) = edit { it[KEY_MAP_3D] = value }
 
+    suspend fun setTrafficSimEnabled(value: Boolean) = edit { it[KEY_TRAFFIC_SIM] = value }
+
     suspend fun setLastCamera(camera: MapCamera) = edit {
         it[KEY_CAMERA_LAT] = camera.target.latitude
         it[KEY_CAMERA_LNG] = camera.target.longitude
@@ -117,6 +120,7 @@ class SettingsRepository(
         lastCamera = toCamera(),
         stayAtDestination = this[KEY_STAY_AT_DESTINATION] ?: DEFAULTS.stayAtDestination,
         map3dEnabled = this[KEY_MAP_3D] ?: DEFAULTS.map3dEnabled,
+        trafficSimEnabled = this[KEY_TRAFFIC_SIM] ?: DEFAULTS.trafficSimEnabled,
     )
 
     private fun Preferences.toCamera(): MapCamera? {
@@ -137,6 +141,7 @@ class SettingsRepository(
         val KEY_UNITS = stringPreferencesKey("distance_units")
         val KEY_STAY_AT_DESTINATION = booleanPreferencesKey("stay_at_destination")
         val KEY_MAP_3D = booleanPreferencesKey("map_3d_enabled")
+        val KEY_TRAFFIC_SIM = booleanPreferencesKey("traffic_sim_enabled")
         val KEY_CAMERA_LAT = doublePreferencesKey("camera_lat")
         val KEY_CAMERA_LNG = doublePreferencesKey("camera_lng")
         val KEY_CAMERA_ZOOM = doublePreferencesKey("camera_zoom")

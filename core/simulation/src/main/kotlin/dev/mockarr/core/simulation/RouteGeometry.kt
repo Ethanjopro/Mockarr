@@ -18,6 +18,7 @@ import kotlin.math.sqrt
 class RouteGeometry(
     route: Route,
     decelerationMps2: Double,
+    durationScale: Double = 1.0,
 ) {
     private val points: List<LatLng> = route.points
 
@@ -53,7 +54,8 @@ class RouteGeometry(
         }
         totalDistanceMeters = cumulative[n - 1]
 
-        segmentSpeeds = computeSegmentSpeeds(route, n)
+        segmentSpeeds =
+            computeSegmentSpeeds(route, n, durationScale.coerceAtLeast(MIN_DURATION_SCALE))
 
         cumulativeDurations = DoubleArray(n)
         for (i in 0 until n - 1) {
@@ -128,11 +130,13 @@ class RouteGeometry(
     fun distanceToVertex(distance: Double, vertexIndex: Int): Double =
         (cumulative[vertexIndex] - distance).coerceAtLeast(0.0)
 
-    private fun computeSegmentSpeeds(route: Route, n: Int): DoubleArray {
+    /** [durationScale] > 1 slows cruise speeds (simulated congestion), applied before the clamp. */
+    private fun computeSegmentSpeeds(route: Route, n: Int, durationScale: Double): DoubleArray {
         val flattenedDistances = route.legs.flatMap { it.segmentDistancesMeters }
         val flattenedDurations = route.legs.flatMap { it.segmentDurationsSeconds }
         val uniformSpeed = if (route.durationSeconds > 0) {
-            (route.distanceMeters / route.durationSeconds).coerceIn(MIN_SPEED, MAX_SPEED)
+            (route.distanceMeters / (route.durationSeconds * durationScale))
+                .coerceIn(MIN_SPEED, MAX_SPEED)
         } else {
             DEFAULT_SPEED
         }
@@ -142,7 +146,11 @@ class RouteGeometry(
             for (i in speeds.indices) {
                 val d = flattenedDistances[i]
                 val t = flattenedDurations[i]
-                previous = if (t > 0 && d > 0) (d / t).coerceIn(MIN_SPEED, MAX_SPEED) else previous
+                previous = if (t > 0 && d > 0) {
+                    (d / (t * durationScale)).coerceIn(MIN_SPEED, MAX_SPEED)
+                } else {
+                    previous
+                }
                 speeds[i] = previous
             }
         }
@@ -158,6 +166,7 @@ class RouteGeometry(
     }
 
     companion object {
+        internal const val MIN_DURATION_SCALE = 0.1
         internal const val MIN_SPEED = 0.5
         internal const val MAX_SPEED = 42.0
         internal const val DEFAULT_SPEED = 10.0

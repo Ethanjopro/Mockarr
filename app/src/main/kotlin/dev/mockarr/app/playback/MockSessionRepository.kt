@@ -20,7 +20,12 @@ sealed interface MockSessionState {
     data object Playing : MockSessionState
 
     /** The location is pinned to one spot until released or replaced. */
-    data class Holding(val position: LatLng, val source: HoldSource) : MockSessionState
+    data class Holding(
+        val position: LatLng,
+        val source: HoldSource,
+        /** Reverse-geocoded short name of the spot; null until (or unless) resolved. */
+        val placeName: String? = null,
+    ) : MockSessionState
 }
 
 enum class HoldSource { PIN, DESTINATION }
@@ -93,6 +98,14 @@ class MockSessionRepository @Inject constructor() {
 
     internal fun holdStarted(position: LatLng, source: HoldSource) {
         _session.value = MockSessionState.Holding(position, source)
+    }
+
+    /** Attach a resolved place name — only if we're still holding that same spot. */
+    internal fun holdNameResolved(position: LatLng, name: String) {
+        val current = _session.value
+        if (current is MockSessionState.Holding && current.position == position) {
+            _session.value = current.copy(placeName = name)
+        }
     }
 
     /** The playback engine is done; the session may continue as a hold. */

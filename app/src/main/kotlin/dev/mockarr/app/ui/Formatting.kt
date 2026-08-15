@@ -40,13 +40,21 @@ fun formatDistanceProgress(doneMeters: Double, totalMeters: Double, units: Dista
         units.abbreviation(),
     )
 
-fun routeSummaryText(distanceMeters: Double, durationSeconds: Double, units: DistanceUnits): String {
-    val minutes = (durationSeconds / 60.0).roundToInt().coerceAtLeast(1)
-    return "${formatDistance(distanceMeters, units)} · about $minutes min"
+fun routeSummaryText(
+    distanceMeters: Double,
+    durationSeconds: Double,
+    units: DistanceUnits,
+    trafficFactor: Double = 1.0,
+): String {
+    val minutes = (durationSeconds * trafficFactor / 60.0).roundToInt().coerceAtLeast(1)
+    val suffix = if (trafficFactor >= TRAFFIC_SUFFIX_THRESHOLD) " (traffic)" else ""
+    return "${formatDistance(distanceMeters, units)} · about $minutes min$suffix"
 }
 
-fun Route.summaryText(units: DistanceUnits): String =
-    routeSummaryText(distanceMeters, durationSeconds, units)
+fun Route.summaryText(units: DistanceUnits, trafficFactor: Double = 1.0): String =
+    routeSummaryText(distanceMeters, durationSeconds, units, trafficFactor)
+
+private const val TRAFFIC_SUFFIX_THRESHOLD = 1.05
 
 private const val SECONDS_PER_MINUTE = 60
 private const val SECONDS_PER_HOUR = 3600

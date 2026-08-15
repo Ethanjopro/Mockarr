@@ -6,6 +6,8 @@ import android.content.pm.PackageManager
 import android.os.Build
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -21,6 +23,8 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
@@ -43,15 +47,19 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.LifecycleResumeEffect
@@ -59,6 +67,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dev.mockarr.app.R
 import dev.mockarr.app.playback.HoldSource
 import dev.mockarr.app.playback.MockSessionState
+import dev.mockarr.app.ui.formatDistance
 import dev.mockarr.app.ui.formatDistanceProgress
 import dev.mockarr.app.ui.formatRouteTimestamp
 import dev.mockarr.app.ui.formatTimeRemaining
@@ -221,6 +230,7 @@ fun MapScreen(
             if (!playing) {
                 MapSearchBar(
                     state = searchState,
+                    units = units,
                     onQueryChange = viewModel::setSearchQuery,
                     onSearch = viewModel::submitSearch,
                     onResultSelected = {
@@ -304,10 +314,11 @@ fun MapScreen(
             if (holding != null) {
                 val coords = "%.4f, %.4f".format(holding.position.latitude, holding.position.longitude)
                 StatusCard(
-                    text = when (holding.source) {
-                        HoldSource.DESTINATION -> "Holding at destination"
-                        HoldSource.PIN -> "Holding your location at $coords"
-                    },
+                    text = holding.placeName?.let { "Holding at $it" }
+                        ?: when (holding.source) {
+                            HoldSource.DESTINATION -> "Holding at destination"
+                            HoldSource.PIN -> "Holding your location at $coords"
+                        },
                     actionLabel = "Stop",
                     onAction = sessionViewModel::release,
                 )
@@ -349,14 +360,13 @@ fun MapScreen(
                     modifier = Modifier.fillMaxWidth(),
                 )
             } else {
-                ControlCard(
+                RouteCreatorCard(
                     state = state,
                     units = units,
                     customServerConfigured = customServerConfigured,
                     onProfileSelected = viewModel::setProfile,
                     onUndo = viewModel::undoWaypoint,
                     onClear = viewModel::clearWaypoints,
-                    onOpenSetup = onOpenSetup,
                     onPlay = { state.route?.let(::requestPlay) },
                     onSave = {
                         viewModel.requestNameSuggestion()
@@ -374,6 +384,8 @@ private val SPEED_MULTIPLIER_RANGE =
 
 private const val WAYPOINT_HINT = "Tap the map to add stops (2 or more make a route). " +
     "Long-press to hold your location at one spot."
+
+private const val HALF_TURN = 180f
 
 private fun Context.hasPermission(permission: String): Boolean =
     ContextCompat.checkSelfPermission(this, permission) == PackageManager.PERMISSION_GRANTED
@@ -494,64 +506,90 @@ private fun PlaybackCard(
     }
 }
 
+/**
+ * Compact route bar: summary + Play + a chevron. Expanding reveals the
+ * profile chips and route actions — the expanded column is where future
+ * per-route options land without crowding the collapsed bar.
+ */
 @Composable
-private fun ControlCard(
+private fun RouteCreatorCard(
     state: MapViewModel.UiState,
     units: DistanceUnits,
     customServerConfigured: Boolean,
     onProfileSelected: (RoutingProfile) -> Unit,
     onUndo: () -> Unit,
     onClear: () -> Unit,
-    onOpenSetup: () -> Unit,
     onPlay: () -> Unit,
     onSave: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    var expanded by rememberSaveable { mutableStateOf(false) }
+    var lastCount by remember { mutableIntStateOf(state.waypoints.size) }
+    // Auto-expand when route building starts; collapse again on Clear.
+    LaunchedEffect(state.waypoints.size) {
+        val count = state.waypoints.size
+        if (lastCount == 0 && count > 0) expanded = true
+        if (count == 0) expanded = false
+        lastCount = count
+    }
+
     Card(modifier = modifier) {
-        Column(modifier = Modifier.padding(16.dp)) {
-            // The public routing server only supports driving; the profile
-            // picker appears once a custom server is configured.
-            if (customServerConfigured) {
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    RoutingProfile.entries.forEach { profile ->
-                        FilterChip(
-                            selected = state.profile == profile,
-                            onClick = { onProfileSelected(profile) },
-                            label = { Text(profile.label()) },
-                        )
-                    }
-                }
-                Spacer(Modifier.height(8.dp))
-            }
+        Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 if (state.isRouting) {
                     CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
                     Spacer(Modifier.width(8.dp))
-                    Text("Fetching route…", style = MaterialTheme.typography.bodyMedium)
-                } else {
-                    Text(
-                        text = state.route?.summaryText(units) ?: WAYPOINT_HINT,
-                        style = MaterialTheme.typography.bodyMedium,
+                }
+                Text(
+                    text = when {
+                        state.isRouting -> "Fetching route…"
+                        else -> state.route?.summaryText(units, state.trafficFactor) ?: WAYPOINT_HINT
+                    },
+                    style = MaterialTheme.typography.bodyMedium,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f),
+                )
+                Spacer(Modifier.width(8.dp))
+                Button(onClick = onPlay, enabled = state.route != null) {
+                    Icon(Icons.Filled.PlayArrow, contentDescription = "Play")
+                }
+                val rotation by animateFloatAsState(if (expanded) HALF_TURN else 0f, label = "chevron")
+                IconButton(onClick = { expanded = !expanded }) {
+                    Icon(
+                        imageVector = Icons.Filled.KeyboardArrowDown,
+                        contentDescription = if (expanded) "Hide route options" else "Show route options",
+                        modifier = Modifier.rotate(rotation),
                     )
                 }
             }
-            Spacer(Modifier.height(8.dp))
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Button(onClick = onPlay, enabled = state.route != null) {
-                    Text("Play")
-                }
-                TextButton(onClick = onSave, enabled = state.route != null && !state.routeIsFallback) {
-                    Text("Save")
-                }
-                TextButton(onClick = onUndo, enabled = state.waypoints.isNotEmpty()) {
-                    Text("Undo")
-                }
-                TextButton(onClick = onClear, enabled = state.waypoints.isNotEmpty()) {
-                    Text("Clear")
-                }
-                Spacer(Modifier.weight(1f))
-                TextButton(onClick = onOpenSetup) {
-                    Text("Setup", maxLines = 1)
+            AnimatedVisibility(visible = expanded) {
+                Column {
+                    // The public routing server only supports driving; the profile
+                    // picker appears once a custom server is configured.
+                    if (customServerConfigured) {
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            RoutingProfile.entries.forEach { profile ->
+                                FilterChip(
+                                    selected = state.profile == profile,
+                                    onClick = { onProfileSelected(profile) },
+                                    label = { Text(profile.label()) },
+                                )
+                            }
+                        }
+                    }
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        TextButton(
+                            onClick = onSave,
+                            enabled = state.route != null && !state.routeIsFallback,
+                        ) { Text("Save") }
+                        TextButton(onClick = onUndo, enabled = state.waypoints.isNotEmpty()) {
+                            Text("Undo")
+                        }
+                        TextButton(onClick = onClear, enabled = state.waypoints.isNotEmpty()) {
+                            Text("Clear")
+                        }
+                    }
                 }
             }
         }
@@ -561,6 +599,7 @@ private fun ControlCard(
 @Composable
 private fun MapSearchBar(
     state: MapViewModel.SearchState,
+    units: DistanceUnits,
     onQueryChange: (String) -> Unit,
     onSearch: () -> Unit,
     onResultSelected: (GeocodingResult) -> Unit,
@@ -600,17 +639,29 @@ private fun MapSearchBar(
                             modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
                         )
                     }
-                    state.results.forEachIndexed { index, result ->
+                    state.results.forEachIndexed { index, suggestion ->
                         if (index > 0) HorizontalDivider()
-                        Text(
-                            text = result.name,
-                            style = MaterialTheme.typography.bodyMedium,
-                            maxLines = 2,
+                        Row(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .clickable { onResultSelected(result) }
+                                .clickable { onResultSelected(suggestion.result) }
                                 .padding(horizontal = 16.dp, vertical = 12.dp),
-                        )
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Text(
+                                text = suggestion.result.name,
+                                style = MaterialTheme.typography.bodyMedium,
+                                maxLines = 2,
+                                modifier = Modifier.weight(1f),
+                            )
+                            suggestion.distanceMeters?.let { meters ->
+                                Spacer(Modifier.width(8.dp))
+                                Text(
+                                    text = formatDistance(meters, units),
+                                    style = MaterialTheme.typography.bodySmall,
+                                )
+                            }
+                        }
                     }
                     Row(modifier = Modifier.align(Alignment.End)) {
                         TextButton(onClick = onDismiss) { Text("Close") }

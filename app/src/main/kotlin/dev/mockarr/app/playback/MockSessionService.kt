@@ -27,9 +27,11 @@ import dev.mockarr.core.model.SimulatedFix
 import dev.mockarr.core.model.progressOrZero
 import dev.mockarr.core.model.remainingSecondsOrNull
 import dev.mockarr.core.routing.OpenMeteoElevationClient
+import dev.mockarr.core.routing.PhotonGeocoder
 import dev.mockarr.core.simulation.SimClock
 import dev.mockarr.core.simulation.SimulationEngine
 import dev.mockarr.core.simulation.SimulationParams
+import dev.mockarr.core.simulation.TrafficModel
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -38,6 +40,7 @@ import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import java.time.LocalDateTime
 import javax.inject.Inject
 import kotlin.random.Random
 
@@ -61,6 +64,9 @@ class MockSessionService : Service() {
 
     @Inject
     lateinit var elevationClient: OpenMeteoElevationClient
+
+    @Inject
+    lateinit var geocoder: PhotonGeocoder
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     private var sessionJob: Job? = null
@@ -174,10 +180,18 @@ class MockSessionService : Service() {
         acquireWakeLock()
         routeDistanceMeters = route.distanceMeters
         val settings = settingsRepository.settings.value
+        // Congestion factor is captured once at playback start, never mid-route.
+        val trafficFactor = if (settings.trafficSimEnabled) {
+            val now = LocalDateTime.now()
+            TrafficModel.congestionFactor(now.dayOfWeek, now.hour, now.minute)
+        } else {
+            1.0
+        }
         val engine = SimulationEngine(
             route = route,
             params = SimulationParams(
                 tickHz = settings.tickHz,
+                durationScale = trafficFactor,
                 jitterEnabled = settings.jitterEnabled,
                 jitterSigmaMeters = settings.jitterSigmaMeters,
             ),
@@ -231,6 +245,14 @@ class MockSessionService : Service() {
             launch {
                 elevationClient.elevations(listOf(position)).getOrNull()?.firstOrNull()?.let {
                     fix = fix.copy(altitudeMeters = it)
+                }
+            }
+            // Name the spot for the banner/notification (silent fallback to coords).
+            launch {
+                geocoder.reverse(position).getOrNull()?.name?.let { name ->
+                    repository.holdNameResolved(position, name)
+                    getSystemService(NotificationManager::class.java)
+                        .notify(NOTIFICATION_ID, buildNotification())
                 }
             }
             while (isActive) {
@@ -308,10 +330,11 @@ class MockSessionService : Service() {
 
     private fun holdingNotification(holding: MockSessionState.Holding): Notification {
         val coords = "%.4f, %.4f".format(holding.position.latitude, holding.position.longitude)
-        val text = when (holding.source) {
-            HoldSource.DESTINATION -> "Holding at destination"
-            HoldSource.PIN -> "Holding at $coords"
-        }
+        val text = holding.placeName?.let { "Holding at $it" }
+            ?: when (holding.source) {
+                HoldSource.DESTINATION -> "Holding at destination"
+                HoldSource.PIN -> "Holding at $coords"
+            }
         return NotificationCompat.Builder(this, CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_stat_pin)
             .setContentTitle("Mockarr — holding location")

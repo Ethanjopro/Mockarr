@@ -144,7 +144,11 @@ fun MockarrApp(setupViewModel: SetupViewModel = hiltViewModel()) {
                     }
                 }
                 composable<SettingsDestination> {
-                    OpaqueScreen { SettingsScreen() }
+                    OpaqueScreen {
+                        SettingsScreen(
+                            onOpenSetup = { navController.navigate(SetupDestination) },
+                        )
+                    }
                 }
                 composable<SetupDestination> {
                     OpaqueScreen { SetupScreen(onBack = { navController.popBackStack() }) }

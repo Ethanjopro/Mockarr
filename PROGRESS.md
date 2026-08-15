@@ -164,6 +164,18 @@ Verified end-to-end like a human: app-drawer swipe → tapped the Mockarr icon �
 - detekt: `LongParameterList.ignoreAnnotated` +HiltViewModel/Inject (DI constructors list one dep per param); `TooManyFunctions.thresholdInClasses` 20→26.
 - **Correction to the session-5 note**: the "stale Dallas camera" was almost certainly the user's own between-session emulator testing (camera restored to Carrollton, TX again this session) — camera persistence was working as designed, not a bug.
 
+### 2026-08-15 — Session 7 (user testing feedback round 4)
+
+- **Traffic question answered + heuristic shipped**: no free/open router has real traffic (OSRM = static OSM speeds; Google/TomTom/HERE traffic is paid; OSRM's traffic mode needs your own feeds). Approved substitute: `core/simulation/TrafficModel.kt` — deterministic rush-hour curve (weekday 1.50 peaks @ 08/17h, shoulders 1.15–1.25, nights 1.0, weekends flat 1.10; per-minute lerp, continuous across midnight/week boundaries). Applied as `SimulationParams.durationScale` → `RouteGeometry` divides segment speeds pre-clamp, so playback speed, total duration, and ETA all shift together; captured ONCE at Play in the service; never persisted (saved routes keep raw durations). Summary shows "about N min (traffic)" when factor ≥ 1.05. Setting "Rush-hour traffic" default ON. Full test suite (`TrafficModelTest` + geometry/engine scale tests incl. multiplier independence).
+- **Hold banner shows place names**: `Holding.placeName` resolved via Photon reverse in the service on every enterHold (pin AND destination holds; identity-guarded). Verified: "Holding at El Verano Avenue" (pin) and "Holding at Park Boulevard" (destination after route end); notification matches; coords only while unresolved.
+- **Routes start at the held position**: MapViewModel (now injecting MockSessionRepository) seeds the first waypoint from an active hold — one tap = hold→tap route, playback continues seamlessly (marker 1 at the pin, verified).
+- **Expandable route-creator card**: compact bar (ellipsized summary · Play icon button · rotating chevron) that auto-expands when the first waypoint lands and collapses on Clear; expanded column = profile chips + Save/Undo/Clear + slot for future per-route toggles. Setup button removed from the card.
+- **Search localization v2**: bias = mocked position (hold/playing fix) → real last-known → camera; each suggestion row shows its distance from that anchor in the user's units. Verified while holding in Palo Alto: Grocery Outlet Palo Alto 0.1 mi first, then Sunnyvale 6.5, Redwood City 7.2, ordered by distance.
+- **Setup moved to Settings**: "Mock location setup ›" row at the top of Settings (map's not-ready banner keeps its Fix action).
+- **2D keeps building outlines**: the liberty style's flat `building` FillLayer (maxzoom 14) gets its maxZoom raised to 24 in 2D while extrusions hide; original restored in 3D. Verified footprints+outlines at z15.
+- **Settings de-worded**: helper paragraphs removed; every setting label opens its description via **long-press** (M3 TooltipBox/PlainTooltip — verified rendering); About notes the gesture.
+- Ops: macOS TCC revoked Documents access mid-session (background `claude bg-pty-host` is launchd-parented — iTerm's Full Disk Access doesn't cover it; fixed by granting FDA to `/opt/homebrew/bin/claude` + restarting the bg processes AND `./gradlew --stop` since old Gradle daemons kept the stale denial).
+
 ## PLAN COMPLETE — remaining items are the user's
 
 1. **License decision** (GPL-3.0 vs Apache-2.0 vs other) — swap LICENSE, update README/CONTRIBUTING, then the repo can go public.

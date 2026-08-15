@@ -52,6 +52,40 @@ class SimulationEngineEtaTest {
     }
 
     @Test
+    fun `traffic scale stretches playback and composes with the speed multiplier`() = runTest {
+        val baselineSeconds = timeToFinish(SimulationParams(jitterEnabled = false))
+        val congested = timeToFinish(SimulationParams(jitterEnabled = false, durationScale = 1.5))
+        assertTrue(
+            congested in (baselineSeconds * 1.3)..(baselineSeconds * 1.7),
+            "expected ~1.5x of $baselineSeconds, got $congested",
+        )
+
+        val congestedFast = timeToFinish(
+            SimulationParams(jitterEnabled = false, durationScale = 1.5),
+            speedMultiplier = 2.0,
+        )
+        assertTrue(
+            congestedFast < congested / 1.5,
+            "multiplier should shorten the congested run: $congestedFast vs $congested",
+        )
+    }
+
+    private suspend fun TestScope.timeToFinish(
+        params: SimulationParams,
+        speedMultiplier: Double = 1.0,
+    ): Double {
+        val engine = SimulationEngine(
+            straightRoute(1000.0),
+            params,
+            testClock(),
+            initialSpeedMultiplier = speedMultiplier,
+        )
+        val startMs = testScheduler.currentTime
+        engine.fixes.collect { }
+        return (testScheduler.currentTime - startMs) / 1000.0
+    }
+
+    @Test
     fun `paused state carries the frozen remaining time`() = runTest {
         val route = straightRoute(2000.0)
         val engine = SimulationEngine(route, noJitter, testClock())
