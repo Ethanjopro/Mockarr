@@ -7,6 +7,7 @@ import kotlin.math.abs
 import kotlin.math.max
 import kotlin.math.min
 import kotlin.math.sqrt
+import kotlin.random.Random
 
 /**
  * Precomputed playback geometry for a [Route]: cumulative distances, per-segment
@@ -19,6 +20,8 @@ class RouteGeometry(
     route: Route,
     decelerationMps2: Double,
     durationScale: Double = 1.0,
+    speedVariance: Double = 0.0,
+    random: Random? = null,
 ) {
     private val points: List<LatLng> = route.points
 
@@ -56,6 +59,15 @@ class RouteGeometry(
 
         segmentSpeeds =
             computeSegmentSpeeds(route, n, durationScale.coerceAtLeast(MIN_DURATION_SCALE))
+        // Drivers don't hold the profile speed exactly — spread each segment a
+        // little (seeded, so tests stay deterministic). Runs before the duration
+        // sums below so ETAs match the actual motion.
+        if (speedVariance > 0.0 && random != null) {
+            for (i in segmentSpeeds.indices) {
+                val spread = 1 + speedVariance * (random.nextDouble() * 2 - 1)
+                segmentSpeeds[i] = (segmentSpeeds[i] * spread).coerceIn(MIN_SPEED, MAX_SPEED)
+            }
+        }
 
         cumulativeDurations = DoubleArray(n)
         for (i in 0 until n - 1) {

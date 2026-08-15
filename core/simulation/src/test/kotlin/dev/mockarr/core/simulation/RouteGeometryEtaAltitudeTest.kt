@@ -4,9 +4,12 @@ import dev.mockarr.core.model.GeoMath
 import dev.mockarr.core.model.LatLng
 import dev.mockarr.core.model.Route
 import dev.mockarr.core.model.RouteLeg
+import kotlin.random.Random
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertNull
+import kotlin.test.assertTrue
 
 class RouteGeometryEtaAltitudeTest {
 
@@ -69,6 +72,28 @@ class RouteGeometryEtaAltitudeTest {
             congested.remainingDurationSeconds(500.0),
             1.0,
         )
+    }
+
+    @Test
+    fun `speed variance spreads segments within bounds and keeps durations consistent`() {
+        val base = RouteGeometry(straightRoute(), decelerationMps2 = 3.0)
+        val varied = RouteGeometry(
+            straightRoute(),
+            decelerationMps2 = 3.0,
+            speedVariance = 0.08,
+            random = Random(7),
+        )
+        var identical = true
+        for (i in varied.segmentSpeeds.indices) {
+            val ratio = varied.segmentSpeeds[i] / base.segmentSpeeds[i]
+            assertTrue(ratio in 0.92..1.08, "segment $i ratio $ratio")
+            if (ratio != 1.0) identical = false
+        }
+        assertFalse(identical, "variance should change at least one segment")
+        // ETA totals must derive from the varied speeds, not the originals.
+        var expected = 0.0
+        for (i in varied.segmentSpeeds.indices) expected += 100.0 / varied.segmentSpeeds[i]
+        assertEquals(expected, varied.totalDurationSeconds, 1.0)
     }
 
     @Test

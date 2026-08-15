@@ -86,12 +86,14 @@ fun MockarrApp(setupViewModel: SetupViewModel = hiltViewModel()) {
     val mapViewModel: MapViewModel = hiltViewModel()
     val sessionViewModel: MockSessionViewModel = hiltViewModel()
 
-    // First-run guidance: if mocking can't work yet, open the checklist once.
+    // First-run onboarding: the very first launch opens the setup checklist;
+    // afterwards the map's not-ready banner (and Settings) are the way in.
     var checkedOnLaunch by rememberSaveable { mutableStateOf(false) }
     LaunchedEffect(Unit) {
         if (!checkedOnLaunch) {
             checkedOnLaunch = true
-            if (!setupViewModel.isReadyToMock()) {
+            if (setupViewModel.isFirstRun()) {
+                setupViewModel.markSetupSeen()
                 navController.navigate(SetupDestination)
             }
         }

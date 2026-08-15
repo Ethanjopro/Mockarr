@@ -176,6 +176,16 @@ Verified end-to-end like a human: app-drawer swipe → tapped the Mockarr icon �
 - **Settings de-worded**: helper paragraphs removed; every setting label opens its description via **long-press** (M3 TooltipBox/PlainTooltip — verified rendering); About notes the gesture.
 - Ops: macOS TCC revoked Documents access mid-session (background `claude bg-pty-host` is launchd-parented — iTerm's Full Disk Access doesn't cover it; fixed by granting FDA to `/opt/homebrew/bin/claude` + restarting the bg processes AND `./gradlew --stop` since old Gradle daemons kept the stale denial).
 
+### 2026-08-15 — Session 8 (user testing feedback round 5)
+
+- **Route-from-hold is now a Play-time choice**: automatic seeding reverted; pressing Play while holding (and the route doesn't already start within 30 m of the pin) shows "Start from held location?" — "From held spot" prepends the hold as origin, refetches, and auto-plays when the new route lands ("playWhenRouteReady" effect); "As built" plays unchanged; no dialog when nothing is held. Verified both paths (1.8 mi route grew to 2.7 mi starting at the pin).
+- **Creator-card hint no longer truncates** (maxLines 4 when no route; summaries stay at 2).
+- **Settings sliders sit under their options**: Stay at destination → Rush-hour traffic → Updates/sec (label+slider) → GPS wobble (switch) → Wobble amount (label+slider).
+- **Setup is first-run onboarding**: `setupSeen` flag — the checklist opens exactly once on the very first launch (verified with pm clear; second launch goes straight to the map); the Settings entry is now a FilledTonalButton.
+- **Slider ranges**: wobble minimum 0.5 → 0.0 m; updates-per-second slider is log-scaled (1 Hz now sits at ~30% of the track — most travel covers the realistic low end).
+- **Search selection zooms to 16** (was 14) — verified landing on the Tour Eiffel footprint.
+- **Speed-limit question answered + driver variance shipped**: OSRM's per-segment durations already encode OSM `maxspeed` + road-class defaults, so free explicit-limit fetching (Overpass) would double-count while adding map-matching, unit-parsing, and coverage problems — not worth it. Instead `SimulationParams.speedVarianceFraction` (service passes 0.08, default 0 keeps tests bit-identical) spreads each segment's cruise speed ±8% via the engine's seeded Random inside `RouteGeometry` BEFORE duration sums, so ETAs stay consistent; composes with traffic factor and speed multiplier. Verified live (vel 6.83/6.38/6.18/6.55/5.93 across segments) + unit tests.
+
 ## PLAN COMPLETE — remaining items are the user's
 
 1. **License decision** (GPL-3.0 vs Apache-2.0 vs other) — swap LICENSE, update README/CONTRIBUTING, then the repo can go public.

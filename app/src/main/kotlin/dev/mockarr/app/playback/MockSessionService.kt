@@ -192,6 +192,7 @@ class MockSessionService : Service() {
             params = SimulationParams(
                 tickHz = settings.tickHz,
                 durationScale = trafficFactor,
+                speedVarianceFraction = SPEED_VARIANCE_FRACTION,
                 jitterEnabled = settings.jitterEnabled,
                 jitterSigmaMeters = settings.jitterSigmaMeters,
             ),
@@ -400,6 +401,7 @@ class MockSessionService : Service() {
         private const val PROGRESS_MAX = 100
         private const val HOLD_TICK_MILLIS = 1_000L
         private const val SECONDS_PER_MINUTE = 60.0
+        private const val SPEED_VARIANCE_FRACTION = 0.08
         private const val HOLD_ACCURACY_METERS = 5.0
         private const val HOLD_ALTITUDE_METERS = 35.0
         private const val WAKE_LOCK_TAG = "mockarr:playback"

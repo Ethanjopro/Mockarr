@@ -187,15 +187,13 @@ class MapViewModel @Inject constructor(
     }
 
     fun addWaypoint(point: LatLng) {
-        _uiState.update {
-            // While holding a position, routes start from where you're "standing" —
-            // the first tap makes hold -> tap a route (no teleport at Play).
-            val holdPosition = (sessionRepository.session.value as? MockSessionState.Holding)
-                ?.position
-                ?.takeIf { _ -> it.waypoints.isEmpty() }
-            val seeded = if (holdPosition != null) listOf(holdPosition, point) else it.waypoints + point
-            it.copy(waypoints = seeded)
-        }
+        _uiState.update { it.copy(waypoints = it.waypoints + point) }
+        scheduleRouteFetch()
+    }
+
+    /** Insert a new route origin (e.g. the held position, chosen at Play time). */
+    fun prependWaypoint(point: LatLng) {
+        _uiState.update { it.copy(waypoints = listOf(point) + it.waypoints) }
         scheduleRouteFetch()
     }
 
@@ -473,21 +471,21 @@ class MapViewModel @Inject constructor(
         }
     }
 
-    private fun friendlyMessage(error: Throwable): String {
-        val base = when (error) {
-            is RoutingException -> error.message ?: "Routing failed"
-            else -> "Routing failed: ${error.message ?: "unknown error"}"
-        }
-        return "$base — showing straight line instead"
-    }
-
     private companion object {
         const val DEBOUNCE_MILLIS = 500L
         const val CAMERA_SAVE_DEBOUNCE_MILLIS = 1_000L
         const val SEARCH_DEBOUNCE_MILLIS = 300L
         const val MIN_QUERY_LENGTH = 3
-        const val SEARCH_ZOOM = 14.0
+        const val SEARCH_ZOOM = 16.0
         const val LOCATE_ZOOM = 15.0
         const val LOCATE_TIMEOUT_MILLIS = 5_000L
     }
+}
+
+private fun friendlyMessage(error: Throwable): String {
+    val base = when (error) {
+        is RoutingException -> error.message ?: "Routing failed"
+        else -> "Routing failed: ${error.message ?: "unknown error"}"
+    }
+    return "$base — showing straight line instead"
 }

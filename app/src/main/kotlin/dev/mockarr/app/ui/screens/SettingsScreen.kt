@@ -1,6 +1,5 @@
 package dev.mockarr.app.ui.screens
 
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -14,6 +13,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -37,6 +37,8 @@ import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dev.mockarr.core.data.MockarrSettings
 import dev.mockarr.core.model.DistanceUnits
+import kotlin.math.exp
+import kotlin.math.ln
 
 @Composable
 fun SettingsScreen(
@@ -54,21 +56,15 @@ fun SettingsScreen(
         Text("Settings", style = MaterialTheme.typography.headlineMedium)
         Spacer(Modifier.height(16.dp))
 
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .clickable(onClick = onOpenSetup)
-                .padding(vertical = 12.dp),
-            verticalAlignment = Alignment.CenterVertically,
+        FilledTonalButton(
+            onClick = onOpenSetup,
+            modifier = Modifier.fillMaxWidth(),
         ) {
-            Text(
-                text = "Mock location setup",
-                style = MaterialTheme.typography.titleLarge,
-                modifier = Modifier.weight(1f),
-            )
+            Text("Mock location setup", style = MaterialTheme.typography.bodyLarge)
+            Spacer(Modifier.weight(1f))
             Icon(
                 imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
-                contentDescription = "Open setup checklist",
+                contentDescription = null,
             )
         }
         SectionBreak()
@@ -106,6 +102,22 @@ fun SettingsScreen(
             checked = settings.trafficSimEnabled,
             onCheckedChange = viewModel::setTrafficSimEnabled,
         )
+        // Sliders hold drag state locally and persist once per gesture — a DataStore
+        // write per drag event would be a full file rewrite each time. The tick
+        // slider is log-scaled so most of its travel covers the low (realistic) end.
+        var tickHzDrag by remember(settings.tickHz) { mutableStateOf(settings.tickHz) }
+        SettingLabel(
+            text = "Updates per second: %.1f".format(tickHzDrag),
+            description = "How often Mockarr publishes a new position. " +
+                "Real phones report about once per second.",
+        )
+        Slider(
+            value = tickHzToSlider(tickHzDrag),
+            onValueChange = { tickHzDrag = sliderToTickHz(it) },
+            onValueChangeFinished = { viewModel.setTickHz(tickHzDrag) },
+            valueRange = 0f..1f,
+        )
+        Spacer(Modifier.height(8.dp))
         SwitchRow(
             label = "Realistic GPS wobble",
             description = "Adds tiny random offsets so positions look like real GPS " +
@@ -128,21 +140,6 @@ fun SettingsScreen(
                 valueRange = JITTER_SIGMA_RANGE,
             )
         }
-        // Sliders hold drag state locally and persist once per gesture — a DataStore
-        // write per drag event would be a full file rewrite each time.
-        var tickHzDrag by remember(settings.tickHz) { mutableStateOf(settings.tickHz.toFloat()) }
-        SettingLabel(
-            text = "Updates per second: %.1f".format(tickHzDrag),
-            description = "How often Mockarr publishes a new position. " +
-                "Real phones report about once per second.",
-        )
-        Slider(
-            value = tickHzDrag,
-            onValueChange = { tickHzDrag = it },
-            onValueChangeFinished = { viewModel.setTickHz(tickHzDrag.toDouble()) },
-            valueRange = TICK_HZ_RANGE,
-            steps = 8,
-        )
         SectionBreak()
 
         Text("About", style = MaterialTheme.typography.titleLarge)
@@ -201,7 +198,15 @@ private fun SectionBreak() {
     Spacer(Modifier.height(16.dp))
 }
 
-private val TICK_HZ_RANGE =
-    MockarrSettings.TICK_HZ_MIN.toFloat()..MockarrSettings.TICK_HZ_MAX.toFloat()
 private val JITTER_SIGMA_RANGE =
     MockarrSettings.JITTER_SIGMA_MIN.toFloat()..MockarrSettings.JITTER_SIGMA_MAX.toFloat()
+
+private val LN_TICK_MIN = ln(MockarrSettings.TICK_HZ_MIN)
+private val LN_TICK_MAX = ln(MockarrSettings.TICK_HZ_MAX)
+
+private fun tickHzToSlider(hz: Double): Float {
+    val clamped = hz.coerceIn(MockarrSettings.TICK_HZ_MIN, MockarrSettings.TICK_HZ_MAX)
+    return ((ln(clamped) - LN_TICK_MIN) / (LN_TICK_MAX - LN_TICK_MIN)).toFloat()
+}
+
+private fun sliderToTickHz(t: Float): Double = exp(LN_TICK_MIN + t * (LN_TICK_MAX - LN_TICK_MIN))

@@ -32,6 +32,7 @@ data class MockarrSettings(
     val stayAtDestination: Boolean = true,
     val map3dEnabled: Boolean = true,
     val trafficSimEnabled: Boolean = true,
+    val setupSeen: Boolean = false,
 ) {
     /** Walking/cycling need a full OSRM install; the public demo only serves driving. */
     val customServerConfigured: Boolean
@@ -42,7 +43,7 @@ data class MockarrSettings(
         const val DEFAULT_TILE_STYLE_URL = "https://tiles.openfreemap.org/styles/liberty"
         const val TICK_HZ_MIN = 0.5
         const val TICK_HZ_MAX = 5.0
-        const val JITTER_SIGMA_MIN = 0.5
+        const val JITTER_SIGMA_MIN = 0.0
         const val JITTER_SIGMA_MAX = 10.0
 
         /** Canonical form for user-entered base URLs. */
@@ -97,6 +98,8 @@ class SettingsRepository(
 
     suspend fun setTrafficSimEnabled(value: Boolean) = edit { it[KEY_TRAFFIC_SIM] = value }
 
+    suspend fun setSetupSeen(value: Boolean) = edit { it[KEY_SETUP_SEEN] = value }
+
     suspend fun setLastCamera(camera: MapCamera) = edit {
         it[KEY_CAMERA_LAT] = camera.target.latitude
         it[KEY_CAMERA_LNG] = camera.target.longitude
@@ -121,6 +124,7 @@ class SettingsRepository(
         stayAtDestination = this[KEY_STAY_AT_DESTINATION] ?: DEFAULTS.stayAtDestination,
         map3dEnabled = this[KEY_MAP_3D] ?: DEFAULTS.map3dEnabled,
         trafficSimEnabled = this[KEY_TRAFFIC_SIM] ?: DEFAULTS.trafficSimEnabled,
+        setupSeen = this[KEY_SETUP_SEEN] ?: DEFAULTS.setupSeen,
     )
 
     private fun Preferences.toCamera(): MapCamera? {
@@ -142,6 +146,7 @@ class SettingsRepository(
         val KEY_STAY_AT_DESTINATION = booleanPreferencesKey("stay_at_destination")
         val KEY_MAP_3D = booleanPreferencesKey("map_3d_enabled")
         val KEY_TRAFFIC_SIM = booleanPreferencesKey("traffic_sim_enabled")
+        val KEY_SETUP_SEEN = booleanPreferencesKey("setup_seen")
         val KEY_CAMERA_LAT = doublePreferencesKey("camera_lat")
         val KEY_CAMERA_LNG = doublePreferencesKey("camera_lng")
         val KEY_CAMERA_ZOOM = doublePreferencesKey("camera_zoom")

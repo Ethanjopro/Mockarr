@@ -75,6 +75,7 @@ import dev.mockarr.app.ui.label
 import dev.mockarr.app.ui.map.MockarrMap
 import dev.mockarr.app.ui.summaryText
 import dev.mockarr.core.model.DistanceUnits
+import dev.mockarr.core.model.GeoMath
 import dev.mockarr.core.model.LatLng
 import dev.mockarr.core.model.PlaybackState
 import dev.mockarr.core.model.Route
@@ -219,6 +220,60 @@ fun MapScreen(
     val playing = session is MockSessionState.Playing
     val holding = session as? MockSessionState.Holding
     var showSaveDialog by remember { mutableStateOf(false) }
+
+    // Play while holding: offer to route from the held spot first.
+    var startChoiceRoute by remember { mutableStateOf<Route?>(null) }
+    var playWhenRouteReady by remember { mutableStateOf(false) }
+
+    fun playOrAskStart(route: Route) {
+        val hold = holding
+        val startsAtHold = hold != null &&
+            GeoMath.distanceMeters(route.points.first(), hold.position) <= START_FROM_HOLD_METERS
+        if (hold != null && !startsAtHold) {
+            startChoiceRoute = route
+        } else {
+            requestPlay(route)
+        }
+    }
+
+    LaunchedEffect(state.route, state.isRouting) {
+        if (playWhenRouteReady && !state.isRouting) {
+            state.route?.let { route ->
+                playWhenRouteReady = false
+                requestPlay(route)
+            }
+        }
+    }
+
+    startChoiceRoute?.let { pendingRoute ->
+        AlertDialog(
+            onDismissRequest = { startChoiceRoute = null },
+            title = { Text("Start from held location?") },
+            text = {
+                Text(
+                    "You're holding your location elsewhere. Route from there first, " +
+                        "or play the route exactly as built?",
+                )
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        startChoiceRoute = null
+                        holding?.position?.let(viewModel::prependWaypoint)
+                        playWhenRouteReady = true
+                    },
+                ) { Text("From held spot") }
+            },
+            dismissButton = {
+                TextButton(
+                    onClick = {
+                        startChoiceRoute = null
+                        requestPlay(pendingRoute)
+                    },
+                ) { Text("As built") }
+            },
+        )
+    }
 
     Box(modifier = Modifier.fillMaxSize()) {
         Column(
@@ -367,7 +422,7 @@ fun MapScreen(
                     onProfileSelected = viewModel::setProfile,
                     onUndo = viewModel::undoWaypoint,
                     onClear = viewModel::clearWaypoints,
-                    onPlay = { state.route?.let(::requestPlay) },
+                    onPlay = { state.route?.let(::playOrAskStart) },
                     onSave = {
                         viewModel.requestNameSuggestion()
                         showSaveDialog = true
@@ -386,6 +441,8 @@ private const val WAYPOINT_HINT = "Tap the map to add stops (2 or more make a ro
     "Long-press to hold your location at one spot."
 
 private const val HALF_TURN = 180f
+private const val HINT_MAX_LINES = 4
+private const val START_FROM_HOLD_METERS = 30.0
 
 private fun Context.hasPermission(permission: String): Boolean =
     ContextCompat.checkSelfPermission(this, permission) == PackageManager.PERMISSION_GRANTED
@@ -546,7 +603,7 @@ private fun RouteCreatorCard(
                         else -> state.route?.summaryText(units, state.trafficFactor) ?: WAYPOINT_HINT
                     },
                     style = MaterialTheme.typography.bodyMedium,
-                    maxLines = 2,
+                    maxLines = if (state.route != null) 2 else HINT_MAX_LINES,
                     overflow = TextOverflow.Ellipsis,
                     modifier = Modifier.weight(1f),
                 )
