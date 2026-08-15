@@ -1,0 +1,4 @@
+#!/usr/bin/env bash
+# Gradle with the Android Studio JDK preconfigured — use this instead of raw ./gradlew.
+export JAVA_HOME="/Applications/Android Studio.app/Contents/jbr/Contents/Home"
+exec "$(cd "$(dirname "$0")/.." && pwd)/gradlew" "$@"

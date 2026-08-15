@@ -197,6 +197,19 @@ Verified end-to-end like a human: app-drawer swipe → tapped the Mockarr icon �
 - **Locate-button delay**: answered (cold `getCurrentLocation` fix takes seconds — expected) + mitigated: two-stage pan (instant last-known, refine only if the fresh fix is >50 m away).
 - Emulator ops: prefer `find`→awk x/y (zsh doesn't word-split `$P`); `find "Play"` matches hint TEXT containing "Play" — tap explicit coords for the button; dialogs render ~1 s after taps — screenshot before tapping dialog buttons.
 
+### 2026-08-15 — Session 10 (Claude Code tooling round: research + Tier 1/2 adoption)
+
+- **Research**: five agents studied wesammustafa/Claude-Code-Everything-You-Need-to-Know + ~40 linked resources, then a second pass gathered practitioner evidence (HN/blogs/GitHub; Reddit/X unreachable) and covered Impeccable + model strategy. Full record: `docs/claude-code-playbook.md`. User decisions: keep Fable 5 as the model; audio pings ON; Impeccable fold-in only; Tier 1+2 this round.
+- **Adopted** (all verified locally):
+  - `CLAUDE.md` — build/emulator/lint/process rules, zero-leak + no-anti-detection invariants.
+  - `.claude/settings.json` — allowlist (emu.sh, scripts/gradle, gh run, git read-ops, rg), deny (force-push, rm -rf), five hooks wired.
+  - `scripts/gradle` — JDK-pinned gradlew wrapper (verified: Gradle 9.5.1 on the Studio JBR).
+  - Skills: `emulator-verify` (full playbook + triaged report format + dark-theme/font-scale passes adapted from Impeccable's android.md), `kotlin-conventions` (paths-gated to `**/*.kt`), `claude-md-review` (audit skill, staleness checks retargeted at gradle/detekt configs).
+  - Hooks: `session_start.sh` (injects branch/CI/PROGRESS tail — verified output incl. live CI status), `format_kt.sh` (standalone ktlint 1.5.0 at `~/.local/bin/ktlint`, ~0.9 s, verified fixing a misformatted file), `turn_stamp.sh` + `speak_stop.sh` (speaks only after ≥45 s turns — both paths verified), `speak_notification.sh`.
+  - `.editorconfig` — pins `intellij_idea` style + disables `function-signature`/`condition-wrapping` + Composable naming exemption. Parity verified: standalone ktlint reports 0 violations on the detekt-clean tree (default `ktlint_official` style had reported 500+ — the pin is load-bearing). Full `scripts/gradle build` green after adding it.
+- **Deferred (Tier 3, next tooling round)**: docs-drift audit workflow (refute-by-default), build-fixer/emulator-verifier subagents, `/five`, `emu.sh waitfor/assert`, full Impeccable trial.
+- **Rejected with evidence** (see playbook): SuperClaude/BMAD (ceremony + measured context tax), Agent Teams (3–4× tokens solo), mobile-mcp (open Android bugs; raw adb is the proven path — emu.sh stays), Memory/Seq-Thinking/Playwright MCP, Serena (weak Kotlin LSP).
+
 ## PLAN COMPLETE — remaining items are the user's
 
 1. **License decision** (GPL-3.0 vs Apache-2.0 vs other) — swap LICENSE, update README/CONTRIBUTING, then the repo can go public.

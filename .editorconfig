@@ -1,0 +1,9 @@
+# Keeps the standalone ktlint binary (used by the Claude Code format-on-edit hook)
+# in parity with detekt-formatting 1.23.x, which follows the intellij_idea style.
+[*.{kt,kts}]
+ktlint_code_style = intellij_idea
+# Rules detekt-formatting does not enforce; disabled so the hook never fights the build.
+ktlint_standard_function-signature = disabled
+ktlint_standard_condition-wrapping = disabled
+# Composables are PascalCase by convention (detekt's FunctionNaming already exempts them).
+ktlint_function_naming_ignore_when_annotated_with = Composable, Preview
