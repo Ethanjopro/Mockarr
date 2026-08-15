@@ -7,9 +7,9 @@ OpenFreeMap, OSRM, Photon, Open-Meteo) — no API keys anywhere.
 ## Build & verify
 - Build/lint/test: `scripts/gradle build` (wraps `./gradlew` with the Android
   Studio JDK; never call `./gradlew` directly — the system JDK is wrong).
-- Emulator: drive it ONLY through `scripts/emu.sh` (boot/tap/tapon/type/shot/
-  find/install/mockallow). Never call bare `adb` — it is not on PATH in
-  non-login shells. Emulator verification details: the `emulator-verify` skill.
+- Emulator: drive it ONLY through `scripts/emu.sh` (boot/launch/tapon/type/
+  shot/waitfor/assert/…; run it bare for usage). Never call bare `adb` — it is
+  not on PATH in non-login shells. Details: the `emulator-verify` skill.
 - CI: `gh run watch` after every push; a round is done only when CI is green.
 
 ## Hard rules

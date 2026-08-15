@@ -210,6 +210,14 @@ Verified end-to-end like a human: app-drawer swipe → tapped the Mockarr icon �
 - **Deferred (Tier 3, next tooling round)**: docs-drift audit workflow (refute-by-default), build-fixer/emulator-verifier subagents, `/five`, `emu.sh waitfor/assert`, full Impeccable trial.
 - **Rejected with evidence** (see playbook): SuperClaude/BMAD (ceremony + measured context tax), Agent Teams (3–4× tokens solo), mobile-mcp (open Android bugs; raw adb is the proven path — emu.sh stays), Memory/Seq-Thinking/Playwright MCP, Serena (weak Kotlin LSP).
 
+### 2026-08-15 — Session 10 (continued): Tier 3 tooling trials
+
+- **emu.sh extensions** (all verified live incl. failure paths): `launch` (am start), `waitfor "text" [timeout]` (polls, echoes the matched attribute, `"a|b"` alternation), `assert`, `matchtext`, and real usage text. The match-echo + alternation came from the emulator-verifier trial's friction feedback — the feedback-capture loop working as designed.
+- **Subagents**: `.claude/agents/build-fixer.md` (distilled Gradle failures, never edits tests to pass) and `emulator-verifier.md` (PASS/FAIL + triaged findings + screenshots only). Verifier trialed live: 3-tab smoke pass PASSed with screenshot evidence; it independently spotted the dark-UI/light-map split.
+- **`/five`** command (`.claude/commands/five.md`) — root cause must name a file/line or config key.
+- **Docs-drift workflow** (`.claude/workflows/progress-audit.js`, invoke `/progress-audit`): scan→refute-by-default against the repo. First real run: 15 agents, 54 claims, exactly 1 stale claim (the playbook's own "deferred Tier 3" line — corrected), 0 false positives.
+- **Impeccable trial → KEEP**: installed via `npx impeccable install` (web-only `scripts/` gitignored, ~2.9M dead weight for native). Code audit scored the app **13/20** with findings our linters can't model — backlog for a future round: [P1] Settings tooltip descriptions unreachable by TalkBack + unmerged switch rows; [P1] dark theme pairs dark chrome with the always-light map style; [P2] `MapScreen.kt:184` collects `latestFix` at composition → whole overlay recomposes per tick (read `.value` in the locate onClick instead); [P2] ripple ignores Remove-animations; [P2] no window-size-class adaptivity; [P3] search rows ~44dp, locale-unsafe `%.4f` coords, thumbnail/route color mismatch under Material You. Rubric friction (expected): fights hard-coded MapLibre canvas hex and wants top app bars — overruled deliberately.
+
 ## PLAN COMPLETE — remaining items are the user's
 
 1. **License decision** (GPL-3.0 vs Apache-2.0 vs other) — swap LICENSE, update README/CONTRIBUTING, then the repo can go public.

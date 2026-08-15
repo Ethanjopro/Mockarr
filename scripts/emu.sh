@@ -28,15 +28,46 @@ case "${1:-help}" in
   drawer)    "$ADB" shell input swipe 540 2200 540 600 400 ;;       # open app drawer
   shot)      "$ADB" shell screencap -p /sdcard/shot.png && "$ADB" pull -q /sdcard/shot.png "${2:-shot.png}" && echo "saved ${2:-shot.png}" ;;
   ui)        "$ADB" shell "uiautomator dump /sdcard/ui.xml >/dev/null && cat /sdcard/ui.xml" ;;
-  # Print center of the first UI node whose text/desc contains $2 (case-insensitive)
+  # Print center of the first UI node whose text/desc contains $2 (case-insensitive;
+  # supports alternation: find "No saved routes|Search saved")
   find)
     "$ADB" shell "uiautomator dump /sdcard/ui.xml >/dev/null && cat /sdcard/ui.xml" \
       | tr '>' '\n' \
-      | grep -i "text=\"[^\"]*$2\|content-desc=\"[^\"]*$2" \
+      | grep -iE "text=\"[^\"]*($2)|content-desc=\"[^\"]*($2)" \
       | grep -o 'bounds="\[[0-9]*,[0-9]*\]\[[0-9]*,[0-9]*\]"' \
       | head -1 \
       | sed 's/bounds="\[\([0-9]*\),\([0-9]*\)\]\[\([0-9]*\),\([0-9]*\)\]"/\1 \2 \3 \4/' \
       | awk '{ print int(($1+$3)/2), int(($2+$4)/2) }'
+    ;;
+  # Print the text/content-desc attribute that `find` would match for $2 — makes
+  # waitfor/assert self-verifying against substring false positives.
+  matchtext)
+    "$ADB" shell "uiautomator dump /sdcard/ui.xml >/dev/null && cat /sdcard/ui.xml" \
+      | tr '>' '\n' \
+      | grep -ioE "text=\"[^\"]*($2)[^\"]*\"|content-desc=\"[^\"]*($2)[^\"]*\"" \
+      | head -1
+    ;;
+  # Poll until UI text/desc appears (default 15s): scripts/emu.sh waitfor "Route from" [timeout_s]
+  # Prints the element center on success; exits 1 on timeout. Kills the dialog-timing guesswork.
+  waitfor)
+    deadline=$(( $(date +%s) + ${3:-15} ))
+    while [ "$(date +%s)" -lt "$deadline" ]; do
+      coords=$("$0" find "$2")
+      if [ -n "$coords" ]; then echo "$coords matched $("$0" matchtext "$2")"; exit 0; fi
+      sleep 1
+    done
+    echo "TIMEOUT waiting for: $2"
+    exit 1
+    ;;
+  # Assert UI text/desc is present right now: scripts/emu.sh assert "Holding at"
+  assert)
+    coords=$("$0" find "$2")
+    if [ -n "$coords" ]; then
+      echo "present at $coords: $("$0" matchtext "$2")"
+    else
+      echo "MISSING: '$2'"
+      exit 1
+    fi
     ;;
   # Tap the first UI element matching text/desc: scripts/emu.sh tapon "Mock here"
   tapon)
@@ -47,9 +78,26 @@ case "${1:-help}" in
     "$ADB" shell input tap $coords
     ;;
   install)   (cd "$(dirname "$0")/.." && JAVA_HOME="/Applications/Android Studio.app/Contents/jbr/Contents/Home" ./gradlew -q :app:installDebug) ;;
+  launch)    "$ADB" shell am start -n dev.mockarr.app/.MainActivity ;;
   mockallow) "$ADB" shell settings put global development_settings_enabled 1 && "$ADB" shell appops set dev.mockarr.app android:mock_location allow ;;
   mockdeny)  "$ADB" shell appops set dev.mockarr.app android:mock_location deny ;;
   *)
-    grep -E '^  [a-z]+\)' "$0" | sed 's/).*//' | tr -d ' '
+    cat <<'USAGE'
+usage: scripts/emu.sh <command> [args]
+  boot                       boot mockarr_test headless, wait for it, wake+unlock
+  kill                       shut the emulator down
+  launch                     start the Mockarr main activity
+  install                    gradle :app:installDebug with the Studio JDK
+  mockallow | mockdeny       grant/revoke the mock-location appop
+  tap X Y | swipe X1 Y1 X2 Y2 [ms] | key CODE | home | back | drawer
+  type "text"                type into the focused field (spaces ok)
+  shot [path.png]            screenshot (default ./shot.png)
+  ui                         dump the uiautomator hierarchy XML
+  find "text"                center X Y of first node matching text/desc ("a|b" alternation ok)
+  matchtext "text"           the attribute find would match (self-verification)
+  tapon "text"               find + tap
+  waitfor "text" [timeout=15]  poll until present; prints coords + match; exit 1 on timeout
+  assert "text"              exit 1 unless present right now
+USAGE
     ;;
 esac

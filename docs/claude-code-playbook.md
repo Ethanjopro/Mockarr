@@ -21,10 +21,16 @@ unreachable, so framework fan communities are represented mainly by critics).
 | Format-on-edit | `.claude/hooks/format_kt.sh` + `.editorconfig` + standalone ktlint 1.5.0 (`~/.local/bin/ktlint`) | ktlint violations fixed at edit time, never at build time; `.editorconfig` pins `intellij_idea` style for parity with detekt-formatting (verified: 0 violations on the clean tree) |
 | Audio pings (macOS `say`) | `.claude/hooks/speak_stop.sh` (turns ≥45 s), `speak_notification.sh` | Signals "done"/"needs input" during unattended stretches; delete the hook entries in settings.json to disable |
 
-Deferred to a future trial round (Tier 3): docs-drift audit workflow
-(refute-by-default pattern), `build-fixer`/`emulator-verifier` subagents,
-`/five` root-cause command, `emu.sh waitfor/assert` subcommands, full
-Impeccable install (`init`/`audit`/`critique`).
+Tier 3, adopted in the follow-up round (all trialed live before keeping):
+
+| Piece | Where | Trial result |
+|---|---|---|
+| Docs-drift audit workflow | `.claude/workflows/progress-audit.js` (invoke: `/progress-audit`) | First run: 15 agents, 54 claims checked, 1 genuinely stale claim found, 0 false positives — the refute-by-default framing held. Run every ~5 rounds |
+| `build-fixer` subagent | `.claude/agents/build-fixer.md` | Distills Gradle failures to `file:line — rule — message`; never edits tests to make them pass |
+| `emulator-verifier` subagent | `.claude/agents/emulator-verifier.md` | Live trial PASSed (3-tab smoke pass, screenshot evidence); its friction feedback drove the emu.sh improvements below |
+| `/five` root-cause command | `.claude/commands/five.md` | Five Whys; the final answer must name a file/line or config key |
+| emu.sh extensions | `scripts/emu.sh` — `launch`, `waitfor` (poll + echoes what it matched, `"a|b"` alternation), `assert`, `matchtext`, real usage text | All paths verified on the live emulator, including timeout and negative cases |
+| Impeccable (native half) | `.claude/skills/impeccable/` (web-only `scripts/` gitignored — reinstall with `npx impeccable install`) | First audit scored the app 13/20 and surfaced real defects our linters can't model (TalkBack-unreachable tooltip descriptions, dark-UI/light-map pairing, a per-tick recomposition leak). Its raw-hex and top-app-bar rules fight deliberate choices on the MapLibre canvas — overrule the rubric there. Re-run `/impeccable audit` after design work |
 
 ## What we rejected, and why
 
@@ -75,6 +81,11 @@ Gradle and emulator boots, not token speed.
 - Before a commit you're unsure about: "run /code-review on the diff first."
 - Big mechanical sweeps (rename across modules, migration): say "use a
   workflow" to opt into orchestration — otherwise it stays single-agent.
+- Every ~5 rounds: `/progress-audit` (docs-drift check) and `/claude-md-review`.
+- "Have build-fixer handle the build" / "have emulator-verifier check X" keeps
+  Gradle stacktraces and adb output out of the main conversation.
+- `/five <symptom>` when a bug resists the first fix; `/impeccable audit` after
+  UI-heavy rounds (expect it to fight the MapLibre canvas colors — that's fine).
 - Ask "what's the efficiency note for this round?" anytime; Claude is under
   standing instructions to volunteer one when there's something worth saying.
 

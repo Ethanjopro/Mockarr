@@ -13,3 +13,8 @@ captures/
 
 # macOS
 .DS_Store
+
+# Impeccable skill: web-only tooling (detector, live browser) is inert for a
+# native Android app — keep the skill + references, skip 2.9M of dead weight.
+# Restore anytime with: npx impeccable install
+.claude/skills/impeccable/scripts/

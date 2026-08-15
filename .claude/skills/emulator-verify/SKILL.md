@@ -14,13 +14,18 @@ emulator binary yourself.
    min; the script blocks until `sys.boot_completed`). Never foreground-sleep.
 2. `scripts/emu.sh install` then `scripts/emu.sh mockallow` (grants the
    mock-location appop; without it holds/playback silently fail).
-3. Launch the app from the drawer or `monkey`-free: `scripts/emu.sh tapon Mockarr`.
+3. `scripts/emu.sh launch` starts the main activity directly.
 4. When finished: `scripts/emu.sh kill`. Never TaskStop the boot task — that
    kills the emulator child process.
 
 ## Interaction rules (hard-won — do not rediscover these)
-- **Dialogs render ~1 s after the triggering tap.** Screenshot first
-  (`scripts/emu.sh shot check.png`), confirm the dialog is up, then tap.
+- **Wait for UI states with `scripts/emu.sh waitfor "text" [timeout]`** — it
+  polls until the text/desc appears and echoes what it matched (check that
+  echo: substring matches can hit the wrong node). `assert "text"` checks the
+  current screen the same way; both support `"a|b"` alternation. Never
+  hand-roll sleep loops for dialogs.
+- If a dialog needs tapping without waitfor, remember it renders ~1 s after
+  the triggering tap: screenshot first, confirm it's up, then tap.
 - `find`/`tapon` match substrings in text AND content-desc — `find "Play"` can
   hit hint text containing "Play". Prefer longer unique strings, or read the
   full `ui` dump and tap explicit coordinates.
