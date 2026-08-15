@@ -7,6 +7,7 @@ import dev.mockarr.core.model.RoutingProfile
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import kotlin.math.ceil
 import kotlin.math.roundToInt
 
 private const val METERS_PER_KILOMETER = 1000.0
@@ -46,6 +47,23 @@ fun routeSummaryText(distanceMeters: Double, durationSeconds: Double, units: Dis
 
 fun Route.summaryText(units: DistanceUnits): String =
     routeSummaryText(distanceMeters, durationSeconds, units)
+
+private const val SECONDS_PER_MINUTE = 60
+private const val SECONDS_PER_HOUR = 3600
+
+/** "45 s left" / "3 min left" / "1 h 12 min left" — rounded up, never "0 min". */
+fun formatTimeRemaining(seconds: Double): String {
+    val total = ceil(seconds).toInt().coerceAtLeast(0)
+    return when {
+        total < SECONDS_PER_MINUTE -> "$total s left"
+        total < SECONDS_PER_HOUR -> "${ceil(total / 60.0).toInt()} min left"
+        else -> {
+            val hours = total / SECONDS_PER_HOUR
+            val minutes = ceil((total % SECONDS_PER_HOUR) / 60.0).toInt()
+            "$hours h $minutes min left"
+        }
+    }
+}
 
 fun RoutingProfile.label(): String = when (this) {
     RoutingProfile.DRIVING -> "Driving"

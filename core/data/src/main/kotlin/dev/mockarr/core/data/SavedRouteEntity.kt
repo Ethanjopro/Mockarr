@@ -17,4 +17,5 @@ data class SavedRouteEntity(
     val durationSeconds: Double,
     val encodedPolyline6: String,
     val legsJson: String,
+    val altitudesJson: String? = null,
 )

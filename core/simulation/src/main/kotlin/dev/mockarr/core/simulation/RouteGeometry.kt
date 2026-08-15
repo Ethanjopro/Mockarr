@@ -20,10 +20,17 @@ class RouteGeometry(
     decelerationMps2: Double,
 ) {
     private val points: List<LatLng> = route.points
+
+    /** Terrain profile aligned with [points]; dropped if misaligned. */
+    private val altitudes: List<Double>? = route.altitudes?.takeIf { it.size == route.points.size }
     val totalDistanceMeters: Double
+    val totalDurationSeconds: Double
 
     /** cumulative[i] = distance from start to points[i]; size = points.size */
     private val cumulative: DoubleArray
+
+    /** cumulativeDurations[i] = seconds from start to points[i] at segment cruise speeds. */
+    private val cumulativeDurations: DoubleArray
 
     /** Target cruise speed for segment i (points[i]..points[i+1]). */
     internal val segmentSpeeds: DoubleArray
@@ -47,6 +54,13 @@ class RouteGeometry(
         totalDistanceMeters = cumulative[n - 1]
 
         segmentSpeeds = computeSegmentSpeeds(route, n)
+
+        cumulativeDurations = DoubleArray(n)
+        for (i in 0 until n - 1) {
+            cumulativeDurations[i + 1] =
+                cumulativeDurations[i] + (cumulative[i + 1] - cumulative[i]) / segmentSpeeds[i]
+        }
+        totalDurationSeconds = cumulativeDurations[n - 1]
 
         // Turn caps at interior vertices, then a backward pass so every vertex
         // speed is reachable under the deceleration limit.
@@ -90,6 +104,26 @@ class RouteGeometry(
     }
 
     fun bearingAt(distance: Double): Double = segmentBearings[segmentIndexAt(distance)]
+
+    /** Estimated seconds from [distance] to the destination at segment cruise speeds. */
+    fun remainingDurationSeconds(distance: Double): Double {
+        val clamped = distance.coerceIn(0.0, totalDistanceMeters)
+        val i = segmentIndexAt(clamped)
+        val elapsed = cumulativeDurations[i] + (clamped - cumulative[i]) / segmentSpeeds[i]
+        return (totalDurationSeconds - elapsed).coerceAtLeast(0.0)
+    }
+
+    /** Terrain altitude at [distance] (segment lerp), or null without an elevation profile. */
+    fun altitudeAt(distance: Double): Double? {
+        val profile = altitudes ?: return null
+        val clamped = distance.coerceIn(0.0, totalDistanceMeters)
+        val i = segmentIndexAt(clamped)
+        val segStart = cumulative[i]
+        val segLength = cumulative[i + 1] - segStart
+        if (segLength <= 0.0) return profile[i]
+        val t = ((clamped - segStart) / segLength).coerceIn(0.0, 1.0)
+        return profile[i] + (profile[i + 1] - profile[i]) * t
+    }
 
     fun distanceToVertex(distance: Double, vertexIndex: Int): Double =
         (cumulative[vertexIndex] - distance).coerceAtLeast(0.0)

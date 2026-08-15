@@ -41,6 +41,7 @@ import androidx.compose.material3.Slider
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -49,15 +50,18 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import dev.mockarr.app.R
 import dev.mockarr.app.playback.HoldSource
 import dev.mockarr.app.playback.MockSessionState
 import dev.mockarr.app.ui.formatDistanceProgress
 import dev.mockarr.app.ui.formatRouteTimestamp
+import dev.mockarr.app.ui.formatTimeRemaining
 import dev.mockarr.app.ui.label
 import dev.mockarr.app.ui.map.MockarrMap
 import dev.mockarr.app.ui.summaryText
@@ -67,6 +71,7 @@ import dev.mockarr.core.model.PlaybackState
 import dev.mockarr.core.model.Route
 import dev.mockarr.core.model.RoutingProfile
 import dev.mockarr.core.model.progressOrZero
+import dev.mockarr.core.model.remainingSecondsOrNull
 import dev.mockarr.core.routing.GeocodingResult
 import dev.mockarr.core.simulation.SimulationEngine
 
@@ -163,8 +168,10 @@ fun MapScreen(
     val searchState by viewModel.search.collectAsStateWithLifecycle()
     val map3d by viewModel.map3dEnabled.collectAsStateWithLifecycle()
     val followCamera by viewModel.followCamera.collectAsStateWithLifecycle()
+    val suggestedName by viewModel.suggestedName.collectAsStateWithLifecycle()
     val session by sessionViewModel.session.collectAsStateWithLifecycle()
     val playbackState by sessionViewModel.playbackState.collectAsStateWithLifecycle()
+    val latestFix by sessionViewModel.latestFix.collectAsStateWithLifecycle()
     val playbackError by sessionViewModel.error.collectAsStateWithLifecycle()
     val speedMultiplier by sessionViewModel.speedMultiplier.collectAsStateWithLifecycle()
 
@@ -180,6 +187,11 @@ fun MapScreen(
             viewModel.setFollowCamera(true)
             sessionViewModel.play(route)
         }
+    }
+    val locatePermissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission(),
+    ) { granted ->
+        if (granted) viewModel.locateReal()
     }
 
     fun requestPlay(route: Route) {
@@ -221,18 +233,65 @@ fun MapScreen(
                     },
                 )
                 Spacer(Modifier.height(8.dp))
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.End,
+            }
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.End,
+            ) {
+                Column(
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                    horizontalAlignment = Alignment.End,
                 ) {
-                    FilledTonalIconButton(onClick = viewModel::toggleMap3d) {
-                        Text(
-                            text = if (map3d) "2D" else "3D",
-                            style = MaterialTheme.typography.labelLarge,
+                    if (!playing) {
+                        FilledTonalIconButton(onClick = viewModel::toggleMap3d) {
+                            Text(
+                                text = if (map3d) "2D" else "3D",
+                                style = MaterialTheme.typography.labelLarge,
+                            )
+                        }
+                    }
+                    val fineLocation = Manifest.permission.ACCESS_FINE_LOCATION
+                    FilledTonalIconButton(
+                        onClick = {
+                            val mockedPosition = when (val current = session) {
+                                is MockSessionState.Holding -> current.position
+                                is MockSessionState.Playing -> latestFix?.position
+                                else -> null
+                            }
+                            when {
+                                mockedPosition != null -> viewModel.panTo(mockedPosition)
+                                context.hasPermission(fineLocation) -> viewModel.locateReal()
+                                else -> locatePermissionLauncher.launch(fineLocation)
+                            }
+                        },
+                    ) {
+                        Icon(
+                            painter = painterResource(R.drawable.ic_target),
+                            contentDescription = "Go to my location",
                         )
                     }
                 }
             }
+        }
+
+        if (showSaveDialog) {
+            SaveRouteDialog(
+                suggestedName = suggestedName,
+                onConfirm = { name ->
+                    viewModel.saveRoute(name)
+                    showSaveDialog = false
+                },
+                onDismiss = { showSaveDialog = false },
+            )
+        }
+
+        // Status banners live at the bottom, stacked directly above the card.
+        Column(
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .fillMaxWidth()
+                .padding(12.dp),
+        ) {
             if (setupStatus?.readyToMock == false && !playing) {
                 StatusCard(
                     text = "Mocking isn't set up yet — routes will draw, but playback won't move your location.",
@@ -273,52 +332,39 @@ fun MapScreen(
                     actionLabel = "OK",
                     onAction = viewModel::consumeSavedConfirmation,
                 )
+                Spacer(Modifier.height(8.dp))
             }
-        }
-
-        if (showSaveDialog) {
-            SaveRouteDialog(
-                onConfirm = { name ->
-                    viewModel.saveRoute(name)
-                    showSaveDialog = false
-                },
-                onDismiss = { showSaveDialog = false },
-            )
-        }
-
-        if (playing) {
-            PlaybackCard(
-                playbackState = playbackState,
-                route = state.route,
-                units = units,
-                speedMultiplier = speedMultiplier,
-                followCamera = followCamera,
-                onToggleFollow = { viewModel.setFollowCamera(!followCamera) },
-                onSpeedChange = sessionViewModel::setSpeedMultiplier,
-                onPause = sessionViewModel::pause,
-                onResume = sessionViewModel::resume,
-                onStop = sessionViewModel::stopPlayback,
-                modifier = Modifier
-                    .align(Alignment.BottomCenter)
-                    .fillMaxWidth()
-                    .padding(12.dp),
-            )
-        } else {
-            ControlCard(
-                state = state,
-                units = units,
-                customServerConfigured = customServerConfigured,
-                onProfileSelected = viewModel::setProfile,
-                onUndo = viewModel::undoWaypoint,
-                onClear = viewModel::clearWaypoints,
-                onOpenSetup = onOpenSetup,
-                onPlay = { state.route?.let(::requestPlay) },
-                onSave = { showSaveDialog = true },
-                modifier = Modifier
-                    .align(Alignment.BottomCenter)
-                    .fillMaxWidth()
-                    .padding(12.dp),
-            )
+            if (playing) {
+                PlaybackCard(
+                    playbackState = playbackState,
+                    route = state.route,
+                    units = units,
+                    speedMultiplier = speedMultiplier,
+                    followCamera = followCamera,
+                    onToggleFollow = { viewModel.setFollowCamera(!followCamera) },
+                    onSpeedChange = sessionViewModel::setSpeedMultiplier,
+                    onPause = sessionViewModel::pause,
+                    onResume = sessionViewModel::resume,
+                    onStop = sessionViewModel::stopPlayback,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+            } else {
+                ControlCard(
+                    state = state,
+                    units = units,
+                    customServerConfigured = customServerConfigured,
+                    onProfileSelected = viewModel::setProfile,
+                    onUndo = viewModel::undoWaypoint,
+                    onClear = viewModel::clearWaypoints,
+                    onOpenSetup = onOpenSetup,
+                    onPlay = { state.route?.let(::requestPlay) },
+                    onSave = {
+                        viewModel.requestNameSuggestion()
+                        showSaveDialog = true
+                    },
+                    modifier = Modifier.fillMaxWidth(),
+                )
+            }
         }
     }
 }
@@ -400,6 +446,9 @@ private fun PlaybackCard(
     val stopping = playbackState is PlaybackState.Stopping
     val total = route?.distanceMeters ?: 0.0
     val progressText = formatDistanceProgress(total * progress, total, units)
+    val etaSuffix = playbackState.remainingSecondsOrNull
+        ?.let { " · ${formatTimeRemaining(it)}" }
+        .orEmpty()
 
     Card(modifier = modifier) {
         Column(modifier = Modifier.padding(16.dp)) {
@@ -407,8 +456,8 @@ private fun PlaybackCard(
                 Text(
                     text = when {
                         stopping -> "Stopping…"
-                        paused -> "Paused · $progressText"
-                        else -> "Driving · $progressText"
+                        paused -> "Paused · $progressText$etaSuffix"
+                        else -> "Driving · $progressText$etaSuffix"
                     },
                     style = MaterialTheme.typography.titleSmall,
                     modifier = Modifier.weight(1f),
@@ -574,18 +623,28 @@ private fun MapSearchBar(
 
 @Composable
 private fun SaveRouteDialog(
+    suggestedName: String?,
     onConfirm: (String) -> Unit,
     onDismiss: () -> Unit,
 ) {
     val defaultName = remember { "Route " + formatRouteTimestamp(System.currentTimeMillis()) }
-    var name by remember { mutableStateOf(defaultName) }
+    var name by remember { mutableStateOf(suggestedName ?: defaultName) }
+    var edited by remember { mutableStateOf(false) }
+    // The reverse-geocoded suggestion may arrive after the dialog opens; adopt
+    // it only while the user hasn't typed anything.
+    LaunchedEffect(suggestedName) {
+        if (!edited && suggestedName != null) name = suggestedName
+    }
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text("Save route") },
         text = {
             OutlinedTextField(
                 value = name,
-                onValueChange = { name = it },
+                onValueChange = {
+                    name = it
+                    edited = true
+                },
                 label = { Text("Name") },
                 singleLine = true,
             )

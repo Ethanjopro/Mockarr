@@ -38,11 +38,13 @@ class SimulationEngine(
 ) {
     private val geometry = RouteGeometry(route, params.decelerationMps2)
 
-    private val _state = MutableStateFlow<PlaybackState>(PlaybackState.Playing(0.0))
-    val state: StateFlow<PlaybackState> = _state.asStateFlow()
-
     @Volatile
     private var speedMultiplier = initialSpeedMultiplier.coerceIn(MIN_MULTIPLIER, MAX_MULTIPLIER)
+
+    private val _state = MutableStateFlow<PlaybackState>(
+        PlaybackState.Playing(0.0, geometry.totalDurationSeconds / speedMultiplier),
+    )
+    val state: StateFlow<PlaybackState> = _state.asStateFlow()
 
     private var distance = 0.0
     private var speed = 0.0
@@ -88,14 +90,14 @@ class SimulationEngine(
         val current = _state.value
         if (current is PlaybackState.Playing) {
             speed = 0.0
-            _state.value = PlaybackState.Paused(current.progress)
+            _state.value = PlaybackState.Paused(current.progress, current.remainingSeconds)
         }
     }
 
     fun resume() {
         val current = _state.value
         if (current is PlaybackState.Paused) {
-            _state.value = PlaybackState.Playing(current.progress)
+            _state.value = PlaybackState.Playing(current.progress, current.remainingSeconds)
         }
     }
 
@@ -127,7 +129,10 @@ class SimulationEngine(
             max(speed - params.decelerationMps2 * dt, target)
         }
         advance(dt)
-        _state.value = PlaybackState.Playing(progress())
+        _state.value = PlaybackState.Playing(
+            progress(),
+            geometry.remainingDurationSeconds(distance) / speedMultiplier,
+        )
     }
 
     private fun stopStep(dt: Double) {
@@ -162,7 +167,7 @@ class SimulationEngine(
             speedMetersPerSecond = speed,
             bearingDegrees = smoothedBearing,
             accuracyMeters = accuracy,
-            altitudeMeters = DEFAULT_ALTITUDE_METERS,
+            altitudeMeters = geometry.altitudeAt(distance) ?: DEFAULT_ALTITUDE_METERS,
         )
     }
 

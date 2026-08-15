@@ -18,6 +18,7 @@ import dev.mockarr.core.data.SettingsRepository
 import dev.mockarr.core.mocklocation.AndroidMockLocationController
 import dev.mockarr.core.mocklocation.MockLocationController
 import dev.mockarr.core.mocklocation.SetupStatusRepository
+import dev.mockarr.core.routing.OpenMeteoElevationClient
 import dev.mockarr.core.routing.OsrmRouteProvider
 import dev.mockarr.core.routing.PhotonGeocoder
 import dev.mockarr.core.routing.RouteProvider
@@ -59,7 +60,9 @@ object AppModule {
     @Provides
     @Singleton
     fun provideDatabase(@ApplicationContext context: Context): MockarrDatabase =
-        Room.databaseBuilder(context, MockarrDatabase::class.java, MockarrDatabase.NAME).build()
+        Room.databaseBuilder(context, MockarrDatabase::class.java, MockarrDatabase.NAME)
+            .addMigrations(MockarrDatabase.MIGRATION_1_2)
+            .build()
 
     @Provides
     @Singleton
@@ -76,6 +79,11 @@ object AppModule {
     @Provides
     @Singleton
     fun provideGeocoder(): PhotonGeocoder = PhotonGeocoder(userAgent = USER_AGENT)
+
+    @Provides
+    @Singleton
+    fun provideElevationClient(): OpenMeteoElevationClient =
+        OpenMeteoElevationClient(userAgent = USER_AGENT)
 
     @Provides
     @Singleton

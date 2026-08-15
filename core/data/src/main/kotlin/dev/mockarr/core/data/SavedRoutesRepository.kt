@@ -24,6 +24,7 @@ class SavedRoutesRepository(
                 durationSeconds = route.durationSeconds,
                 encodedPolyline6 = Polyline6.encode(route.points),
                 legsJson = json.encodeToString(route.legs),
+                altitudesJson = route.altitudes?.let { json.encodeToString(it) },
             ),
         )
 
@@ -32,12 +33,19 @@ class SavedRoutesRepository(
     /** Re-insert after an undone delete (a fresh id is fine). */
     suspend fun restore(entity: SavedRouteEntity): Long = dao.insert(entity.copy(id = 0))
 
-    fun toRoute(entity: SavedRouteEntity): Route = Route(
-        points = Polyline6.decode(entity.encodedPolyline6),
-        legs = json.decodeFromString<List<RouteLeg>>(entity.legsJson),
-        distanceMeters = entity.distanceMeters,
-        durationSeconds = entity.durationSeconds,
-    )
+    fun toRoute(entity: SavedRouteEntity): Route {
+        val points = Polyline6.decode(entity.encodedPolyline6)
+        val altitudes = entity.altitudesJson
+            ?.let { runCatching { json.decodeFromString<List<Double>>(it) }.getOrNull() }
+            ?.takeIf { it.size == points.size }
+        return Route(
+            points = points,
+            legs = json.decodeFromString<List<RouteLeg>>(entity.legsJson),
+            distanceMeters = entity.distanceMeters,
+            durationSeconds = entity.durationSeconds,
+            altitudes = altitudes,
+        )
+    }
 
     fun profileOf(entity: SavedRouteEntity): RoutingProfile =
         RoutingProfile.fromNameOrDefault(entity.profile)

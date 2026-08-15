@@ -152,6 +152,18 @@ Verified end-to-end like a human: app-drawer swipe → tapped the Mockarr icon �
 - Verified besides the leak matrix: Times Square autocomplete + camera jump; cold-start restore to the exact searched viewport; 2D strips Manhattan extrusions; post-fling screenshots 2 s apart are pixel-identical (no snap-back).
 - Note: a stale Dallas camera value from the previous build's save race was found in DataStore — the new one-shot restore handles it correctly; no new bogus saves observed.
 
+### 2026-08-14 — Session 6 (user testing feedback round 3)
+
+- Five items shipped (sixth — traffic-light stop simulation — deferred by the user; full validated design lives in the session-6 plan file and can be built later without rework):
+  - **Banners at the bottom**: the whole status stack (setup warning, holding banner, errors, saved confirmation) now renders directly above the Play/Playback card; search bar + button cluster stay on top.
+  - **Saved-route naming**: `PhotonGeocoder.reverse()` (verified endpoint) → Save dialog prefills "«start» to «end», «city»" via reverse-geocoding both route endpoints (lazy, on Save tap; adopts the suggestion only while the user hasn't typed). Verified live: "East Fork Russian River to Vista del Lago Road".
+  - **Terrain altitude**: `Route.altitudes` (nullable, 1:1 with points) enriched asynchronously in MapViewModel via new `OpenMeteoElevationClient` (batch ≤100 coords, no key) + `ElevationSampling` (distance-even sampling + interpolation); `RouteGeometry.altitudeAt()` lerps per fix; pin holds fetch a single elevation and upgrade mid-hold. Persisted via Room **v2** (`altitudesJson` column + MIGRATION_1_2 wired in AppModule — no destructive fallback exists, forgetting addMigrations would crash existing installs). Verified live: fixes report 236–240 m through a Mendocino valley instead of the constant 35.
+  - **Locate button**: circular target button (new `ic_target.xml`, Material my-location glyph) under the 2D/3D button. Mock active → pans to held pin/playback dot; idle → pans to the device's real location (`getCurrentLocation` API 30+ w/ last-known fallback). Never touches providers (dumpsys: mock count unchanged in both cases).
+  - **Time remaining**: `PlaybackState.Playing/Paused` gained `remainingSeconds` (all construction sites are engine-internal); `RouteGeometry` cumulative durations → `remainingDurationSeconds()/multiplier`; shown in the playback card ("· 30 s left") and notification (dedupe key extended with minutes so the text can't go stale).
+- New tests: `RouteGeometryEtaAltitudeTest`, `SimulationEngineEtaTest`, `ElevationSamplingTest`, `OpenMeteoElevationClientTest` (MockWebServer, incl. >100-coord chunking).
+- detekt: `LongParameterList.ignoreAnnotated` +HiltViewModel/Inject (DI constructors list one dep per param); `TooManyFunctions.thresholdInClasses` 20→26.
+- **Correction to the session-5 note**: the "stale Dallas camera" was almost certainly the user's own between-session emulator testing (camera restored to Carrollton, TX again this session) — camera persistence was working as designed, not a bug.
+
 ## PLAN COMPLETE — remaining items are the user's
 
 1. **License decision** (GPL-3.0 vs Apache-2.0 vs other) — swap LICENSE, update README/CONTRIBUTING, then the repo can go public.

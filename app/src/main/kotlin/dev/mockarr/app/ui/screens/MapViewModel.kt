@@ -1,5 +1,9 @@
 package dev.mockarr.app.ui.screens
 
+import android.annotation.SuppressLint
+import android.location.Location
+import android.location.LocationManager
+import android.os.Build
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -12,7 +16,9 @@ import dev.mockarr.core.model.LatLng
 import dev.mockarr.core.model.MapCamera
 import dev.mockarr.core.model.Route
 import dev.mockarr.core.model.RoutingProfile
+import dev.mockarr.core.routing.ElevationSampling
 import dev.mockarr.core.routing.GeocodingResult
+import dev.mockarr.core.routing.OpenMeteoElevationClient
 import dev.mockarr.core.routing.PhotonGeocoder
 import dev.mockarr.core.routing.RouteProvider
 import dev.mockarr.core.routing.RoutingException
@@ -30,12 +36,17 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.suspendCancellableCoroutine
+import kotlinx.coroutines.withTimeoutOrNull
 import javax.inject.Inject
+import kotlin.coroutines.resume
 
 @HiltViewModel
 class MapViewModel @Inject constructor(
     private val routeProvider: RouteProvider,
     private val geocoder: PhotonGeocoder,
+    private val elevationClient: OpenMeteoElevationClient,
+    private val locationManager: LocationManager,
     private val settingsRepository: SettingsRepository,
     private val savedRoutesRepository: SavedRoutesRepository,
     private val routeHandoff: RouteHandoff,
@@ -69,6 +80,10 @@ class MapViewModel @Inject constructor(
 
     private val _cameraCommand = MutableStateFlow<CameraCommand?>(null)
     val cameraCommand: StateFlow<CameraCommand?> = _cameraCommand.asStateFlow()
+
+    /** Suggested name for the Save dialog ("X to Y, City"), null until resolved. */
+    private val _suggestedName = MutableStateFlow<String?>(null)
+    val suggestedName: StateFlow<String?> = _suggestedName.asStateFlow()
 
     val tileStyleUrl: StateFlow<String> = settingsRepository.settings
         .map { it.tileStyleUrl }
@@ -108,6 +123,7 @@ class MapViewModel @Inject constructor(
 
     private var routeJob: Job? = null
     private var searchJob: Job? = null
+    private var elevationJob: Job? = null
     private var cameraSeq = 0L
     private var profileTouched = false
     private var lastKnownCamera: MapCamera? = null
@@ -163,6 +179,7 @@ class MapViewModel @Inject constructor(
 
     fun clearWaypoints() {
         routeJob?.cancel()
+        elevationJob?.cancel()
         _uiState.update {
             it.copy(
                 waypoints = emptyList(),
@@ -197,6 +214,55 @@ class MapViewModel @Inject constructor(
 
     fun consumeSavedConfirmation() {
         _uiState.update { it.copy(savedConfirmation = null) }
+    }
+
+    /** Kicks off "«start» to «end», «city»" naming for the Save dialog. */
+    fun requestNameSuggestion() {
+        val route = _uiState.value.route ?: return
+        _suggestedName.value = null
+        viewModelScope.launch {
+            val start = geocoder.reverse(route.points.first()).getOrNull()
+            val end = geocoder.reverse(route.points.last()).getOrNull()
+            val startName = start?.name ?: return@launch
+            val endName = end?.name ?: return@launch
+            val citySuffix = end.city?.let { ", $it" }.orEmpty()
+            _suggestedName.value = "$startName to $endName$citySuffix"
+        }
+    }
+
+    /** Pans the camera (never touches mock state). */
+    fun panTo(position: LatLng) {
+        _cameraCommand.value = CameraCommand(position, LOCATE_ZOOM, seq = cameraSeq++)
+    }
+
+    /** Pans to the device's REAL location; requires fine-location permission. */
+    fun locateReal() {
+        viewModelScope.launch {
+            currentRealLocation()?.let { panTo(LatLng(it.latitude, it.longitude)) }
+        }
+    }
+
+    // Permission is gated by the UI before this is called.
+    @SuppressLint("MissingPermission")
+    private suspend fun currentRealLocation(): Location? {
+        val current = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            withTimeoutOrNull(LOCATE_TIMEOUT_MILLIS) {
+                suspendCancellableCoroutine<Location?> { continuation ->
+                    runCatching {
+                        locationManager.getCurrentLocation(
+                            LocationManager.GPS_PROVIDER,
+                            null,
+                            { runnable -> runnable.run() },
+                        ) { location -> continuation.resume(location) }
+                    }.onFailure { continuation.resume(null) }
+                }
+            }
+        } else {
+            null
+        }
+        return current
+            ?: runCatching { locationManager.getLastKnownLocation(LocationManager.GPS_PROVIDER) }.getOrNull()
+            ?: runCatching { locationManager.getLastKnownLocation(LocationManager.NETWORK_PROVIDER) }.getOrNull()
     }
 
     /** One-shot cold-start camera restore, read straight from disk (no default-value race). */
@@ -285,6 +351,27 @@ class MapViewModel @Inject constructor(
                 errorMessage = null,
             )
         }
+        enrichWithElevations(route)
+    }
+
+    /** Fetches terrain elevations for [route] and attaches them once resolved. */
+    private fun enrichWithElevations(route: Route) {
+        if (route.altitudes != null) return
+        elevationJob?.cancel()
+        elevationJob = viewModelScope.launch {
+            val indices = ElevationSampling.sampleIndices(route.points)
+            val sampled = elevationClient.elevations(indices.map { route.points[it] })
+                .getOrNull() ?: return@launch // offline/unavailable → constant altitude fallback
+            val altitudes = ElevationSampling.interpolate(route.points, indices, sampled)
+            // Identity guard: don't attach a stale profile to a newer route.
+            _uiState.update { state ->
+                if (state.route === route) {
+                    state.copy(route = route.copy(altitudes = altitudes))
+                } else {
+                    state
+                }
+            }
+        }
     }
 
     private fun scheduleRouteFetch() {
@@ -303,6 +390,7 @@ class MapViewModel @Inject constructor(
                     _uiState.update {
                         it.copy(route = route, routeIsFallback = false, isRouting = false)
                     }
+                    enrichWithElevations(route)
                 },
                 onFailure = { error ->
                     val fallback = straightLine.route(current.waypoints, current.profile).getOrNull()
@@ -333,5 +421,7 @@ class MapViewModel @Inject constructor(
         const val SEARCH_DEBOUNCE_MILLIS = 300L
         const val MIN_QUERY_LENGTH = 3
         const val SEARCH_ZOOM = 14.0
+        const val LOCATE_ZOOM = 15.0
+        const val LOCATE_TIMEOUT_MILLIS = 5_000L
     }
 }

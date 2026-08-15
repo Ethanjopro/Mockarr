@@ -19,6 +19,12 @@ data class GeocodingResult(
     val position: LatLng,
 )
 
+/** What a coordinate reverse-geocodes to: a local name (POI/street) and its city. */
+data class PlaceInfo(
+    val name: String?,
+    val city: String?,
+)
+
 /**
  * Typeahead place search backed by the public Photon (komoot) geocoder —
  * OSM-based, built for autocomplete, and supports biasing results toward a
@@ -72,6 +78,30 @@ class PhotonGeocoder(
             // name (e.g. every subway entrance) — collapse them.
             Result.success(
                 api.search(url).features.mapNotNull { it.toResultOrNull() }.distinctBy { it.name },
+            )
+        } catch (e: HttpException) {
+            Result.failure(e)
+        } catch (e: IOException) {
+            Result.failure(e)
+        }
+    }
+
+    /** Local name + city for a coordinate ("what street/place is this?"). */
+    suspend fun reverse(position: LatLng): Result<PlaceInfo> {
+        val url = buildString {
+            append(baseUrl.trimEnd('/'))
+            append("/reverse?lat=")
+            append(position.latitude)
+            append("&lon=")
+            append(position.longitude)
+        }
+        return try {
+            val properties = api.search(url).features.firstOrNull()?.properties
+            Result.success(
+                PlaceInfo(
+                    name = properties?.run { name ?: street },
+                    city = properties?.city,
+                ),
             )
         } catch (e: HttpException) {
             Result.failure(e)

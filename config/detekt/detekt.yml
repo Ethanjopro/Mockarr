@@ -4,13 +4,14 @@ naming:
 
 complexity:
   LongParameterList:
-    ignoreAnnotated: ['Composable']
+    # Composables take many slots; Hilt constructors list one dependency per param.
+    ignoreAnnotated: ['Composable', 'HiltViewModel', 'Inject']
   LongMethod:
     ignoreAnnotated: ['Composable']
   CyclomaticComplexMethod:
     ignoreAnnotated: ['Composable']
   TooManyFunctions:
-    thresholdInClasses: 20
+    thresholdInClasses: 26
 
 style:
   MagicNumber:

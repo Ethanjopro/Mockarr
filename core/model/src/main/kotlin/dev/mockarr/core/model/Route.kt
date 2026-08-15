@@ -8,6 +8,8 @@ import kotlinx.serialization.Serializable
  * @property points the full route geometry, ordered from start to destination
  * @property legs one leg per waypoint pair, carrying per-segment timing used to
  *   derive realistic playback speeds
+ * @property altitudes terrain elevation in meters, aligned 1:1 with [points];
+ *   null until (or unless) elevation enrichment has run
  */
 @Serializable
 data class Route(
@@ -15,6 +17,7 @@ data class Route(
     val legs: List<RouteLeg>,
     val distanceMeters: Double,
     val durationSeconds: Double,
+    val altitudes: List<Double>? = null,
 )
 
 /**

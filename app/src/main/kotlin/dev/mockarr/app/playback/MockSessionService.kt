@@ -17,6 +17,7 @@ import dev.mockarr.app.MainActivity
 import dev.mockarr.app.R
 import dev.mockarr.app.ui.errorMessageOrNull
 import dev.mockarr.app.ui.formatDistanceProgress
+import dev.mockarr.app.ui.formatTimeRemaining
 import dev.mockarr.core.data.SettingsRepository
 import dev.mockarr.core.mocklocation.MockLocationController
 import dev.mockarr.core.model.LatLng
@@ -24,6 +25,8 @@ import dev.mockarr.core.model.PlaybackState
 import dev.mockarr.core.model.Route
 import dev.mockarr.core.model.SimulatedFix
 import dev.mockarr.core.model.progressOrZero
+import dev.mockarr.core.model.remainingSecondsOrNull
+import dev.mockarr.core.routing.OpenMeteoElevationClient
 import dev.mockarr.core.simulation.SimClock
 import dev.mockarr.core.simulation.SimulationEngine
 import dev.mockarr.core.simulation.SimulationParams
@@ -56,12 +59,15 @@ class MockSessionService : Service() {
     @Inject
     lateinit var settingsRepository: SettingsRepository
 
+    @Inject
+    lateinit var elevationClient: OpenMeteoElevationClient
+
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     private var sessionJob: Job? = null
     private var holdJob: Job? = null
     private var wakeLock: PowerManager.WakeLock? = null
     private var routeDistanceMeters: Double = 0.0
-    private var lastNotified: Pair<Int, Boolean>? = null
+    private var lastNotified: Triple<Int, Boolean, Int>? = null
 
     /** The pin held when playback began — the fallback if "stay at destination" is off. */
     private var rememberedPin: LatLng? = null
@@ -212,7 +218,7 @@ class MockSessionService : Service() {
     private fun enterHold(position: LatLng, source: HoldSource) {
         holdJob?.cancel()
         repository.holdStarted(position, source)
-        val fix = SimulatedFix(
+        var fix = SimulatedFix(
             position = position,
             speedMetersPerSecond = 0.0,
             bearingDegrees = 0.0,
@@ -221,6 +227,12 @@ class MockSessionService : Service() {
         )
         mockController.push(fix) // synchronous first push — no gap in the handoff
         holdJob = scope.launch {
+            // Upgrade later pushes to real terrain altitude; the constant stands on failure.
+            launch {
+                elevationClient.elevations(listOf(position)).getOrNull()?.firstOrNull()?.let {
+                    fix = fix.copy(altitudeMeters = it)
+                }
+            }
             while (isActive) {
                 delay(HOLD_TICK_MILLIS)
                 mockController.push(fix)
@@ -278,7 +290,11 @@ class MockSessionService : Service() {
 
     private fun refreshNotification() {
         val state = repository.state.value
-        val key = (state.progressOrZero * PROGRESS_MAX).toInt() to (state is PlaybackState.Paused)
+        val key = Triple(
+            (state.progressOrZero * PROGRESS_MAX).toInt(),
+            state is PlaybackState.Paused,
+            ((state.remainingSecondsOrNull ?: 0.0) / SECONDS_PER_MINUTE).toInt(),
+        )
         if (key == lastNotified) return
         lastNotified = key
         getSystemService(NotificationManager::class.java)
@@ -314,7 +330,10 @@ class MockSessionService : Service() {
         val units = settingsRepository.settings.value.units
         val progressText =
             formatDistanceProgress(routeDistanceMeters * progress, routeDistanceMeters, units)
-        val text = progressText + if (paused) " · paused" else ""
+        val etaSuffix = state.remainingSecondsOrNull
+            ?.let { " · ${formatTimeRemaining(it)}" }
+            .orEmpty()
+        val text = progressText + etaSuffix + if (paused) " · paused" else ""
 
         val toggleAction = if (paused) {
             NotificationCompat.Action(0, "Resume", resumeIntent)
@@ -357,6 +376,7 @@ class MockSessionService : Service() {
         private const val NOTIFICATION_UPDATE_TICKS = 5
         private const val PROGRESS_MAX = 100
         private const val HOLD_TICK_MILLIS = 1_000L
+        private const val SECONDS_PER_MINUTE = 60.0
         private const val HOLD_ACCURACY_METERS = 5.0
         private const val HOLD_ALTITUDE_METERS = 35.0
         private const val WAKE_LOCK_TAG = "mockarr:playback"
