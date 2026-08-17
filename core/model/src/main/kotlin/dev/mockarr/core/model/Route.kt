@@ -10,6 +10,9 @@ import kotlinx.serialization.Serializable
  *   derive realistic playback speeds
  * @property altitudes terrain elevation in meters, aligned 1:1 with [points];
  *   null until (or unless) elevation enrichment has run
+ * @property snappedWaypoints the requested waypoints snapped onto the road
+ *   network by the router, aligned 1:1 with the request; empty when the
+ *   backend provides none (e.g. straight-line fallback)
  */
 @Serializable
 data class Route(
@@ -18,6 +21,7 @@ data class Route(
     val distanceMeters: Double,
     val durationSeconds: Double,
     val altitudes: List<Double>? = null,
+    val snappedWaypoints: List<LatLng> = emptyList(),
 )
 
 /**

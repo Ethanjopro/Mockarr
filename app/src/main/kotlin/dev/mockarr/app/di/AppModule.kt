@@ -18,10 +18,6 @@ import dev.mockarr.core.data.SettingsRepository
 import dev.mockarr.core.mocklocation.AndroidMockLocationController
 import dev.mockarr.core.mocklocation.MockLocationController
 import dev.mockarr.core.mocklocation.SetupStatusRepository
-import dev.mockarr.core.routing.OpenMeteoElevationClient
-import dev.mockarr.core.routing.OsrmRouteProvider
-import dev.mockarr.core.routing.PhotonGeocoder
-import dev.mockarr.core.routing.RouteProvider
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -68,22 +64,6 @@ object AppModule {
     @Singleton
     fun provideSavedRoutesRepository(database: MockarrDatabase): SavedRoutesRepository =
         SavedRoutesRepository(database.savedRouteDao())
-
-    @Provides
-    @Singleton
-    fun provideRouteProvider(settingsRepository: SettingsRepository): RouteProvider = OsrmRouteProvider(
-        baseUrlProvider = { settingsRepository.settings.value.osrmBaseUrl },
-        userAgent = USER_AGENT,
-    )
-
-    @Provides
-    @Singleton
-    fun provideGeocoder(): PhotonGeocoder = PhotonGeocoder(userAgent = USER_AGENT)
-
-    @Provides
-    @Singleton
-    fun provideElevationClient(): OpenMeteoElevationClient =
-        OpenMeteoElevationClient(userAgent = USER_AGENT)
 
     @Provides
     @Singleton

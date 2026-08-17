@@ -9,6 +9,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -73,6 +74,7 @@ import dev.mockarr.app.ui.formatRouteTimestamp
 import dev.mockarr.app.ui.formatTimeRemaining
 import dev.mockarr.app.ui.label
 import dev.mockarr.app.ui.map.MockarrMap
+import dev.mockarr.app.ui.map.effectiveStyleUrl
 import dev.mockarr.app.ui.summaryText
 import dev.mockarr.core.model.DistanceUnits
 import dev.mockarr.core.model.GeoMath
@@ -130,7 +132,7 @@ fun MapLayer(
     }
 
     MockarrMap(
-        waypoints = state.waypoints,
+        waypoints = displayWaypoints(state.waypoints, state.route, state.routeIsFallback),
         routePoints = state.route?.points.orEmpty(),
         routeIsFallback = state.routeIsFallback,
         onMapTap = {
@@ -141,7 +143,7 @@ fun MapLayer(
             focusManager.clearFocus()
             if (!playing) requestHold(it)
         },
-        styleUrl = tileStyleUrl,
+        styleUrl = effectiveStyleUrl(tileStyleUrl, isSystemInDarkTheme()),
         visible = visible,
         loadInitialCamera = viewModel::initialCamera,
         onCameraIdle = viewModel::saveCamera,
@@ -181,7 +183,6 @@ fun MapScreen(
     val suggestedName by viewModel.suggestedName.collectAsStateWithLifecycle()
     val session by sessionViewModel.session.collectAsStateWithLifecycle()
     val playbackState by sessionViewModel.playbackState.collectAsStateWithLifecycle()
-    val latestFix by sessionViewModel.latestFix.collectAsStateWithLifecycle()
     val playbackError by sessionViewModel.error.collectAsStateWithLifecycle()
     val speedMultiplier by sessionViewModel.speedMultiplier.collectAsStateWithLifecycle()
 
@@ -351,9 +352,11 @@ fun MapScreen(
                     val fineLocation = Manifest.permission.ACCESS_FINE_LOCATION
                     FilledTonalIconButton(
                         onClick = {
-                            val mockedPosition = when (val current = session) {
+                            // Read at click time; collecting latestFix in composition
+                            // would recompose the whole overlay on every fix.
+                            val mockedPosition = when (val current = sessionViewModel.session.value) {
                                 is MockSessionState.Holding -> current.position
-                                is MockSessionState.Playing -> latestFix?.position
+                                is MockSessionState.Playing -> sessionViewModel.latestFix.value?.position
                                 else -> null
                             }
                             when {

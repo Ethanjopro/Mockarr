@@ -1,8 +1,5 @@
 package dev.mockarr.app.ui.map
 
-import androidx.compose.animation.core.Animatable
-import androidx.compose.animation.core.LinearEasing
-import androidx.compose.animation.core.tween
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -19,7 +16,6 @@ import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import dev.mockarr.core.model.LatLng
 import dev.mockarr.core.model.MapCamera
-import kotlinx.coroutines.isActive
 import org.maplibre.android.camera.CameraPosition
 import org.maplibre.android.camera.CameraUpdateFactory
 import org.maplibre.android.geometry.LatLngBounds
@@ -33,6 +29,7 @@ import org.maplibre.android.style.layers.LineLayer
 import org.maplibre.android.style.layers.Property
 import org.maplibre.android.style.layers.PropertyFactory
 import org.maplibre.android.style.layers.SymbolLayer
+import org.maplibre.android.style.sources.GeoJsonOptions
 import org.maplibre.android.style.sources.GeoJsonSource
 import org.maplibre.geojson.Feature
 import org.maplibre.geojson.FeatureCollection
@@ -49,8 +46,6 @@ private const val WAYPOINT_LAYER = "waypoint-layer"
 private const val WAYPOINT_LABEL_LAYER = "waypoint-label-layer"
 private const val PIN_SOURCE = "pin-source"
 private const val PIN_LAYER = "pin-layer"
-private const val RIPPLE_SOURCE = "ripple-source"
-private const val RIPPLE_LAYER = "ripple-layer"
 private const val PLAYBACK_SOURCE = "playback-source"
 private const val PLAYBACK_LAYER = "playback-layer"
 private const val ROLE_KEY = "role"
@@ -184,19 +179,20 @@ fun MockarrMap(
 
     // (Re)load the style whenever the URL changes; sources/layers must be re-added after each load.
     var appliedStyleUrl by remember { mutableStateOf<String?>(null) }
+    var flatBuildingMaxZoom by remember { mutableStateOf<Float?>(null) }
     LaunchedEffect(map, styleUrl) {
         val libreMap = map ?: return@LaunchedEffect
         if (appliedStyleUrl != styleUrl) {
             appliedStyleUrl = styleUrl
             style = null
+            // Each style defines its own building maxZoom — re-capture after reload.
+            flatBuildingMaxZoom = null
             libreMap.setStyle(Style.Builder().fromUri(styleUrl)) { loadedStyle ->
                 setUpLayers(loadedStyle)
                 style = loadedStyle
             }
         }
     }
-
-    var flatBuildingMaxZoom by remember { mutableStateOf<Float?>(null) }
     LaunchedEffect(style, threeDimensional) {
         val loadedStyle = style ?: return@LaunchedEffect
         if (flatBuildingMaxZoom == null) {
@@ -219,19 +215,6 @@ fun MockarrMap(
         val loadedStyle = style ?: return@LaunchedEffect
         loadedStyle.getSourceAs<GeoJsonSource>(PIN_SOURCE)?.setGeoJson(pinPosition.toFeatures())
     }
-
-    // Expanding, fading ripple under the live mock dot — blue while a route
-    // drives, purple while holding a pin.
-    val ripplePosition = playbackPosition ?: pinPosition
-    LaunchedEffect(style, ripplePosition) {
-        val loadedStyle = style ?: return@LaunchedEffect
-        loadedStyle.getSourceAs<GeoJsonSource>(RIPPLE_SOURCE)?.setGeoJson(ripplePosition.toFeatures())
-    }
-    RippleAnimator(
-        style = style,
-        active = ripplePosition != null,
-        color = if (playbackPosition != null) "#1A73E8" else "#8E24AA",
-    )
 
     LaunchedEffect(style, playbackPosition) {
         val loadedStyle = style ?: return@LaunchedEffect
@@ -256,16 +239,27 @@ fun MockarrMap(
         }
     }
 
+    // Follow eases the camera to each fix. The zoom floor applies only when
+    // follow first engages; after that the user's pinch zoom is respected, so
+    // nothing ratchets in over a long route or lurches when playback ends.
+    var followEngaged by remember { mutableStateOf(false) }
+    LaunchedEffect(cameraFollow) {
+        if (!cameraFollow) followEngaged = false
+    }
     LaunchedEffect(map, playbackPosition, cameraFollow) {
         val libreMap = map ?: return@LaunchedEffect
         val position = playbackPosition ?: return@LaunchedEffect
-        if (cameraFollow) {
-            val zoom = maxOf(libreMap.cameraPosition.zoom, FOLLOW_MIN_ZOOM)
-            libreMap.easeCamera(
-                CameraUpdateFactory.newLatLngZoom(position.toMapLibre(), zoom),
-                FOLLOW_EASE_MILLIS,
+        if (!cameraFollow) return@LaunchedEffect
+        val update = if (followEngaged) {
+            CameraUpdateFactory.newLatLng(position.toMapLibre())
+        } else {
+            followEngaged = true
+            CameraUpdateFactory.newLatLngZoom(
+                position.toMapLibre(),
+                maxOf(libreMap.cameraPosition.zoom, FOLLOW_MIN_ZOOM),
             )
         }
+        libreMap.easeCamera(update, FOLLOW_EASE_MILLIS)
     }
 }
 
@@ -276,39 +270,6 @@ private const val FOLLOW_EASE_MILLIS = 900
 // World-landmark fallback for a fresh install with no saved camera yet.
 private val FALLBACK_CENTER = LatLng(48.8584, 2.2945)
 private const val FALLBACK_ZOOM = 12.0
-
-private const val RIPPLE_MIN_RADIUS = 8f
-private const val RIPPLE_MAX_RADIUS = 26f
-private const val RIPPLE_MAX_OPACITY = 0.35f
-private const val RIPPLE_PERIOD_MILLIS = 1600
-
-/**
- * Drives the ripple layer's radius/opacity each animation frame straight into
- * the style (no recomposition involved — the frame callback is the loop).
- */
-@Composable
-private fun RippleAnimator(style: Style?, active: Boolean, color: String) {
-    val loadedStyle = style ?: return
-    LaunchedEffect(loadedStyle, active, color) {
-        if (!active) {
-            loadedStyle.getLayer(RIPPLE_LAYER)?.setProperties(PropertyFactory.circleOpacity(0f))
-            return@LaunchedEffect
-        }
-        val ripple = Animatable(0f)
-        while (isActive) {
-            ripple.snapTo(0f)
-            ripple.animateTo(1f, tween(RIPPLE_PERIOD_MILLIS, easing = LinearEasing)) {
-                loadedStyle.getLayer(RIPPLE_LAYER)?.setProperties(
-                    PropertyFactory.circleRadius(
-                        RIPPLE_MIN_RADIUS + (RIPPLE_MAX_RADIUS - RIPPLE_MIN_RADIUS) * value,
-                    ),
-                    PropertyFactory.circleOpacity((1f - value) * RIPPLE_MAX_OPACITY),
-                    PropertyFactory.circleColor(color),
-                )
-            }
-        }
-    }
-}
 
 private fun LatLng.toMapLibre() = MapLibreLatLng(latitude, longitude)
 
@@ -352,12 +313,26 @@ private fun applyMapMode(
 }
 
 private fun setUpLayers(style: Style) {
-    listOf(ROUTE_SOURCE, FALLBACK_SOURCE, WAYPOINT_SOURCE, PIN_SOURCE, PLAYBACK_SOURCE, RIPPLE_SOURCE)
+    // Line sources keep full geometry: the default geojson-vt options (tolerance
+    // 0.375, maxZoom 18) re-simplify the route client-side, visibly cutting
+    // corners off the road when overzoomed past z18.
+    val lineSourceOptions = GeoJsonOptions().withMaxZoom(22).withTolerance(0.0f)
+    listOf(ROUTE_SOURCE, FALLBACK_SOURCE)
+        .forEach { style.addSource(GeoJsonSource(it, lineSourceOptions)) }
+    listOf(WAYPOINT_SOURCE, PIN_SOURCE, PLAYBACK_SOURCE)
         .forEach { style.addSource(GeoJsonSource(it)) }
     style.addLayer(
         LineLayer(ROUTE_LAYER, ROUTE_SOURCE).withProperties(
             PropertyFactory.lineColor("#1A73E8"),
-            PropertyFactory.lineWidth(5f),
+            PropertyFactory.lineWidth(
+                Expression.interpolate(
+                    Expression.exponential(1.5f),
+                    Expression.zoom(),
+                    Expression.stop(10, 3f),
+                    Expression.stop(15, 5f),
+                    Expression.stop(19, 11f),
+                ),
+            ),
             PropertyFactory.lineCap(Property.LINE_CAP_ROUND),
             PropertyFactory.lineJoin(Property.LINE_JOIN_ROUND),
         ),
@@ -373,13 +348,6 @@ private fun setUpLayers(style: Style) {
 }
 
 private fun addPointLayers(style: Style) {
-    style.addLayer(
-        CircleLayer(RIPPLE_LAYER, RIPPLE_SOURCE).withProperties(
-            PropertyFactory.circleRadius(RIPPLE_MIN_RADIUS),
-            PropertyFactory.circleColor("#1A73E8"),
-            PropertyFactory.circleOpacity(0f),
-        ),
-    )
     style.addLayer(
         CircleLayer(PLAYBACK_LAYER, PLAYBACK_SOURCE).withProperties(
             PropertyFactory.circleRadius(8f),

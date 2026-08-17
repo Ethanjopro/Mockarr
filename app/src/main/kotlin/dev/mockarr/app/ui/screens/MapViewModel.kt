@@ -499,3 +499,19 @@ private fun friendlyMessage(error: Throwable): String {
     }
     return "$base — showing straight line instead"
 }
+
+/**
+ * Waypoints to draw on the map: the router's road-snapped locations when they
+ * match the current request (so markers meet the route line), raw taps
+ * otherwise. The size guard covers fetches still in flight after a new tap.
+ */
+internal fun displayWaypoints(
+    waypoints: List<LatLng>,
+    route: Route?,
+    routeIsFallback: Boolean,
+): List<LatLng> =
+    if (route != null && !routeIsFallback && route.snappedWaypoints.size == waypoints.size) {
+        route.snappedWaypoints
+    } else {
+        waypoints
+    }

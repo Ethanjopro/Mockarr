@@ -23,15 +23,15 @@ paths: ["**/*.kt", "**/*.kts"]
 ## Compose pitfalls already paid for once
 - Values read only inside `SideEffect`/gesture callbacks are NOT snapshot-
   observed — animations driven that way run once and freeze. Drive map-style
-  animations with `Animatable.animateTo` frame callbacks in a `LaunchedEffect`
-  (see `RippleAnimator` in `MockarrMap.kt`).
+  animations with `Animatable.animateTo` frame callbacks in a `LaunchedEffect`,
+  writing layer properties from the callback (no recomposition in the loop).
 - Click handlers must read `.value` from StateFlows at click time; capturing
   collected state in the closure goes stale across recompositions (see
   `playOrAskStart` in `MapScreen.kt`).
 - Kotlin infers `Nothing?` for empty `suspendCancellableCoroutine { }` — give
   the explicit type parameter.
 
-## Unit tests (`core:*` modules)
+## Unit tests (`core:*` modules, plus `app`'s pure file-level helpers)
 - Test the logic layer: engines, geometry, mappers, ViewModels. No Robolectric
   or Compose UI tests unless explicitly requested.
 - Mock only boundaries (repositories, network clients); never mock the unit's
@@ -43,3 +43,7 @@ paths: ["**/*.kt", "**/*.kts"]
 - Cover the edge that motivated the change, not just the happy path — and keep
   simulation defaults (e.g. `speedVariance = 0.0`) such that existing tests
   stay byte-identical unless the change is about them.
+- `app`-module tests need an explicit `testImplementation(libs.kotlin.test.junit)`:
+  AGP's built-in Kotlin does NOT apply the `kotlin-test` → `kotlin-test-junit`
+  variant substitution the `org.jetbrains.kotlin.jvm` core modules get, so
+  `kotlin.test.Test` compiles but zero tests run without the binding.

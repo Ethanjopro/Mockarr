@@ -67,7 +67,7 @@ class OsrmRouteProvider(
 
     private fun toResult(response: OsrmRouteResponse): Result<Route> = when {
         response.code == CODE_OK && response.routes.isNotEmpty() ->
-            Result.success(response.routes.first().toRoute())
+            Result.success(response.routes.first().toRoute(response.waypoints))
         response.code == CODE_NO_ROUTE || response.routes.isEmpty() ->
             Result.failure(RoutingException.NoRoute())
         else -> Result.failure(RoutingException.Server(response.message ?: response.code))
@@ -96,7 +96,14 @@ class OsrmRouteProvider(
     private data class OsrmRouteResponse(
         val code: String,
         val routes: List<OsrmRoute> = emptyList(),
+        val waypoints: List<OsrmWaypoint> = emptyList(),
         val message: String? = null,
+    )
+
+    @Serializable
+    private data class OsrmWaypoint(
+        // OSRM order: [longitude, latitude].
+        val location: List<Double> = emptyList(),
     )
 
     @Serializable
@@ -106,7 +113,7 @@ class OsrmRouteProvider(
         val geometry: String,
         val legs: List<OsrmLeg> = emptyList(),
     ) {
-        fun toRoute(): Route = Route(
+        fun toRoute(waypoints: List<OsrmWaypoint>): Route = Route(
             points = Polyline6.decode(geometry),
             legs = legs.map { leg ->
                 RouteLeg(
@@ -116,6 +123,9 @@ class OsrmRouteProvider(
             },
             distanceMeters = distance,
             durationSeconds = duration,
+            snappedWaypoints = waypoints.mapNotNull { wp ->
+                wp.location.takeIf { it.size == 2 }?.let { LatLng(it[1], it[0]) }
+            },
         )
     }
 

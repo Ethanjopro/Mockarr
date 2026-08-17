@@ -54,7 +54,11 @@ class OsrmRouteProviderTest {
                         "duration": [240.0, 300.2]
                       }
                     }]
-                  }]
+                  }],
+                  "waypoints": [
+                    {"location": [2.29455, 48.85843]},
+                    {"location": [2.33762, 48.86061]}
+                  ]
                 }
                 """.trimIndent(),
             ),
@@ -66,6 +70,11 @@ class OsrmRouteProviderTest {
         assertEquals(3300.5, route.distanceMeters, 0.001)
         assertEquals(540.2, route.durationSeconds, 0.001)
         assertEquals(listOf(1500.1, 1800.4), route.legs.single().segmentDistancesMeters)
+        // OSRM sends [lon, lat]; snapped waypoints must come back lat/lng.
+        assertEquals(
+            listOf(LatLng(48.85843, 2.29455), LatLng(48.86061, 2.33762)),
+            route.snappedWaypoints,
+        )
 
         val request = server.takeRequest()
         val path = request.path.orEmpty()
@@ -73,6 +82,23 @@ class OsrmRouteProviderTest {
         assertTrue(path.contains("geometries=polyline6"))
         assertTrue(path.contains("annotations=distance%2Cduration") || path.contains("annotations=distance,duration"))
         assertEquals("MockarrTest/0.0", request.getHeader("User-Agent"))
+    }
+
+    @Test
+    fun `skips malformed snapped waypoints and tolerates their absence`() = runTest {
+        val geometry = Polyline6.encode(listOf(LatLng(48.8584, 2.2945), LatLng(48.8606, 2.3376)))
+        val body = """
+            {
+              "code": "Ok",
+              "routes": [{"distance": 1.0, "duration": 1.0, "geometry": "GEOM", "legs": []}],
+              "waypoints": [{"location": [2.29455, 48.85843]}, {"location": [2.33762]}]
+            }
+        """.trimIndent().replace("GEOM", geometry.replace("\\", "\\\\").replace("\"", "\\\""))
+        server.enqueue(MockResponse().setBody(body))
+
+        val route = provider.route(waypoints, RoutingProfile.DRIVING).getOrThrow()
+
+        assertEquals(listOf(LatLng(48.85843, 2.29455)), route.snappedWaypoints)
     }
 
     @Test

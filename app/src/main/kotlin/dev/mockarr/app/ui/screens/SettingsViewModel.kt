@@ -38,10 +38,6 @@ class SettingsViewModel @Inject constructor(
         viewModelScope.launch { repository.setOsrmBaseUrl(url) }
     }
 
-    fun applyTileStyleUrl(url: String) {
-        viewModelScope.launch { repository.setTileStyleUrl(url) }
-    }
-
     fun setTickHz(value: Double) {
         viewModelScope.launch { repository.setTickHz(value) }
     }

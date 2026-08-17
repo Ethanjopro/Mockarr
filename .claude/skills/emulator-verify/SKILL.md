@@ -38,6 +38,17 @@ emulator binary yourself.
 - Verify mock state empirically when it matters: poll
   `dumpsys location` through `scripts/emu.sh` shell access for the mock
   provider's coordinates — screenshots alone don't prove zero-leak behavior.
+- Logs: `scripts/emu.sh logcat [pattern] [lines]` — grep recent app output
+  (e.g. for missing-layer or GL errors) instead of declaring logs unreachable.
+- Orientation: `scripts/emu.sh rotate landscape|portrait` (disables
+  auto-rotate). Tablet layouts: `scripts/emu.sh resize 2560x1600 320` emulates
+  a tablet window without a second AVD; `resize reset` restores. Note: phone
+  landscape keeps the bottom bar BY DESIGN (Material switches to a rail only
+  when window height is non-compact) — don't file that as a bug.
+- Compose merged semantics look "wrong" in `ui` dumps: the focusable
+  checkable row shows an empty content-desc while an inert child carries the
+  label/description. That IS the correct TalkBack pattern (the reader
+  concatenates the merged subtree on focus) — don't file it as a regression.
 
 ## Verification passes (per feature)
 Run the passes that apply; light features need only the first.

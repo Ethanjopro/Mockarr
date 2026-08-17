@@ -44,6 +44,7 @@ data class MockarrSettings(
     companion object {
         const val DEFAULT_OSRM_BASE_URL = OsrmRouteProvider.DEFAULT_BASE_URL
         const val DEFAULT_TILE_STYLE_URL = "https://tiles.openfreemap.org/styles/liberty"
+        const val DEFAULT_TILE_STYLE_URL_DARK = "https://tiles.openfreemap.org/styles/dark"
         const val TICK_HZ_MIN = 0.5
         const val TICK_HZ_MAX = 5.0
         const val JITTER_SIGMA_MIN = 0.0

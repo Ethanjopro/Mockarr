@@ -7,8 +7,10 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
@@ -32,6 +34,10 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -106,16 +112,21 @@ fun SettingsScreen(
         // write per drag event would be a full file rewrite each time. The tick
         // slider is log-scaled so most of its travel covers the low (realistic) end.
         var tickHzDrag by remember(settings.tickHz) { mutableStateOf(settings.tickHz) }
+        val tickDescription = "How often Mockarr publishes a new position. " +
+            "Real phones report about once per second."
         SettingLabel(
             text = "Updates per second: %.1f".format(tickHzDrag),
-            description = "How often Mockarr publishes a new position. " +
-                "Real phones report about once per second.",
+            description = tickDescription,
         )
         Slider(
             value = tickHzToSlider(tickHzDrag),
             onValueChange = { tickHzDrag = sliderToTickHz(it) },
             onValueChangeFinished = { viewModel.setTickHz(tickHzDrag) },
             valueRange = 0f..1f,
+            modifier = Modifier.semantics {
+                contentDescription = "Updates per second. $tickDescription"
+                stateDescription = "%.1f per second".format(tickHzDrag)
+            },
         )
         Spacer(Modifier.height(8.dp))
         SwitchRow(
@@ -129,9 +140,11 @@ fun SettingsScreen(
             var percentDrag by remember(settings.progressAlertPercent) {
                 mutableStateOf(settings.progressAlertPercent.toFloat())
             }
+            val alertDescription =
+                "How far through the route playback must be before the alert fires."
             SettingLabel(
                 text = "Alert at: ${percentDrag.toInt()}%",
-                description = "How far through the route playback must be before the alert fires.",
+                description = alertDescription,
             )
             Slider(
                 value = percentDrag,
@@ -139,6 +152,10 @@ fun SettingsScreen(
                 onValueChangeFinished = { viewModel.setProgressAlertPercent(percentDrag.toInt()) },
                 valueRange = PROGRESS_ALERT_RANGE,
                 steps = PROGRESS_ALERT_STEPS,
+                modifier = Modifier.semantics {
+                    contentDescription = "Alert at percentage. $alertDescription"
+                    stateDescription = "${percentDrag.toInt()} percent"
+                },
             )
         }
         SwitchRow(
@@ -152,15 +169,21 @@ fun SettingsScreen(
             var sigmaDrag by remember(settings.jitterSigmaMeters) {
                 mutableStateOf(settings.jitterSigmaMeters.toFloat())
             }
+            val sigmaDescription =
+                "How far the random GPS offsets can wander from the true position."
             SettingLabel(
                 text = "Wobble amount: %.1f m".format(sigmaDrag),
-                description = "How far the random GPS offsets can wander from the true position.",
+                description = sigmaDescription,
             )
             Slider(
                 value = sigmaDrag,
                 onValueChange = { sigmaDrag = it },
                 onValueChangeFinished = { viewModel.setJitterSigmaMeters(sigmaDrag.toDouble()) },
                 valueRange = JITTER_SIGMA_RANGE,
+                modifier = Modifier.semantics {
+                    contentDescription = "Wobble amount. $sigmaDescription"
+                    stateDescription = "%.1f meters".format(sigmaDrag)
+                },
             )
         }
         SectionBreak()
@@ -179,7 +202,11 @@ fun SettingsScreen(
     }
 }
 
-/** A switch setting: terse label (long-press for the description) + toggle. */
+/**
+ * A switch setting: terse label (long-press for the description) + toggle. The
+ * whole row is one toggle target, merged for TalkBack with the tooltip text in
+ * its announcement — the long-press tooltip alone is invisible to screen readers.
+ */
 @Composable
 private fun SwitchRow(
     label: String,
@@ -188,11 +215,21 @@ private fun SwitchRow(
     onCheckedChange: (Boolean) -> Unit,
 ) {
     Row(
-        modifier = Modifier.fillMaxWidth(),
+        // In a uiautomator dump the description shows on an inert child node,
+        // not the checkable row — that is how Compose represents merged
+        // semantics; TalkBack reads the whole merged subtree on row focus.
+        modifier = Modifier
+            .fillMaxWidth()
+            .heightIn(min = 48.dp)
+            .toggleable(value = checked, role = Role.Switch, onValueChange = onCheckedChange)
+            .semantics { contentDescription = "$label. $description" },
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        SettingLabel(text = label, description = description, modifier = Modifier.weight(1f))
-        Switch(checked = checked, onCheckedChange = onCheckedChange)
+        // Weight goes on a Spacer: TooltipBox swallows a weight passed via its
+        // own modifier, which left the switch hugging the label mid-screen.
+        SettingLabel(text = label, description = description)
+        Spacer(Modifier.weight(1f))
+        Switch(checked = checked, onCheckedChange = null)
     }
 }
 

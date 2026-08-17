@@ -1,7 +1,9 @@
 package dev.mockarr.app.ui.screens
 
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -31,6 +33,7 @@ import androidx.compose.material3.SnackbarResult
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
@@ -38,16 +41,20 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dev.mockarr.app.ui.formatRouteTimestamp
 import dev.mockarr.app.ui.label
+import dev.mockarr.app.ui.map.effectiveStyleUrl
 import dev.mockarr.app.ui.routeSummaryText
 import dev.mockarr.core.data.SavedRouteEntity
 import dev.mockarr.core.model.DistanceUnits
@@ -66,6 +73,8 @@ fun SavedRoutesScreen(
     val routes by viewModel.routes.collectAsStateWithLifecycle()
     val query by viewModel.query.collectAsStateWithLifecycle()
     val units by viewModel.units.collectAsStateWithLifecycle()
+    val mapStyleUrl by viewModel.mapStyleUrl.collectAsStateWithLifecycle()
+    val thumbStyleUrl = effectiveStyleUrl(mapStyleUrl, isSystemInDarkTheme())
     val snackbarHost = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
 
@@ -116,6 +125,8 @@ fun SavedRoutesScreen(
                         SavedRouteCard(
                             entity = entity,
                             units = units,
+                            thumbStyleUrl = thumbStyleUrl,
+                            loadThumbnail = viewModel::thumbnail,
                             onClick = {
                                 viewModel.load(entity)
                                 onRouteLoaded()
@@ -148,6 +159,8 @@ fun SavedRoutesScreen(
 private fun SavedRouteCard(
     entity: SavedRouteEntity,
     units: DistanceUnits,
+    thumbStyleUrl: String,
+    loadThumbnail: suspend (SavedRouteEntity, String, Int, Float) -> ImageBitmap?,
     onClick: () -> Unit,
     onDelete: () -> Unit,
 ) {
@@ -156,7 +169,11 @@ private fun SavedRouteCard(
             modifier = Modifier.padding(start = 12.dp, top = 12.dp, bottom = 12.dp, end = 4.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            RouteThumbnail(encodedPolyline6 = entity.encodedPolyline6)
+            MapThumbnail(
+                entity = entity,
+                styleUrl = thumbStyleUrl,
+                loadThumbnail = loadThumbnail,
+            )
             Spacer(Modifier.width(12.dp))
             Column(modifier = Modifier.weight(1f)) {
                 Text(
@@ -177,6 +194,36 @@ private fun SavedRouteCard(
                 Icon(Icons.Filled.Delete, contentDescription = "Delete ${entity.name}")
             }
         }
+    }
+}
+
+/**
+ * Real-basemap snapshot of the route when available; the offline glyph fills in
+ * while the snapshot loads and stays whenever it can't be generated.
+ */
+@Composable
+private fun MapThumbnail(
+    entity: SavedRouteEntity,
+    styleUrl: String,
+    loadThumbnail: suspend (SavedRouteEntity, String, Int, Float) -> ImageBitmap?,
+) {
+    val density = LocalDensity.current
+    val sizePx = with(density) { THUMB_SIZE_DP.dp.roundToPx() }
+    val thumb by produceState<ImageBitmap?>(null, entity.id, styleUrl) {
+        value = loadThumbnail(entity, styleUrl, sizePx, density.density)
+    }
+    val snapshot = thumb
+    if (snapshot != null) {
+        Image(
+            bitmap = snapshot,
+            contentDescription = null,
+            contentScale = ContentScale.Crop,
+            modifier = Modifier
+                .size(THUMB_SIZE_DP.dp)
+                .clip(RoundedCornerShape(8.dp)),
+        )
+    } else {
+        RouteThumbnail(encodedPolyline6 = entity.encodedPolyline6)
     }
 }
 
@@ -230,7 +277,7 @@ private fun thumbnailPoints(encodedPolyline6: String): List<LatLng> {
     return List(MAX_THUMB_POINTS) { decoded[it * (decoded.size - 1) / (MAX_THUMB_POINTS - 1)] }
 }
 
-private const val THUMB_SIZE_DP = 64
+private const val THUMB_SIZE_DP = 88
 private const val THUMB_PADDING_DP = 8
 private const val MAX_THUMB_POINTS = 64
 

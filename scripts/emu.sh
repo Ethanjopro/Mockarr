@@ -77,6 +77,38 @@ case "${1:-help}" in
     # shellcheck disable=SC2086
     "$ADB" shell input tap $coords
     ;;
+  # Recent app log lines, optionally grep-filtered: scripts/emu.sh logcat [pattern] [lines=100]
+  logcat)
+    if [ -n "${2:-}" ]; then
+      "$ADB" logcat -d -t "${3:-100}" | grep -iE "$2" || echo "no logcat lines match: $2"
+    else
+      "$ADB" logcat -d -t "${3:-100}"
+    fi
+    ;;
+  # Force orientation: scripts/emu.sh rotate landscape|portrait
+  rotate)
+    case "${2:-}" in
+      landscape) target=1 ;;
+      portrait)  target=0 ;;
+      *) echo "usage: scripts/emu.sh rotate landscape|portrait" >&2; exit 1 ;;
+    esac
+    "$ADB" shell settings put system accelerometer_rotation 0
+    "$ADB" shell settings put system user_rotation "$target"
+    echo "rotated to ${2}"
+    ;;
+  # Emulate other window sizes (e.g. tablet) without a second AVD:
+  # scripts/emu.sh resize 2560x1600 320   |   scripts/emu.sh resize reset
+  resize)
+    if [ "${2:-}" = "reset" ]; then
+      "$ADB" shell wm size reset
+      "$ADB" shell wm density reset
+      echo "display reset"
+    else
+      "$ADB" shell wm size "$2"
+      [ -n "${3:-}" ] && "$ADB" shell wm density "$3"
+      echo "display set to $2${3:+ @ ${3}dpi}"
+    fi
+    ;;
   install)   (cd "$(dirname "$0")/.." && JAVA_HOME="/Applications/Android Studio.app/Contents/jbr/Contents/Home" ./gradlew -q :app:installDebug) ;;
   launch)    "$ADB" shell am start -n dev.mockarr.app/.MainActivity ;;
   mockallow) "$ADB" shell settings put global development_settings_enabled 1 && "$ADB" shell appops set dev.mockarr.app android:mock_location allow ;;
@@ -98,6 +130,9 @@ usage: scripts/emu.sh <command> [args]
   tapon "text"               find + tap
   waitfor "text" [timeout=15]  poll until present; prints coords + match; exit 1 on timeout
   assert "text"              exit 1 unless present right now
+  logcat [pattern] [lines]   recent log lines, optionally filtered (default 100)
+  rotate landscape|portrait  force orientation (disables auto-rotate)
+  resize WxH [dpi] | reset   emulate another display (tablet testing)
 USAGE
     ;;
 esac

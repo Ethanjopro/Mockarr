@@ -9,28 +9,66 @@ unreachable, so framework fan communities are represented mainly by critics).
 
 ## What we adopted (and where it lives)
 
-| Piece | Where | Why |
-|---|---|---|
-| Project instructions | `CLAUDE.md` | Loads every session; encodes build/emulator/lint/process rules that were previously re-derived per session |
-| Permissions + hook wiring | `.claude/settings.json` | Unattended rounds without permission fatigue; deny-list guardrails |
-| JDK-pinned gradle wrapper | `scripts/gradle` | One prefix-matchable command; no more `export JAVA_HOME && ./gradlew` compounds |
-| Emulator verification skill | `.claude/skills/emulator-verify/` | Nine sessions of emulator gotchas as standing instructions + a triaged report format (incl. dark-theme and font-scale passes adapted from the Impeccable skill's Android reference) |
-| Kotlin conventions skill | `.claude/skills/kotlin-conventions/` | detekt tripwires, Compose pitfalls, test style; loads only when `.kt` files are touched |
-| CLAUDE.md audit skill | `.claude/skills/claude-md-review/` | Keeps CLAUDE.md from rotting; run every few rounds |
-| Session-start context injection | `.claude/hooks/session_start.sh` | Fresh sessions start knowing the PROGRESS.md tail, branch, and CI status |
-| Format-on-edit | `.claude/hooks/format_kt.sh` + `.editorconfig` + standalone ktlint 1.5.0 (`~/.local/bin/ktlint`) | ktlint violations fixed at edit time, never at build time; `.editorconfig` pins `intellij_idea` style for parity with detekt-formatting (verified: 0 violations on the clean tree) |
-| Audio pings (macOS `say`) | `.claude/hooks/speak_stop.sh` (turns ≥45 s), `speak_notification.sh` | Signals "done"/"needs input" during unattended stretches; delete the hook entries in settings.json to disable |
+**Project instructions — `CLAUDE.md`.** Loads every session; encodes the
+build/emulator/lint/process rules that were previously re-derived per session.
 
-Tier 3, adopted in the follow-up round (all trialed live before keeping):
+**Permissions + hook wiring — `.claude/settings.json`.** Unattended rounds
+without permission fatigue, plus deny-list guardrails (no force-push, no rm -rf).
 
-| Piece | Where | Trial result |
-|---|---|---|
-| Docs-drift audit workflow | `.claude/workflows/progress-audit.js` (invoke: `/progress-audit`) | First run: 15 agents, 54 claims checked, 1 genuinely stale claim found, 0 false positives — the refute-by-default framing held. Run every ~5 rounds |
-| `build-fixer` subagent | `.claude/agents/build-fixer.md` | Distills Gradle failures to `file:line — rule — message`; never edits tests to make them pass |
-| `emulator-verifier` subagent | `.claude/agents/emulator-verifier.md` | Live trial PASSed (3-tab smoke pass, screenshot evidence); its friction feedback drove the emu.sh improvements below |
-| `/five` root-cause command | `.claude/commands/five.md` | Five Whys; the final answer must name a file/line or config key |
-| emu.sh extensions | `scripts/emu.sh` — `launch`, `waitfor` (poll + echoes what it matched, `"a|b"` alternation), `assert`, `matchtext`, real usage text | All paths verified on the live emulator, including timeout and negative cases |
-| Impeccable (native half) | `.claude/skills/impeccable/` (web-only `scripts/` gitignored — reinstall with `npx impeccable install`) | First audit scored the app 13/20 and surfaced real defects our linters can't model (TalkBack-unreachable tooltip descriptions, dark-UI/light-map pairing, a per-tick recomposition leak). Its raw-hex and top-app-bar rules fight deliberate choices on the MapLibre canvas — overrule the rubric there. Re-run `/impeccable audit` after design work |
+**JDK-pinned gradle wrapper — `scripts/gradle`.** One prefix-matchable command;
+no more `export JAVA_HOME && ./gradlew` compounds.
+
+**Emulator verification skill — `.claude/skills/emulator-verify/`.** Nine
+sessions of emulator gotchas as standing instructions, plus a triaged report
+format (including dark-theme and font-scale passes adapted from the Impeccable
+skill's Android reference).
+
+**Kotlin conventions skill — `.claude/skills/kotlin-conventions/`.** detekt
+tripwires, Compose pitfalls, test style. Loads only when `.kt` files are touched.
+
+**CLAUDE.md audit skill — `.claude/skills/claude-md-review/`.** Keeps CLAUDE.md
+from rotting; run every few rounds.
+
+**Session-start context injection — `.claude/hooks/session_start.sh`.** Fresh
+sessions start knowing the PROGRESS.md tail, branch, and CI status.
+
+**Format-on-edit — `.claude/hooks/format_kt.sh` + `.editorconfig` + standalone
+ktlint 1.5.0 (`~/.local/bin/ktlint`).** ktlint violations fixed at edit time,
+never at build time. The `.editorconfig` pins `intellij_idea` style for parity
+with detekt-formatting (verified: 0 violations on the clean tree).
+
+**Audio pings (macOS `say`) — `.claude/hooks/speak_stop.sh` (turns ≥45 s) and
+`speak_notification.sh`.** Signal "done"/"needs input" during unattended
+stretches; delete the hook entries in settings.json to disable.
+
+### Tier 3, adopted in the follow-up round (all trialed live before keeping)
+
+**Docs-drift audit workflow — `.claude/workflows/progress-audit.js`, invoked as
+`/progress-audit`.** First run: 15 agents, 54 claims checked, 1 genuinely stale
+claim found, 0 false positives — the refute-by-default framing held. Run every
+~5 rounds.
+
+**`build-fixer` subagent — `.claude/agents/build-fixer.md`.** Distills Gradle
+failures to `file:line — rule — message`; never edits tests to make them pass.
+
+**`emulator-verifier` subagent — `.claude/agents/emulator-verifier.md`.** Live
+trial passed (3-tab smoke pass with screenshot evidence); its friction feedback
+drove the emu.sh improvements below.
+
+**`/five` root-cause command — `.claude/commands/five.md`.** Five Whys; the
+final answer must name a file/line or config key.
+
+**emu.sh extensions — `scripts/emu.sh`.** Added `launch`, `waitfor` (polls and
+echoes what it matched, supports `"a|b"` alternation), `assert`, `matchtext`,
+and real usage text. All paths verified on the live emulator, including timeout
+and negative cases.
+
+**Impeccable, native half — `.claude/skills/impeccable/`** (web-only `scripts/`
+gitignored; reinstall with `npx impeccable install`). First audit scored the
+app 13/20 and surfaced real defects our linters can't model: TalkBack-unreachable
+tooltip descriptions, dark-UI/light-map pairing, a per-tick recomposition leak.
+Its raw-hex and top-app-bar rules fight deliberate choices on the MapLibre
+canvas — overrule the rubric there. Re-run `/impeccable audit` after design work.
 
 ## What we rejected, and why
 
