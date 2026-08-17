@@ -66,14 +66,6 @@ class SettingsViewModel @Inject constructor(
         viewModelScope.launch { repository.setTrafficSimEnabled(value) }
     }
 
-    fun setProgressAlertEnabled(value: Boolean) {
-        viewModelScope.launch { repository.setProgressAlertEnabled(value) }
-    }
-
-    fun setProgressAlertPercent(value: Int) {
-        viewModelScope.launch { repository.setProgressAlertPercent(value) }
-    }
-
     /** Fires a tiny fixed route request against the given server. */
     fun testConnection(url: String) {
         _testState.value = TestState.Testing

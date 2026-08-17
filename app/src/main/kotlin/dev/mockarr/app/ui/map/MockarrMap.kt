@@ -1,5 +1,10 @@
 package dev.mockarr.app.ui.map
 
+import android.graphics.Bitmap
+import android.graphics.Canvas
+import android.graphics.Color
+import android.graphics.Paint
+import android.graphics.Typeface
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -10,6 +15,7 @@ import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
@@ -35,6 +41,7 @@ import org.maplibre.geojson.Feature
 import org.maplibre.geojson.FeatureCollection
 import org.maplibre.geojson.LineString
 import org.maplibre.geojson.Point
+import kotlin.math.ceil
 import org.maplibre.android.geometry.LatLng as MapLibreLatLng
 
 private const val ROUTE_SOURCE = "route-source"
@@ -43,13 +50,12 @@ private const val FALLBACK_SOURCE = "fallback-source"
 private const val FALLBACK_LAYER = "fallback-layer"
 private const val WAYPOINT_SOURCE = "waypoint-source"
 private const val WAYPOINT_LAYER = "waypoint-layer"
-private const val WAYPOINT_LABEL_LAYER = "waypoint-label-layer"
 private const val PIN_SOURCE = "pin-source"
 private const val PIN_LAYER = "pin-layer"
 private const val PLAYBACK_SOURCE = "playback-source"
 private const val PLAYBACK_LAYER = "playback-layer"
-private const val ROLE_KEY = "role"
-private const val LABEL_KEY = "label"
+private const val ICON_KEY = "icon"
+private const val SORT_KEY = "sort"
 
 // The liberty style's flat building-footprint layer (outlined fills, z13-14).
 private const val FLAT_BUILDING_LAYER = "building"
@@ -201,9 +207,10 @@ fun MockarrMap(
         applyMapMode(loadedStyle, map, threeDimensional, flatBuildingMaxZoom)
     }
 
-    LaunchedEffect(style, waypoints) {
+    val density = LocalDensity.current.density
+    LaunchedEffect(style, waypoints, density) {
         val loadedStyle = style ?: return@LaunchedEffect
-        updateWaypoints(loadedStyle, waypoints)
+        updateWaypoints(loadedStyle, waypoints, density)
     }
 
     LaunchedEffect(style, routePoints, routeIsFallback) {
@@ -364,47 +371,72 @@ private fun addPointLayers(style: Style) {
             PropertyFactory.circleStrokeWidth(3f),
         ),
     )
+    // One symbol layer with the circle+number baked into each icon bitmap: a
+    // CircleLayer + text SymbolLayer pair draws ALL circles beneath ALL numbers,
+    // so overlapping markers showed the lower marker's number on the upper circle.
     style.addLayer(
-        CircleLayer(WAYPOINT_LAYER, WAYPOINT_SOURCE).withProperties(
-            PropertyFactory.circleRadius(11f),
-            PropertyFactory.circleColor(
-                Expression.match(
-                    Expression.get(ROLE_KEY),
-                    Expression.rgb(69, 90, 100),
-                    Expression.stop("start", Expression.rgb(46, 125, 50)),
-                    Expression.stop("end", Expression.rgb(198, 40, 40)),
-                ),
-            ),
-            PropertyFactory.circleStrokeColor("#FFFFFF"),
-            PropertyFactory.circleStrokeWidth(2.5f),
-        ),
-    )
-    style.addLayer(
-        SymbolLayer(WAYPOINT_LABEL_LAYER, WAYPOINT_SOURCE).withProperties(
-            PropertyFactory.textField(Expression.get(LABEL_KEY)),
-            PropertyFactory.textSize(13f),
-            PropertyFactory.textColor("#FFFFFF"),
-            PropertyFactory.textFont(arrayOf("Noto Sans Bold")),
-            PropertyFactory.textAllowOverlap(true),
-            PropertyFactory.textIgnorePlacement(true),
+        SymbolLayer(WAYPOINT_LAYER, WAYPOINT_SOURCE).withProperties(
+            PropertyFactory.iconImage(Expression.get(ICON_KEY)),
+            PropertyFactory.iconAllowOverlap(true),
+            PropertyFactory.iconIgnorePlacement(true),
+            PropertyFactory.symbolSortKey(Expression.get(SORT_KEY)),
         ),
     )
 }
 
-private fun updateWaypoints(style: Style, waypoints: List<LatLng>) {
+private fun updateWaypoints(style: Style, waypoints: List<LatLng>, density: Float) {
     val features = waypoints.mapIndexed { index, latLng ->
+        val role = when (index) {
+            0 -> "start"
+            waypoints.lastIndex -> "end"
+            else -> "via"
+        }
+        val icon = "waypoint-$role-${index + 1}"
+        style.addImage(icon, waypointBitmap(role, index + 1, density))
         Feature.fromGeometry(latLng.toPoint()).apply {
-            val role = when (index) {
-                0 -> "start"
-                waypoints.lastIndex -> "end"
-                else -> "via"
-            }
-            addStringProperty(ROLE_KEY, role)
-            addStringProperty(LABEL_KEY, (index + 1).toString())
+            addStringProperty(ICON_KEY, icon)
+            // Higher sort key renders on top — a later stop wins the overlap.
+            addNumberProperty(SORT_KEY, index)
         }
     }
     style.getSourceAs<GeoJsonSource>(WAYPOINT_SOURCE)
         ?.setGeoJson(FeatureCollection.fromFeatures(features))
+}
+
+private const val WAYPOINT_RADIUS_DP = 11f
+private const val WAYPOINT_STROKE_DP = 2.5f
+private const val WAYPOINT_TEXT_DP = 13f
+private val WAYPOINT_START_COLOR = Color.rgb(46, 125, 50)
+private val WAYPOINT_END_COLOR = Color.rgb(198, 40, 40)
+private val WAYPOINT_VIA_COLOR = Color.rgb(69, 90, 100)
+
+private fun waypointBitmap(role: String, number: Int, density: Float): Bitmap {
+    val fillRadius = WAYPOINT_RADIUS_DP * density
+    val stroke = WAYPOINT_STROKE_DP * density
+    val size = ceil((fillRadius + stroke) * 2).toInt()
+    val center = size / 2f
+    val bitmap = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888)
+    val canvas = Canvas(bitmap)
+    val paint = Paint(Paint.ANTI_ALIAS_FLAG)
+    paint.color = when (role) {
+        "start" -> WAYPOINT_START_COLOR
+        "end" -> WAYPOINT_END_COLOR
+        else -> WAYPOINT_VIA_COLOR
+    }
+    canvas.drawCircle(center, center, fillRadius, paint)
+    paint.color = Color.WHITE
+    paint.style = Paint.Style.STROKE
+    paint.strokeWidth = stroke
+    canvas.drawCircle(center, center, fillRadius + stroke / 2f, paint)
+    val text = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = Color.WHITE
+        typeface = Typeface.DEFAULT_BOLD
+        textSize = WAYPOINT_TEXT_DP * density
+        textAlign = Paint.Align.CENTER
+    }
+    val baseline = center - (text.ascent() + text.descent()) / 2f
+    canvas.drawText(number.toString(), center, baseline, text)
+    return bitmap
 }
 
 private fun updateRoute(style: Style, routePoints: List<LatLng>, isFallback: Boolean) {

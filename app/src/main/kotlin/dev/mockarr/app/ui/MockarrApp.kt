@@ -1,7 +1,12 @@
 package dev.mockarr.app.ui
 
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.WindowInsetsSides
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.only
+import androidx.compose.foundation.layout.safeDrawing
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material.icons.filled.Place
@@ -112,7 +117,11 @@ fun MockarrApp(setupViewModel: SetupViewModel = hiltViewModel()) {
             }
         },
     ) {
-        Box(modifier = Modifier.fillMaxSize()) {
+        // NavigationSuiteScaffold insets only its own bar/rail; the content
+        // must keep itself out from under the status bar (the bottom/side
+        // insets are consumed by the suite's bar placement).
+        val topInset = WindowInsets.safeDrawing.only(WindowInsetsSides.Top)
+        Box(modifier = Modifier.fillMaxSize().windowInsetsPadding(topInset)) {
             // The map lives BEHIND the NavHost for the whole app lifetime —
             // tab switches neither recreate it nor move its camera. Non-map
             // destinations cover it with an opaque Surface.
