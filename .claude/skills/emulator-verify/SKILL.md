@@ -1,5 +1,5 @@
 ---
-description: Verify Mockarr changes on the Android emulator like a human tester — boot, drive the UI via scripts/emu.sh, capture screenshot evidence, and report findings with severity triage. Use whenever a change needs emulator verification, when asked to "verify", "test on the emulator", or before declaring a user-visible change done.
+description: Verify Mockarr changes on the Android emulator like a human tester — boot, drive the UI via scripts/emu.sh, capture screenshot evidence, and report findings with severity triage. Use whenever a change needs emulator verification, when asked to "verify", "test on the emulator", or before declaring a user-visible change done — AND when Ethan reports a visual/UI problem: reproduce and screenshot it yourself before diagnosing; never ask him for screenshots.
 argument-hint: "[feature or screen to verify]"
 ---
 
@@ -54,8 +54,8 @@ emulator binary yourself.
 Run the passes that apply; light features need only the first.
 1. **Primary flow** — the feature's happy path, screenshot at each state
    change; check loading/empty/error states exist where relevant.
-2. **Dark theme** — `adb shell cmd uimode night yes` (via emu.sh's ADB), sweep
-   the changed screens, then `night no`.
+2. **Dark theme** — `scripts/emu.sh night on`, sweep the changed screens,
+   then `scripts/emu.sh night off`.
 3. **Font scale 1.3** — `adb shell settings put system font_scale 1.3`, check
    for clipped/truncated labels on changed screens, restore `1.0`.
 4. **Rotation** — landscape once through the changed screens if layout changed.

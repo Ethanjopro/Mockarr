@@ -109,6 +109,14 @@ case "${1:-help}" in
       echo "display set to $2${3:+ @ ${3}dpi}"
     fi
     ;;
+  # System dark mode: scripts/emu.sh night on|off (dark-theme verification passes)
+  night)
+    case "${2:-}" in
+      on)  "$ADB" shell cmd uimode night yes ;;
+      off) "$ADB" shell cmd uimode night no ;;
+      *) echo "usage: scripts/emu.sh night on|off" >&2; exit 1 ;;
+    esac
+    ;;
   install)   (cd "$(dirname "$0")/.." && JAVA_HOME="/Applications/Android Studio.app/Contents/jbr/Contents/Home" ./gradlew -q :app:installDebug) ;;
   launch)    "$ADB" shell am start -n dev.mockarr.app/.MainActivity ;;
   mockallow) "$ADB" shell settings put global development_settings_enabled 1 && "$ADB" shell appops set dev.mockarr.app android:mock_location allow ;;
@@ -133,6 +141,7 @@ usage: scripts/emu.sh <command> [args]
   logcat [pattern] [lines]   recent log lines, optionally filtered (default 100)
   rotate landscape|portrait  force orientation (disables auto-rotate)
   resize WxH [dpi] | reset   emulate another display (tablet testing)
+  night on|off               system dark mode (theme verification)
 USAGE
     ;;
 esac

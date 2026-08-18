@@ -44,6 +44,8 @@ OpenFreeMap, OSRM, Photon, Open-Meteo) — no API keys anywhere.
   here or in the `kotlin-conventions` skill — never leave it as a one-off fix.
 - Every user-visible change gets verified on the emulator like a human would
   (tap/type/screenshot) before it is called done.
+- When Ethan reports a visual/UI bug, reproduce it on the emulator and LOOK
+  (screenshot + Read) before diagnosing — never ask him for screenshots.
 - End rounds with a short efficiency note when you spotted a better way Ethan
   could have prompted or a tool that went unused (see docs/claude-code-playbook.md).
 - Commit format: short imperative subject; end body with the Claude co-author

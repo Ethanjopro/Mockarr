@@ -242,6 +242,11 @@ Verified end-to-end like a human: app-drawer swipe → tapped the Mockarr icon �
 - **Progress alert feature removed** (user request): settings fields/keys/setters (`SettingsRepository`), ViewModel wrappers, Settings UI block + range consts, service alert channel/locals/`postProgressAlert`/consts all deleted; `onCreate` now `deleteNotificationChannel("progress_alerts")` so upgraded installs shed the stale channel. DataStore keys simply orphan (harmless).
 - Emulator note: transient "System UI isn't responding" ANR dialog + a Photon "Connection reset" right after boot — both emulator-environment noise, not app bugs (retry succeeded; logcat clean of dev.mockarr exceptions).
 
+### 2026-08-18 — Session 13 (process: see-it-yourself rule)
+
+- **User directive**: Claude must see what it's emulating visually on its own — never ask Ethan for screenshots. Promoted to CLAUDE.md (reproduce+LOOK before diagnosing reported visual bugs) and the emulator-verify skill trigger (applies to triaging Ethan's reports, not just verifying changes).
+- `emu.sh night on|off` added (system dark mode) — the one visual-loop step that previously needed raw adb; skill's dark-theme pass updated to use it. Full cold loop smoke-tested: boot → night on → launch → shot → image read → kill.
+
 ## PLAN COMPLETE — remaining items are the user's
 
 1. **License decision** (GPL-3.0 vs Apache-2.0 vs other) — swap LICENSE, update README/CONTRIBUTING, then the repo can go public.
