@@ -18,4 +18,8 @@ data class SavedRouteEntity(
     val encodedPolyline6: String,
     val legsJson: String,
     val altitudesJson: String? = null,
+    /** JSON `List<LatLng>` of router-snapped waypoints; null on pre-v3 rows. */
+    val waypointsJson: String? = null,
+    /** JSON `List<Int>` of per-waypoint wait seconds, aligned with [waypointsJson]. */
+    val waypointWaitsJson: String? = null,
 )

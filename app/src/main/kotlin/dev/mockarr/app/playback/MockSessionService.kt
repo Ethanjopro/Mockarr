@@ -17,7 +17,7 @@ import dev.mockarr.app.MainActivity
 import dev.mockarr.app.R
 import dev.mockarr.app.ui.errorMessageOrNull
 import dev.mockarr.app.ui.formatDistanceProgress
-import dev.mockarr.app.ui.formatTimeRemaining
+import dev.mockarr.app.ui.formatDurationShort
 import dev.mockarr.core.data.SettingsRepository
 import dev.mockarr.core.mocklocation.MockLocationController
 import dev.mockarr.core.model.LatLng
@@ -73,7 +73,7 @@ class MockSessionService : Service() {
     private var holdJob: Job? = null
     private var wakeLock: PowerManager.WakeLock? = null
     private var routeDistanceMeters: Double = 0.0
-    private var lastNotified: Triple<Int, Boolean, Int>? = null
+    private var lastNotified: Triple<Int, Int, Int>? = null
 
     /** The pin held when playback began — the fallback if "stay at destination" is off. */
     private var rememberedPin: LatLng? = null
@@ -313,9 +313,14 @@ class MockSessionService : Service() {
 
     private fun refreshNotification() {
         val state = repository.state.value
+        val stateOrdinal = when (state) {
+            is PlaybackState.Paused -> 1
+            is PlaybackState.Dwelling -> 2
+            else -> 0
+        }
         val key = Triple(
             (state.progressOrZero * PROGRESS_MAX).toInt(),
-            state is PlaybackState.Paused,
+            stateOrdinal,
             ((state.remainingSecondsOrNull ?: 0.0) / SECONDS_PER_MINUTE).toInt(),
         )
         if (key == lastNotified) return
@@ -355,9 +360,14 @@ class MockSessionService : Service() {
         val progressText =
             formatDistanceProgress(routeDistanceMeters * progress, routeDistanceMeters, units)
         val etaSuffix = state.remainingSecondsOrNull
-            ?.let { " · ${formatTimeRemaining(it)}" }
+            ?.let { " · ${formatDurationShort(it)} left" }
             .orEmpty()
-        val text = progressText + etaSuffix + if (paused) " · paused" else ""
+        val statusSuffix = when {
+            paused -> " · paused"
+            state is PlaybackState.Dwelling -> " · waiting"
+            else -> ""
+        }
+        val text = progressText + etaSuffix + statusSuffix
 
         val toggleAction = if (paused) {
             NotificationCompat.Action(0, "Resume", resumeIntent)

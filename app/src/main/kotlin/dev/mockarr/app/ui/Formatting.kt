@@ -45,31 +45,39 @@ fun routeSummaryText(
     durationSeconds: Double,
     units: DistanceUnits,
     trafficFactor: Double = 1.0,
+    extraSeconds: Double = 0.0,
 ): String {
-    val minutes = (durationSeconds * trafficFactor / 60.0).roundToInt().coerceAtLeast(1)
+    val minutes = ((durationSeconds * trafficFactor + extraSeconds) / 60.0).roundToInt().coerceAtLeast(1)
     val suffix = if (trafficFactor >= TRAFFIC_SUFFIX_THRESHOLD) " (traffic)" else ""
-    return "${formatDistance(distanceMeters, units)} · about $minutes min$suffix"
+    val duration = formatDurationShort(minutes * SECONDS_PER_MINUTE.toDouble())
+    return "${formatDistance(distanceMeters, units)} · about $duration$suffix"
 }
 
 fun Route.summaryText(units: DistanceUnits, trafficFactor: Double = 1.0): String =
-    routeSummaryText(distanceMeters, durationSeconds, units, trafficFactor)
+    routeSummaryText(
+        distanceMeters,
+        durationSeconds,
+        units,
+        trafficFactor,
+        waypointWaitsSeconds.sum().toDouble(),
+    )
 
 private const val TRAFFIC_SUFFIX_THRESHOLD = 1.05
 
 private const val SECONDS_PER_MINUTE = 60
-private const val SECONDS_PER_HOUR = 3600
+private const val MINUTES_PER_HOUR = 60
 
-/** "45 s left" / "3 min left" / "1 h 12 min left" — rounded up, never "0 min". */
-fun formatTimeRemaining(seconds: Double): String {
+/** "45 s" / "3 min" / "1 h" / "1 h 15 min" — rounded up, never "0 min". */
+fun formatDurationShort(seconds: Double): String {
     val total = ceil(seconds).toInt().coerceAtLeast(0)
+    val totalMinutes = ceil(total / 60.0).toInt()
+    val hours = totalMinutes / MINUTES_PER_HOUR
+    val minutes = totalMinutes % MINUTES_PER_HOUR
     return when {
-        total < SECONDS_PER_MINUTE -> "$total s left"
-        total < SECONDS_PER_HOUR -> "${ceil(total / 60.0).toInt()} min left"
-        else -> {
-            val hours = total / SECONDS_PER_HOUR
-            val minutes = ceil((total % SECONDS_PER_HOUR) / 60.0).toInt()
-            "$hours h $minutes min left"
-        }
+        total < SECONDS_PER_MINUTE -> "$total s"
+        hours == 0 -> "$totalMinutes min"
+        minutes == 0 -> "$hours h"
+        else -> "$hours h $minutes min"
     }
 }
 

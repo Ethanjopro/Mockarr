@@ -22,6 +22,11 @@ data class Route(
     val durationSeconds: Double,
     val altitudes: List<Double>? = null,
     val snappedWaypoints: List<LatLng> = emptyList(),
+    /**
+     * Dwell seconds per requested waypoint, aligned 1:1 with the waypoints
+     * (`legs.size + 1`) when non-empty; empty = no waits.
+     */
+    val waypointWaitsSeconds: List<Int> = emptyList(),
 )
 
 /**

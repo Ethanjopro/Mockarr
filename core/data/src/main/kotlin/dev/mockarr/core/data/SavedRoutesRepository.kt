@@ -1,5 +1,6 @@
 package dev.mockarr.core.data
 
+import dev.mockarr.core.model.LatLng
 import dev.mockarr.core.model.Route
 import dev.mockarr.core.model.RouteLeg
 import dev.mockarr.core.model.RoutingProfile
@@ -25,6 +26,12 @@ class SavedRoutesRepository(
                 encodedPolyline6 = Polyline6.encode(route.points),
                 legsJson = json.encodeToString(route.legs),
                 altitudesJson = route.altitudes?.let { json.encodeToString(it) },
+                waypointsJson = route.snappedWaypoints
+                    .takeIf { it.isNotEmpty() }
+                    ?.let { json.encodeToString(it) },
+                waypointWaitsJson = route.waypointWaitsSeconds
+                    .takeIf { waits -> waits.any { it > 0 } }
+                    ?.let { json.encodeToString(it) },
             ),
         )
 
@@ -38,12 +45,21 @@ class SavedRoutesRepository(
         val altitudes = entity.altitudesJson
             ?.let { runCatching { json.decodeFromString<List<Double>>(it) }.getOrNull() }
             ?.takeIf { it.size == points.size }
+        val waypoints = entity.waypointsJson
+            ?.let { runCatching { json.decodeFromString<List<LatLng>>(it) }.getOrNull() }
+            .orEmpty()
+        val waits = entity.waypointWaitsJson
+            ?.let { runCatching { json.decodeFromString<List<Int>>(it) }.getOrNull() }
+            ?.takeIf { it.size == waypoints.size }
+            .orEmpty()
         return Route(
             points = points,
             legs = json.decodeFromString<List<RouteLeg>>(entity.legsJson),
             distanceMeters = entity.distanceMeters,
             durationSeconds = entity.durationSeconds,
             altitudes = altitudes,
+            snappedWaypoints = waypoints,
+            waypointWaitsSeconds = waits,
         )
     }
 

@@ -45,6 +45,12 @@ class RouteGeometry(
     /** Max speed allowed *at* vertex i (turn caps + braking backward pass). */
     internal val allowedVertexSpeeds: DoubleArray
 
+    /** A user-requested stop along the route. */
+    data class DwellStop(val distanceMeters: Double, val waitSeconds: Int)
+
+    /** User-requested stops ordered by distance; interior waypoints and the start only. */
+    val dwellStops: List<DwellStop>
+
     init {
         require(points.size >= 2) { "A route needs at least two points" }
         val n = points.size
@@ -76,6 +82,10 @@ class RouteGeometry(
         }
         totalDurationSeconds = cumulativeDurations[n - 1]
 
+        val dwellVertexWaits = dwellVertexWaits(route, n)
+        dwellStops = dwellVertexWaits.map { (vertex, wait) -> DwellStop(cumulative[vertex], wait) }
+        val dwellVertices = dwellVertexWaits.keys
+
         // Turn caps at interior vertices, then a backward pass so every vertex
         // speed is reachable under the deceleration limit.
         allowedVertexSpeeds = DoubleArray(n)
@@ -86,9 +96,30 @@ class RouteGeometry(
                 decelerationMps2,
                 cumulative[i + 1] - cumulative[i],
             )
-            allowedVertexSpeeds[i] = min(turnCapAt(i), brakingCap)
+            val cap = if (i in dwellVertices) 0.0 else turnCapAt(i)
+            allowedVertexSpeeds[i] = min(cap, brakingCap)
         }
         allowedVertexSpeeds[0] = 0.0 // start from rest
+    }
+
+    /**
+     * Geometry vertex → wait seconds for every waited waypoint except the
+     * destination (the engine already comes to rest there). Legs map 1:1 to
+     * waypoint pairs, so waypoint k's vertex is the boundary after leg k-1.
+     * Empty when waits or leg segments don't align with the geometry.
+     */
+    private fun dwellVertexWaits(route: Route, n: Int): Map<Int, Int> {
+        val waits = route.waypointWaitsSeconds
+        val aligned = waits.size == route.legs.size + 1 &&
+            route.legs.sumOf { it.segmentDistancesMeters.size } == n - 1
+        if (!aligned) return emptyMap()
+        var vertex = 0
+        val result = mutableMapOf<Int, Int>()
+        for (k in 0 until waits.lastIndex) {
+            if (waits[k] > 0) result[vertex] = waits[k]
+            vertex += route.legs[k].segmentDistancesMeters.size
+        }
+        return result
     }
 
     fun segmentIndexAt(distance: Double): Int {

@@ -1,10 +1,5 @@
 package dev.mockarr.app.ui.map
 
-import android.graphics.Bitmap
-import android.graphics.Canvas
-import android.graphics.Color
-import android.graphics.Paint
-import android.graphics.Typeface
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -22,6 +17,7 @@ import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import dev.mockarr.core.model.LatLng
 import dev.mockarr.core.model.MapCamera
+import dev.mockarr.core.model.Waypoint
 import org.maplibre.android.camera.CameraPosition
 import org.maplibre.android.camera.CameraUpdateFactory
 import org.maplibre.android.geometry.LatLngBounds
@@ -41,21 +37,20 @@ import org.maplibre.geojson.Feature
 import org.maplibre.geojson.FeatureCollection
 import org.maplibre.geojson.LineString
 import org.maplibre.geojson.Point
-import kotlin.math.ceil
 import org.maplibre.android.geometry.LatLng as MapLibreLatLng
 
 private const val ROUTE_SOURCE = "route-source"
 private const val ROUTE_LAYER = "route-layer"
 private const val FALLBACK_SOURCE = "fallback-source"
 private const val FALLBACK_LAYER = "fallback-layer"
-private const val WAYPOINT_SOURCE = "waypoint-source"
-private const val WAYPOINT_LAYER = "waypoint-layer"
+internal const val WAYPOINT_SOURCE = "waypoint-source"
+internal const val WAYPOINT_LAYER = "waypoint-layer"
 private const val PIN_SOURCE = "pin-source"
 private const val PIN_LAYER = "pin-layer"
 private const val PLAYBACK_SOURCE = "playback-source"
 private const val PLAYBACK_LAYER = "playback-layer"
-private const val ICON_KEY = "icon"
-private const val SORT_KEY = "sort"
+internal const val ICON_KEY = "icon"
+internal const val SORT_KEY = "sort"
 
 // The liberty style's flat building-footprint layer (outlined fills, z13-14).
 private const val FLAT_BUILDING_LAYER = "building"
@@ -70,10 +65,11 @@ private const val EXTENDED_MAX_ZOOM = 24f
  */
 @Composable
 fun MockarrMap(
-    waypoints: List<LatLng>,
+    waypoints: List<Waypoint>,
     routePoints: List<LatLng>,
     routeIsFallback: Boolean,
     onMapTap: (LatLng) -> Unit,
+    onWaypointTap: (Int) -> Unit,
     onMapLongPress: (LatLng) -> Unit,
     styleUrl: String,
     visible: Boolean,
@@ -89,6 +85,7 @@ fun MockarrMap(
 ) {
     val context = LocalContext.current
     val currentOnTap by rememberUpdatedState(onMapTap)
+    val currentOnWaypointTap by rememberUpdatedState(onWaypointTap)
     val currentOnLongPress by rememberUpdatedState(onMapLongPress)
     val currentOnCameraIdle by rememberUpdatedState(onCameraIdle)
     val currentOnUserGesture by rememberUpdatedState(onUserGesture)
@@ -97,6 +94,7 @@ fun MockarrMap(
     var map by remember { mutableStateOf<MapLibreMap?>(null) }
     var style by remember { mutableStateOf<Style?>(null) }
     var userMovedCamera by remember { mutableStateOf(false) }
+    val density = LocalDensity.current.density
 
     val mapView = remember {
         MapView(context).apply {
@@ -106,7 +104,14 @@ fun MockarrMap(
                     CameraUpdateFactory.newLatLngZoom(FALLBACK_CENTER.toMapLibre(), FALLBACK_ZOOM),
                 )
                 libreMap.addOnMapClickListener { p ->
-                    if (currentVisible) currentOnTap(LatLng(p.latitude, p.longitude))
+                    if (currentVisible) {
+                        val tapped = libreMap.waypointIndexAt(p, density)
+                        if (tapped != null) {
+                            currentOnWaypointTap(tapped)
+                        } else {
+                            currentOnTap(LatLng(p.latitude, p.longitude))
+                        }
+                    }
                     currentVisible
                 }
                 libreMap.addOnMapLongClickListener { p ->
@@ -207,7 +212,6 @@ fun MockarrMap(
         applyMapMode(loadedStyle, map, threeDimensional, flatBuildingMaxZoom)
     }
 
-    val density = LocalDensity.current.density
     LaunchedEffect(style, waypoints, density) {
         val loadedStyle = style ?: return@LaunchedEffect
         updateWaypoints(loadedStyle, waypoints, density)
@@ -280,7 +284,7 @@ private const val FALLBACK_ZOOM = 12.0
 
 private fun LatLng.toMapLibre() = MapLibreLatLng(latitude, longitude)
 
-private fun LatLng.toPoint(): Point = Point.fromLngLat(longitude, latitude)
+internal fun LatLng.toPoint(): Point = Point.fromLngLat(longitude, latitude)
 
 private fun LatLng?.toFeatures(): FeatureCollection = this?.let {
     FeatureCollection.fromFeature(Feature.fromGeometry(it.toPoint()))
@@ -382,61 +386,6 @@ private fun addPointLayers(style: Style) {
             PropertyFactory.symbolSortKey(Expression.get(SORT_KEY)),
         ),
     )
-}
-
-private fun updateWaypoints(style: Style, waypoints: List<LatLng>, density: Float) {
-    val features = waypoints.mapIndexed { index, latLng ->
-        val role = when (index) {
-            0 -> "start"
-            waypoints.lastIndex -> "end"
-            else -> "via"
-        }
-        val icon = "waypoint-$role-${index + 1}"
-        style.addImage(icon, waypointBitmap(role, index + 1, density))
-        Feature.fromGeometry(latLng.toPoint()).apply {
-            addStringProperty(ICON_KEY, icon)
-            // Higher sort key renders on top — a later stop wins the overlap.
-            addNumberProperty(SORT_KEY, index)
-        }
-    }
-    style.getSourceAs<GeoJsonSource>(WAYPOINT_SOURCE)
-        ?.setGeoJson(FeatureCollection.fromFeatures(features))
-}
-
-private const val WAYPOINT_RADIUS_DP = 11f
-private const val WAYPOINT_STROKE_DP = 2.5f
-private const val WAYPOINT_TEXT_DP = 13f
-private val WAYPOINT_START_COLOR = Color.rgb(46, 125, 50)
-private val WAYPOINT_END_COLOR = Color.rgb(198, 40, 40)
-private val WAYPOINT_VIA_COLOR = Color.rgb(69, 90, 100)
-
-private fun waypointBitmap(role: String, number: Int, density: Float): Bitmap {
-    val fillRadius = WAYPOINT_RADIUS_DP * density
-    val stroke = WAYPOINT_STROKE_DP * density
-    val size = ceil((fillRadius + stroke) * 2).toInt()
-    val center = size / 2f
-    val bitmap = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888)
-    val canvas = Canvas(bitmap)
-    val paint = Paint(Paint.ANTI_ALIAS_FLAG)
-    paint.color = when (role) {
-        "start" -> WAYPOINT_START_COLOR
-        "end" -> WAYPOINT_END_COLOR
-        else -> WAYPOINT_VIA_COLOR
-    }
-    canvas.drawCircle(center, center, fillRadius, paint)
-    paint.color = Color.WHITE
-    paint.style = Paint.Style.STROKE
-    paint.strokeWidth = stroke
-    canvas.drawCircle(center, center, fillRadius + stroke / 2f, paint)
-    val text = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        color = Color.WHITE
-        typeface = Typeface.DEFAULT_BOLD
-        textSize = WAYPOINT_TEXT_DP * density
-        textAlign = Paint.Align.CENTER
-    }
-    val baseline = center - (text.ascent() + text.descent()) / 2f
-    canvas.drawText(number.toString(), center, baseline, text)
-    return bitmap
 }
 
 private fun updateRoute(style: Style, routePoints: List<LatLng>, isFallback: Boolean) {

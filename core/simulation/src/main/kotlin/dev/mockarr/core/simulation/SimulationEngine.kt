@@ -47,8 +47,17 @@ class SimulationEngine(
     @Volatile
     private var speedMultiplier = initialSpeedMultiplier.coerceIn(MIN_MULTIPLIER, MAX_MULTIPLIER)
 
+    private val dwellStops = geometry.dwellStops
+    private var nextDwellIndex = 0
+
+    /** Countdown of the active dwell; survives pause/resume, unlike the state object. */
+    private var dwellSecondsLeft = 0.0
+
     private val _state = MutableStateFlow<PlaybackState>(
-        PlaybackState.Playing(0.0, geometry.totalDurationSeconds / speedMultiplier),
+        PlaybackState.Playing(
+            0.0,
+            (geometry.totalDurationSeconds + dwellStops.sumOf { it.waitSeconds }) / speedMultiplier,
+        ),
     )
     val state: StateFlow<PlaybackState> = _state.asStateFlow()
 
@@ -80,6 +89,7 @@ class SimulationEngine(
             }
             fix
         }
+        is PlaybackState.Dwelling -> dwellTick(dt)
         is PlaybackState.Paused -> currentFix()
         PlaybackState.Stopping -> {
             stopStep(dt)
@@ -93,22 +103,38 @@ class SimulationEngine(
     }
 
     fun pause() {
-        val current = _state.value
-        if (current is PlaybackState.Playing) {
-            speed = 0.0
-            _state.value = PlaybackState.Paused(current.progress, current.remainingSeconds)
+        when (val current = _state.value) {
+            is PlaybackState.Playing -> {
+                speed = 0.0
+                _state.value = PlaybackState.Paused(current.progress, current.remainingSeconds)
+            }
+            is PlaybackState.Dwelling ->
+                _state.value = PlaybackState.Paused(current.progress, current.remainingSeconds)
+            else -> Unit
         }
     }
 
     fun resume() {
         val current = _state.value
         if (current is PlaybackState.Paused) {
-            _state.value = PlaybackState.Playing(current.progress, current.remainingSeconds)
+            _state.value = if (dwellSecondsLeft > 0.0) {
+                PlaybackState.Dwelling(
+                    current.progress,
+                    current.remainingSeconds,
+                    dwellSecondsLeft / speedMultiplier,
+                )
+            } else {
+                PlaybackState.Playing(current.progress, current.remainingSeconds)
+            }
         }
     }
 
     fun stop() {
-        if (_state.value is PlaybackState.Playing || _state.value is PlaybackState.Paused) {
+        val current = _state.value
+        val stoppable = current is PlaybackState.Playing ||
+            current is PlaybackState.Paused ||
+            current is PlaybackState.Dwelling
+        if (stoppable) {
             _state.value = PlaybackState.Stopping
         }
     }
@@ -135,10 +161,46 @@ class SimulationEngine(
             max(speed - params.decelerationMps2 * dt, target)
         }
         advance(dt)
-        _state.value = PlaybackState.Playing(
-            progress(),
-            geometry.remainingDurationSeconds(distance) / speedMultiplier,
-        )
+        val stop = dwellStops.getOrNull(nextDwellIndex)
+        if (stop != null && distance >= stop.distanceMeters - DWELL_EPSILON_METERS) {
+            distance = stop.distanceMeters // land the dwell fixes exactly on the stop
+            speed = 0.0
+            dwellSecondsLeft = stop.waitSeconds.toDouble()
+            _state.value = PlaybackState.Dwelling(
+                progress(),
+                remainingWithDwell(),
+                dwellSecondsLeft / speedMultiplier,
+            )
+            return
+        }
+        _state.value = PlaybackState.Playing(progress(), remainingWithDwell())
+    }
+
+    /** Counts down the active dwell; the countdown fast-forwards with the multiplier. */
+    private fun dwellTick(dt: Double): SimulatedFix {
+        dwellSecondsLeft -= dt * speedMultiplier
+        if (dwellSecondsLeft <= 0.0) {
+            dwellSecondsLeft = 0.0
+            nextDwellIndex++
+            _state.value = PlaybackState.Playing(progress(), remainingWithDwell())
+        } else {
+            _state.value = PlaybackState.Dwelling(
+                progress(),
+                remainingWithDwell(),
+                dwellSecondsLeft / speedMultiplier,
+            )
+        }
+        return currentFix()
+    }
+
+    /** Cruise time to the destination plus every not-yet-elapsed dwell second. */
+    private fun remainingWithDwell(): Double {
+        val futureFrom = if (dwellSecondsLeft > 0.0) nextDwellIndex + 1 else nextDwellIndex
+        var dwell = dwellSecondsLeft
+        for (i in futureFrom until dwellStops.size) {
+            dwell += dwellStops[i].waitSeconds
+        }
+        return (geometry.remainingDurationSeconds(distance) + dwell) / speedMultiplier
     }
 
     private fun stopStep(dt: Double) {
@@ -210,6 +272,7 @@ class SimulationEngine(
         private const val MIN_DT = 0.001
         private const val MAX_DT = 5.0
         private const val END_EPSILON_METERS = 0.05
+        private const val DWELL_EPSILON_METERS = 0.5
         private const val STOP_SPEED_THRESHOLD = 0.3
         private const val BEARING_SMOOTHING = 0.4
         private const val ACCURACY_SIGMA = 1.5

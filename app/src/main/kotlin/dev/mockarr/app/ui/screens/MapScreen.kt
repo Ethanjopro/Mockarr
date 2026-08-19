@@ -70,8 +70,8 @@ import dev.mockarr.app.playback.HoldSource
 import dev.mockarr.app.playback.MockSessionState
 import dev.mockarr.app.ui.formatDistance
 import dev.mockarr.app.ui.formatDistanceProgress
+import dev.mockarr.app.ui.formatDurationShort
 import dev.mockarr.app.ui.formatRouteTimestamp
-import dev.mockarr.app.ui.formatTimeRemaining
 import dev.mockarr.app.ui.label
 import dev.mockarr.app.ui.map.MockarrMap
 import dev.mockarr.app.ui.map.effectiveStyleUrl
@@ -138,6 +138,10 @@ fun MapLayer(
         onMapTap = {
             focusManager.clearFocus()
             if (!playing) viewModel.addWaypoint(it)
+        },
+        onWaypointTap = {
+            focusManager.clearFocus()
+            if (!playing) viewModel.selectWaypoint(it)
         },
         onMapLongPress = {
             focusManager.clearFocus()
@@ -258,32 +262,17 @@ fun MapScreen(
     }
 
     startChoiceRoute?.let { pendingRoute ->
-        AlertDialog(
-            onDismissRequest = { startChoiceRoute = null },
-            title = { Text("Start from held location?") },
-            text = {
-                Text(
-                    "You're holding your location elsewhere. Route from there first, " +
-                        "or play the route exactly as built?",
-                )
+        StartChoiceDialog(
+            onStartFromHold = {
+                startChoiceRoute = null
+                currentHold()?.position?.let(viewModel::prependWaypoint)
+                playWhenRouteReady = true
             },
-            confirmButton = {
-                TextButton(
-                    onClick = {
-                        startChoiceRoute = null
-                        currentHold()?.position?.let(viewModel::prependWaypoint)
-                        playWhenRouteReady = true
-                    },
-                ) { Text("From held spot") }
+            onPlayAsBuilt = {
+                startChoiceRoute = null
+                requestPlay(pendingRoute)
             },
-            dismissButton = {
-                TextButton(
-                    onClick = {
-                        startChoiceRoute = null
-                        requestPlay(pendingRoute)
-                    },
-                ) { Text("As built") }
-            },
+            onDismiss = { startChoiceRoute = null },
         )
     }
 
@@ -291,7 +280,7 @@ fun MapScreen(
         AlertDialog(
             onDismissRequest = { showRouteFromHoldPrompt = false },
             title = { Text("Route from held location?") },
-            text = { Text("Build a route from your held spot to this stop and play it?") },
+            text = { Text("Build a route from your held location to this stop and play it?") },
             confirmButton = {
                 TextButton(
                     onClick = {
@@ -306,6 +295,40 @@ fun MapScreen(
             dismissButton = {
                 TextButton(onClick = { showRouteFromHoldPrompt = false }) { Text("Cancel") }
             },
+        )
+    }
+
+    val selectedWaypoint by viewModel.selectedWaypoint.collectAsStateWithLifecycle()
+    var waitEditIndex by remember { mutableStateOf<Int?>(null) }
+
+    selectedWaypoint?.let { index ->
+        val waypoint = state.waypoints.getOrNull(index)
+        if (waypoint == null) {
+            // The list changed under the open menu (undo/clear) — drop it.
+            viewModel.selectWaypoint(null)
+        } else {
+            WaypointOptionsDialog(
+                stopNumber = index + 1,
+                isDestination = index == state.waypoints.lastIndex && state.waypoints.size >= 2,
+                currentWaitSeconds = waypoint.waitSeconds,
+                onSetWait = {
+                    waitEditIndex = index
+                    viewModel.selectWaypoint(null)
+                },
+                onClearWait = { viewModel.setWaypointWait(index, 0) },
+                onDelete = { viewModel.removeWaypoint(index) },
+                onDismiss = { viewModel.selectWaypoint(null) },
+            )
+        }
+    }
+    waitEditIndex?.let { index ->
+        WaypointWaitDialog(
+            initialSeconds = state.waypoints.getOrNull(index)?.waitSeconds ?: 0,
+            onConfirm = { seconds ->
+                viewModel.setWaypointWait(index, seconds)
+                waitEditIndex = null
+            },
+            onDismiss = { waitEditIndex = null },
         )
     }
 
@@ -549,10 +572,11 @@ private fun PlaybackCard(
     val progress = playbackState.progressOrZero
     val paused = playbackState is PlaybackState.Paused
     val stopping = playbackState is PlaybackState.Stopping
+    val dwelling = playbackState as? PlaybackState.Dwelling
     val total = route?.distanceMeters ?: 0.0
     val progressText = formatDistanceProgress(total * progress, total, units)
     val etaSuffix = playbackState.remainingSecondsOrNull
-        ?.let { " · ${formatTimeRemaining(it)}" }
+        ?.let { " · ${formatDurationShort(it)} left" }
         .orEmpty()
 
     Card(modifier = modifier) {
@@ -562,6 +586,9 @@ private fun PlaybackCard(
                     text = when {
                         stopping -> "Stopping…"
                         paused -> "Paused · $progressText$etaSuffix"
+                        dwelling != null ->
+                            "Waiting ${formatDurationShort(dwelling.waitSecondsLeft)} · " +
+                                "$progressText$etaSuffix"
                         else -> "Driving · $progressText$etaSuffix"
                     },
                     style = MaterialTheme.typography.titleSmall,

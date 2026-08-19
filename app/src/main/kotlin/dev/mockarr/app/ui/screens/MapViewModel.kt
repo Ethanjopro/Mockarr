@@ -19,6 +19,7 @@ import dev.mockarr.core.model.LatLng
 import dev.mockarr.core.model.MapCamera
 import dev.mockarr.core.model.Route
 import dev.mockarr.core.model.RoutingProfile
+import dev.mockarr.core.model.Waypoint
 import dev.mockarr.core.routing.ElevationSampling
 import dev.mockarr.core.routing.GeocodingResult
 import dev.mockarr.core.routing.OpenMeteoElevationClient
@@ -59,7 +60,7 @@ class MapViewModel @Inject constructor(
 ) : ViewModel() {
 
     data class UiState(
-        val waypoints: List<LatLng> = emptyList(),
+        val waypoints: List<Waypoint> = emptyList(),
         val profile: RoutingProfile = RoutingProfile.DRIVING,
         val route: Route? = null,
         val routeIsFallback: Boolean = false,
@@ -93,6 +94,10 @@ class MapViewModel @Inject constructor(
 
     private val _cameraCommand = MutableStateFlow<CameraCommand?>(null)
     val cameraCommand: StateFlow<CameraCommand?> = _cameraCommand.asStateFlow()
+
+    /** Index of the waypoint whose context menu is open, or null. */
+    private val _selectedWaypoint = MutableStateFlow<Int?>(null)
+    val selectedWaypoint: StateFlow<Int?> = _selectedWaypoint.asStateFlow()
 
     /** Suggested name for the Save dialog ("X to Y, City"), null until resolved. */
     private val _suggestedName = MutableStateFlow<String?>(null)
@@ -182,23 +187,26 @@ class MapViewModel @Inject constructor(
             settingsRepository.settings
                 .map { it.trafficSimEnabled }
                 .distinctUntilChanged()
-                .collect { _uiState.update { s -> s.copy(trafficFactor = currentTrafficFactor()) } }
+                .collect { _uiState.update { s -> s.copy(trafficFactor = settingsRepository.currentTrafficFactor()) } }
         }
     }
 
     fun addWaypoint(point: LatLng) {
-        _uiState.update { it.copy(waypoints = it.waypoints + point) }
+        _selectedWaypoint.value = null
+        _uiState.update { it.copy(waypoints = it.waypoints + Waypoint(point)) }
         scheduleRouteFetch()
     }
 
     /** Insert a new route origin (e.g. the held position, chosen at Play time). */
     fun prependWaypoint(point: LatLng) {
-        _uiState.update { it.copy(waypoints = listOf(point) + it.waypoints) }
+        _selectedWaypoint.value = null
+        _uiState.update { it.copy(waypoints = listOf(Waypoint(point)) + it.waypoints) }
         scheduleRouteFetch()
     }
 
     fun undoWaypoint() {
         if (_uiState.value.waypoints.isEmpty()) return
+        _selectedWaypoint.value = null
         _uiState.update { it.copy(waypoints = it.waypoints.dropLast(1)) }
         scheduleRouteFetch()
     }
@@ -206,6 +214,7 @@ class MapViewModel @Inject constructor(
     fun clearWaypoints() {
         routeJob?.cancel()
         elevationJob?.cancel()
+        _selectedWaypoint.value = null
         _uiState.update {
             it.copy(
                 waypoints = emptyList(),
@@ -215,6 +224,36 @@ class MapViewModel @Inject constructor(
                 errorMessage = null,
             )
         }
+    }
+
+    fun removeWaypoint(index: Int) {
+        if (index !in _uiState.value.waypoints.indices) return
+        _selectedWaypoint.value = null
+        _uiState.update { state ->
+            state.copy(waypoints = state.waypoints.filterIndexed { i, _ -> i != index })
+        }
+        scheduleRouteFetch()
+    }
+
+    /**
+     * Sets (or clears, with 0) the dwell at one stop. No route refetch — the
+     * geometry is unchanged; the in-hand route is patched so an immediate Play
+     * carries the wait.
+     */
+    fun setWaypointWait(index: Int, waitSeconds: Int) {
+        if (index !in _uiState.value.waypoints.indices) return
+        _selectedWaypoint.value = null
+        _uiState.update { state ->
+            val updated = state.waypoints.mapIndexed { i, waypoint ->
+                if (i == index) waypoint.copy(waitSeconds = waitSeconds) else waypoint
+            }
+            state.copy(waypoints = updated, route = state.route?.withWaits(updated))
+        }
+    }
+
+    /** Marker tapped on the map (or null to dismiss the waypoint menu). */
+    fun selectWaypoint(index: Int?) {
+        _selectedWaypoint.value = index
     }
 
     fun setProfile(profile: RoutingProfile) {
@@ -269,54 +308,12 @@ class MapViewModel @Inject constructor(
             val cached = locationManager.quickLastKnown()
                 ?.let { LatLng(it.latitude, it.longitude) }
                 ?.also(::panTo)
-            val fresh = currentRealLocation()?.let { LatLng(it.latitude, it.longitude) }
+            val fresh = locationManager.currentReal()?.let { LatLng(it.latitude, it.longitude) }
                 ?: return@launch
             if (cached == null || GeoMath.distanceMeters(cached, fresh) > LOCATE_REFINE_METERS) {
                 panTo(fresh)
             }
         }
-    }
-
-    /** Ranking anchor: mocked position first, then real location, then the camera. */
-    @SuppressLint("MissingPermission")
-    private fun searchBias(): LatLng? {
-        val mocked = when (val session = sessionRepository.session.value) {
-            is MockSessionState.Holding -> session.position
-            is MockSessionState.Playing -> sessionRepository.latestFix.value?.position
-            else -> null
-        }
-        return mocked
-            ?: locationManager.quickLastKnown()?.let { LatLng(it.latitude, it.longitude) }
-            ?: lastKnownCamera?.target
-    }
-
-    private fun currentTrafficFactor(): Double =
-        if (settingsRepository.settings.value.trafficSimEnabled) {
-            val now = LocalDateTime.now()
-            TrafficModel.congestionFactor(now.dayOfWeek, now.hour, now.minute)
-        } else {
-            1.0
-        }
-
-    // Permission is gated by the UI before this is called.
-    @SuppressLint("MissingPermission")
-    private suspend fun currentRealLocation(): Location? {
-        val current = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-            withTimeoutOrNull(LOCATE_TIMEOUT_MILLIS) {
-                suspendCancellableCoroutine<Location?> { continuation ->
-                    runCatching {
-                        locationManager.getCurrentLocation(
-                            LocationManager.GPS_PROVIDER,
-                            null,
-                            { runnable -> runnable.run() },
-                        ) { location -> continuation.resume(location) }
-                    }.onFailure { continuation.resume(null) }
-                }
-            }
-        } else {
-            null
-        }
-        return current ?: locationManager.quickLastKnown()
     }
 
     /** One-shot cold-start camera restore, read straight from disk (no default-value race). */
@@ -362,7 +359,10 @@ class MapViewModel @Inject constructor(
 
     private suspend fun runSearch(query: String) {
         _search.update { it.copy(searching = true, errorMessage = null) }
-        val bias = searchBias()
+        // Ranking anchor: mocked position first, then real location, then the camera.
+        val bias = sessionRepository.mockedPosition()
+            ?: locationManager.quickLastKnown()?.let { LatLng(it.latitude, it.longitude) }
+            ?: lastKnownCamera?.target
         geocoder.search(query, bias = bias).fold(
             onSuccess = { results ->
                 val suggestions = results.map { result ->
@@ -402,15 +402,18 @@ class MapViewModel @Inject constructor(
     private fun loadSavedRoute(route: Route, profile: RoutingProfile) {
         routeJob?.cancel()
         profileTouched = true
+        val anchors = route.snappedWaypoints
+            .ifEmpty { listOf(route.points.first(), route.points.last()) }
+        val waits = route.waypointWaitsSeconds
         _uiState.update {
             it.copy(
-                waypoints = listOf(route.points.first(), route.points.last()),
+                waypoints = anchors.mapIndexed { i, p -> Waypoint(p, waits.getOrElse(i) { 0 }) },
                 profile = profile,
                 route = route,
                 routeIsFallback = false,
                 isRouting = false,
                 errorMessage = null,
-                trafficFactor = currentTrafficFactor(),
+                trafficFactor = settingsRepository.currentTrafficFactor(),
             )
         }
         enrichWithElevations(route)
@@ -447,20 +450,25 @@ class MapViewModel @Inject constructor(
             delay(DEBOUNCE_MILLIS)
             _uiState.update { it.copy(isRouting = true, errorMessage = null) }
             val current = _uiState.value
-            routeProvider.route(current.waypoints, current.profile).fold(
-                onSuccess = { route ->
+            val requestWaypoints = current.waypoints
+            val positions = requestWaypoints.map { it.position }
+            routeProvider.route(positions, current.profile).fold(
+                onSuccess = { fetched ->
+                    val route = fetched.withWaits(requestWaypoints)
                     _uiState.update {
                         it.copy(
                             route = route,
                             routeIsFallback = false,
                             isRouting = false,
-                            trafficFactor = currentTrafficFactor(),
+                            trafficFactor = settingsRepository.currentTrafficFactor(),
                         )
                     }
                     enrichWithElevations(route)
                 },
                 onFailure = { error ->
-                    val fallback = straightLine.route(current.waypoints, current.profile).getOrNull()
+                    val fallback = straightLine.route(positions, current.profile)
+                        .getOrNull()
+                        ?.withWaits(requestWaypoints)
                     _uiState.update {
                         it.copy(
                             route = fallback,
@@ -481,16 +489,54 @@ class MapViewModel @Inject constructor(
         const val MIN_QUERY_LENGTH = 3
         const val SEARCH_ZOOM = 16.0
         const val LOCATE_ZOOM = 15.0
-        const val LOCATE_TIMEOUT_MILLIS = 5_000L
         const val LOCATE_REFINE_METERS = 50.0
     }
 }
+
+private const val LOCATE_TIMEOUT_MILLIS = 5_000L
 
 // Permission is gated by the UI before callers reach this.
 @SuppressLint("MissingPermission")
 private fun LocationManager.quickLastKnown(): Location? =
     runCatching { getLastKnownLocation(LocationManager.GPS_PROVIDER) }.getOrNull()
         ?: runCatching { getLastKnownLocation(LocationManager.NETWORK_PROVIDER) }.getOrNull()
+
+// Permission is gated by the UI before callers reach this.
+@SuppressLint("MissingPermission")
+private suspend fun LocationManager.currentReal(): Location? {
+    val current = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+        withTimeoutOrNull(LOCATE_TIMEOUT_MILLIS) {
+            suspendCancellableCoroutine<Location?> { continuation ->
+                runCatching {
+                    getCurrentLocation(
+                        LocationManager.GPS_PROVIDER,
+                        null,
+                        { runnable -> runnable.run() },
+                    ) { location -> continuation.resume(location) }
+                }.onFailure { continuation.resume(null) }
+            }
+        }
+    } else {
+        null
+    }
+    return current ?: quickLastKnown()
+}
+
+/** The position the device currently mocks, or null when idle. */
+private fun MockSessionRepository.mockedPosition(): LatLng? =
+    when (val current = session.value) {
+        is MockSessionState.Holding -> current.position
+        is MockSessionState.Playing -> latestFix.value?.position
+        else -> null
+    }
+
+private fun SettingsRepository.currentTrafficFactor(): Double =
+    if (settings.value.trafficSimEnabled) {
+        val now = LocalDateTime.now()
+        TrafficModel.congestionFactor(now.dayOfWeek, now.hour, now.minute)
+    } else {
+        1.0
+    }
 
 private fun friendlyMessage(error: Throwable): String {
     val base = when (error) {
@@ -506,12 +552,20 @@ private fun friendlyMessage(error: Throwable): String {
  * otherwise. The size guard covers fetches still in flight after a new tap.
  */
 internal fun displayWaypoints(
-    waypoints: List<LatLng>,
+    waypoints: List<Waypoint>,
     route: Route?,
     routeIsFallback: Boolean,
-): List<LatLng> =
+): List<Waypoint> =
     if (route != null && !routeIsFallback && route.snappedWaypoints.size == waypoints.size) {
-        route.snappedWaypoints
+        waypoints.zip(route.snappedWaypoints) { waypoint, snapped -> waypoint.copy(position = snapped) }
     } else {
         waypoints
+    }
+
+/** Attaches per-waypoint waits to a route when counts align; otherwise unchanged. */
+internal fun Route.withWaits(waypoints: List<Waypoint>): Route =
+    if (waypoints.size == legs.size + 1) {
+        copy(waypointWaitsSeconds = waypoints.map { it.waitSeconds })
+    } else {
+        this
     }

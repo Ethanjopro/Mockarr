@@ -7,7 +7,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
 
 @Database(
     entities = [SavedRouteEntity::class],
-    version = 2,
+    version = 3,
     exportSchema = false,
 )
 abstract class MockarrDatabase : RoomDatabase() {
@@ -20,6 +20,14 @@ abstract class MockarrDatabase : RoomDatabase() {
         val MIGRATION_1_2 = object : Migration(1, 2) {
             override fun migrate(db: SupportSQLiteDatabase) {
                 db.execSQL("ALTER TABLE saved_routes ADD COLUMN altitudesJson TEXT")
+            }
+        }
+
+        /** v3: waypoints + per-waypoint wait times (nullable — old rows stay valid). */
+        val MIGRATION_2_3 = object : Migration(2, 3) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE saved_routes ADD COLUMN waypointsJson TEXT")
+                db.execSQL("ALTER TABLE saved_routes ADD COLUMN waypointWaitsJson TEXT")
             }
         }
     }

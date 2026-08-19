@@ -11,6 +11,13 @@ sealed interface PlaybackState {
 
     data class Paused(val progress: Double, val remainingSeconds: Double = 0.0) : PlaybackState
 
+    /** Waiting at a user-set stop; playback resumes when the wait elapses. */
+    data class Dwelling(
+        val progress: Double,
+        val remainingSeconds: Double = 0.0,
+        val waitSecondsLeft: Double = 0.0,
+    ) : PlaybackState
+
     /** Decelerating to a stop before finishing, so playback never teleports. */
     data object Stopping : PlaybackState
 
@@ -22,6 +29,7 @@ val PlaybackState?.progressOrZero: Double
     get() = when (this) {
         is PlaybackState.Playing -> progress
         is PlaybackState.Paused -> progress
+        is PlaybackState.Dwelling -> progress
         else -> 0.0
     }
 
@@ -30,5 +38,6 @@ val PlaybackState?.remainingSecondsOrNull: Double?
     get() = when (this) {
         is PlaybackState.Playing -> remainingSeconds
         is PlaybackState.Paused -> remainingSeconds
+        is PlaybackState.Dwelling -> remainingSeconds
         else -> null
     }
