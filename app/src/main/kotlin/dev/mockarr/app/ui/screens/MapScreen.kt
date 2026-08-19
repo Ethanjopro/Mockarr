@@ -73,8 +73,12 @@ import dev.mockarr.app.ui.formatDistanceProgress
 import dev.mockarr.app.ui.formatDurationShort
 import dev.mockarr.app.ui.formatRouteTimestamp
 import dev.mockarr.app.ui.label
+import dev.mockarr.app.ui.map.ActiveDwell
 import dev.mockarr.app.ui.map.MockarrMap
+import dev.mockarr.app.ui.map.NUDGE_TICK_MILLIS
+import dev.mockarr.app.ui.map.ThumbstickOverlay
 import dev.mockarr.app.ui.map.effectiveStyleUrl
+import dev.mockarr.app.ui.map.nudgeMeters
 import dev.mockarr.app.ui.summaryText
 import dev.mockarr.core.model.DistanceUnits
 import dev.mockarr.core.model.GeoMath
@@ -104,8 +108,10 @@ fun MapLayer(
     val map3d by viewModel.map3dEnabled.collectAsStateWithLifecycle()
     val followCamera by viewModel.followCamera.collectAsStateWithLifecycle()
     val cameraCommand by viewModel.cameraCommand.collectAsStateWithLifecycle()
+    val selectedWaypoint by viewModel.selectedWaypoint.collectAsStateWithLifecycle()
     val session by sessionViewModel.session.collectAsStateWithLifecycle()
     val latestFix by sessionViewModel.latestFix.collectAsStateWithLifecycle()
+    val dwell by sessionViewModel.dwell.collectAsStateWithLifecycle()
     val focusManager = LocalFocusManager.current
     val context = LocalContext.current
 
@@ -137,11 +143,22 @@ fun MapLayer(
         routeIsFallback = state.routeIsFallback,
         onMapTap = {
             focusManager.clearFocus()
-            if (!playing) viewModel.addWaypoint(it)
+            // Dismiss-first: with a stop menu open, a map tap closes it rather
+            // than dropping a new stop. Read .value at click time (repo rule).
+            if (!playing) {
+                if (viewModel.selectedWaypoint.value != null) {
+                    viewModel.selectWaypoint(null)
+                } else {
+                    viewModel.addWaypoint(it)
+                }
+            }
         },
-        onWaypointTap = {
+        onWaypointTap = { index ->
             focusManager.clearFocus()
-            if (!playing) viewModel.selectWaypoint(it)
+            if (!playing) {
+                val toggled = index.takeIf { it != viewModel.selectedWaypoint.value }
+                viewModel.selectWaypoint(toggled)
+            }
         },
         onMapLongPress = {
             focusManager.clearFocus()
@@ -156,6 +173,10 @@ fun MapLayer(
             focusManager.clearFocus()
         },
         threeDimensional = map3d,
+        selectedWaypoint = selectedWaypoint,
+        activeDwell = dwell
+            ?.takeIf { it.waypointIndex < state.waypoints.size }
+            ?.let { ActiveDwell(it.waypointIndex, it.secondsLeft) },
         cameraCommand = cameraCommand,
         pinPosition = (session as? MockSessionState.Holding)?.position,
         playbackPosition = if (playing) latestFix?.position else null,
@@ -301,25 +322,9 @@ fun MapScreen(
     val selectedWaypoint by viewModel.selectedWaypoint.collectAsStateWithLifecycle()
     var waitEditIndex by remember { mutableStateOf<Int?>(null) }
 
-    selectedWaypoint?.let { index ->
-        val waypoint = state.waypoints.getOrNull(index)
-        if (waypoint == null) {
-            // The list changed under the open menu (undo/clear) — drop it.
-            viewModel.selectWaypoint(null)
-        } else {
-            WaypointOptionsDialog(
-                stopNumber = index + 1,
-                isDestination = index == state.waypoints.lastIndex && state.waypoints.size >= 2,
-                currentWaitSeconds = waypoint.waitSeconds,
-                onSetWait = {
-                    waitEditIndex = index
-                    viewModel.selectWaypoint(null)
-                },
-                onClearWait = { viewModel.setWaypointWait(index, 0) },
-                onDelete = { viewModel.removeWaypoint(index) },
-                onDismiss = { viewModel.selectWaypoint(null) },
-            )
-        }
+    if (selectedWaypoint != null && state.waypoints.getOrNull(selectedWaypoint!!) == null) {
+        // The list changed under the open menu (undo/clear) — drop it.
+        viewModel.selectWaypoint(null)
     }
     waitEditIndex?.let { index ->
         WaypointWaitDialog(
@@ -409,6 +414,29 @@ fun MapScreen(
             )
         }
 
+        ThumbstickOverlay(
+            enabled = holding != null && !playing,
+            onNudge = { bearingDegrees, deflection ->
+                // Read the live hold at nudge time — the composition capture
+                // would go stale as the dot moves.
+                val hold = sessionViewModel.session.value as? MockSessionState.Holding
+                if (hold != null) {
+                    val meters = nudgeMeters(
+                        deflection = deflection,
+                        zoom = viewModel.camera.value?.zoom ?: DEFAULT_NUDGE_ZOOM,
+                        latitudeDegrees = hold.position.latitude,
+                        dtSeconds = NUDGE_TICK_MILLIS / MILLIS_PER_SECOND,
+                    )
+                    sessionViewModel.nudgeHold(
+                        GeoMath.destination(hold.position, bearingDegrees, meters),
+                    )
+                }
+            },
+            modifier = Modifier
+                .align(Alignment.CenterEnd)
+                .padding(12.dp),
+        )
+
         // Status banners live at the bottom, stacked directly above the card.
         Column(
             modifier = Modifier
@@ -459,6 +487,24 @@ fun MapScreen(
                 )
                 Spacer(Modifier.height(8.dp))
             }
+            val selectedStop = selectedWaypoint?.let { state.waypoints.getOrNull(it) }
+            if (!playing && selectedWaypoint != null && selectedStop != null) {
+                val index = selectedWaypoint!!
+                WaypointOptionsCard(
+                    stopNumber = index + 1,
+                    isDestination = index == state.waypoints.lastIndex && state.waypoints.size >= 2,
+                    currentWaitSeconds = selectedStop.waitSeconds,
+                    onSetWait = {
+                        waitEditIndex = index
+                        viewModel.selectWaypoint(null)
+                    },
+                    onClearWait = { viewModel.setWaypointWait(index, 0) },
+                    onDelete = { viewModel.removeWaypoint(index) },
+                    onDismiss = { viewModel.selectWaypoint(null) },
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                Spacer(Modifier.height(8.dp))
+            }
             if (playing) {
                 PlaybackCard(
                     playbackState = playbackState,
@@ -502,6 +548,8 @@ private const val WAYPOINT_HINT = "Tap the map to add stops (2 or more make a ro
 
 private const val HALF_TURN = 180f
 private const val START_FROM_HOLD_METERS = 30.0
+private const val DEFAULT_NUDGE_ZOOM = 15.0
+private const val MILLIS_PER_SECOND = 1_000.0
 
 private fun Context.hasPermission(permission: String): Boolean =
     ContextCompat.checkSelfPermission(this, permission) == PackageManager.PERMISSION_GRANTED

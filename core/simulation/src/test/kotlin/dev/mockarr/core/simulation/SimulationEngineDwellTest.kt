@@ -87,6 +87,7 @@ class SimulationEngineDwellTest {
         advanceTimeBy(80_000)
         val dwelling = assertIs<PlaybackState.Dwelling>(engine.state.value)
         assertTrue(dwelling.waitSecondsLeft in 30.0..60.0, "countdown was ${dwelling.waitSecondsLeft}")
+        assertEquals(1, dwelling.waypointIndex)
 
         advanceTimeBy(10_000)
         val later = assertIs<PlaybackState.Dwelling>(engine.state.value)
@@ -147,6 +148,7 @@ class SimulationEngineDwellTest {
         engine.resume()
         advanceTimeBy(1_000)
         val resumed = assertIs<PlaybackState.Dwelling>(engine.state.value)
+        assertEquals(1, resumed.waypointIndex)
         assertTrue(
             resumed.waitSecondsLeft >= beforePause.waitSecondsLeft - 5.0,
             "countdown ran while paused: ${beforePause.waitSecondsLeft} → ${resumed.waitSecondsLeft}",
@@ -178,7 +180,7 @@ class SimulationEngineDwellTest {
         val job = launch { engine.fixes.collect { fixes += it } }
 
         advanceTimeBy(20_000)
-        assertIs<PlaybackState.Dwelling>(engine.state.value)
+        assertEquals(0, assertIs<PlaybackState.Dwelling>(engine.state.value).waypointIndex)
         val origin = route.points.first()
         assertTrue(GeoMath.distanceMeters(fixes.last().position, origin) < 1.0, "left early")
 

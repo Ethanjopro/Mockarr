@@ -38,6 +38,7 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import java.time.LocalDateTime
@@ -256,6 +257,30 @@ class MockSessionService : Service() {
                         .notify(NOTIFICATION_ID, buildNotification())
                 }
             }
+            // Thumbstick nudges: push the moved fix immediately; the keepalive
+            // below re-pushes it. Lives in holdJob, so it dies with the hold.
+            launch {
+                repository.holdMoves.collect { target ->
+                    fix = fix.copy(position = target)
+                    mockController.push(fix)
+                    repository.holdMoved(target)
+                }
+            }
+            // One settle per nudge burst (collectLatest restarts the delay):
+            // re-resolve terrain altitude and the spot's name after movement stops.
+            launch {
+                repository.holdMoves.collectLatest { target ->
+                    delay(HOLD_SETTLE_MILLIS)
+                    elevationClient.elevations(listOf(target)).getOrNull()?.firstOrNull()?.let {
+                        fix = fix.copy(altitudeMeters = it)
+                    }
+                    geocoder.reverse(target).getOrNull()?.name?.let { name ->
+                        repository.holdNameResolved(target, name)
+                        getSystemService(NotificationManager::class.java)
+                            .notify(NOTIFICATION_ID, buildNotification())
+                    }
+                }
+            }
             while (isActive) {
                 delay(HOLD_TICK_MILLIS)
                 mockController.push(fix)
@@ -410,6 +435,7 @@ class MockSessionService : Service() {
         private const val NOTIFICATION_UPDATE_TICKS = 5
         private const val PROGRESS_MAX = 100
         private const val HOLD_TICK_MILLIS = 1_000L
+        private const val HOLD_SETTLE_MILLIS = 1_500L
         private const val SECONDS_PER_MINUTE = 60.0
         private const val SPEED_VARIANCE_FRACTION = 0.08
         private const val HOLD_ACCURACY_METERS = 5.0

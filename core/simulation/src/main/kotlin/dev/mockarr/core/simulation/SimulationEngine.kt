@@ -122,6 +122,7 @@ class SimulationEngine(
                     current.progress,
                     current.remainingSeconds,
                     dwellSecondsLeft / speedMultiplier,
+                    dwellStops.getOrNull(nextDwellIndex)?.waypointIndex ?: -1,
                 )
             } else {
                 PlaybackState.Playing(current.progress, current.remainingSeconds)
@@ -170,6 +171,7 @@ class SimulationEngine(
                 progress(),
                 remainingWithDwell(),
                 dwellSecondsLeft / speedMultiplier,
+                stop.waypointIndex,
             )
             return
         }
@@ -188,6 +190,7 @@ class SimulationEngine(
                 progress(),
                 remainingWithDwell(),
                 dwellSecondsLeft / speedMultiplier,
+                dwellStops[nextDwellIndex].waypointIndex,
             )
         }
         return currentFix()

@@ -4,11 +4,20 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Card
 import androidx.compose.material3.FilterChip
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -27,12 +36,13 @@ private val WAIT_PRESET_MINUTES = listOf(1, 5, 15, 30)
 private const val SECONDS_PER_MINUTE = 60
 
 /**
- * Context menu for a tapped waypoint marker: wait-time actions (not offered on
- * the destination — the "Stay at destination" setting covers post-arrival
- * holds) and stop removal.
+ * Non-blocking action card for a tapped waypoint marker, slotted into the
+ * bottom stack so the map stays interactive behind it. Wait-time actions are
+ * not offered on the destination — the "Stay at destination" setting covers
+ * post-arrival holds.
  */
 @Composable
-internal fun WaypointOptionsDialog(
+internal fun WaypointOptionsCard(
     stopNumber: Int,
     isDestination: Boolean,
     currentWaitSeconds: Int,
@@ -40,32 +50,38 @@ internal fun WaypointOptionsDialog(
     onClearWait: () -> Unit,
     onDelete: () -> Unit,
     onDismiss: () -> Unit,
+    modifier: Modifier = Modifier,
 ) {
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text("Stop $stopNumber") },
-        text = {
-            val body = if (currentWaitSeconds > 0) {
-                "Playback waits ${formatDurationShort(currentWaitSeconds.toDouble())} here " +
-                    "before moving on."
-            } else {
-                "What would you like to do with this stop?"
+    Card(modifier = modifier) {
+        Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text("Stop $stopNumber", style = MaterialTheme.typography.titleSmall)
+                Spacer(Modifier.width(8.dp))
+                Text(
+                    text = if (currentWaitSeconds > 0) {
+                        "Waits ${formatDurationShort(currentWaitSeconds.toDouble())} here"
+                    } else {
+                        ""
+                    },
+                    style = MaterialTheme.typography.bodySmall,
+                    modifier = Modifier.weight(1f),
+                )
+                IconButton(onClick = onDismiss) {
+                    Icon(Icons.Filled.Close, contentDescription = "Close stop options")
+                }
             }
-            Text(body)
-        },
-        confirmButton = {
-            Column(horizontalAlignment = Alignment.End) {
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 if (!isDestination) {
-                    TextButton(onClick = onSetWait) { Text("Set wait time…") }
+                    val waitLabel = if (currentWaitSeconds > 0) "Edit wait" else "Set wait"
+                    TextButton(onClick = onSetWait) { Text(waitLabel) }
                     if (currentWaitSeconds > 0) {
                         TextButton(onClick = onClearWait) { Text("Remove wait") }
                     }
                 }
                 TextButton(onClick = onDelete) { Text("Remove stop") }
-                TextButton(onClick = onDismiss) { Text("Cancel") }
             }
-        },
-    )
+        }
+    }
 }
 
 /** Picks a dwell duration: preset chips or a free custom-minutes field. */

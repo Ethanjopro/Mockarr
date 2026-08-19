@@ -5,8 +5,12 @@ import dev.mockarr.core.model.PlaybackState
 import dev.mockarr.core.model.Route
 import dev.mockarr.core.model.SimulatedFix
 import dev.mockarr.core.simulation.SimulationEngine
+import kotlinx.coroutines.channels.BufferOverflow
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -52,8 +56,21 @@ class MockSessionRepository @Inject constructor() {
 
     private var engine: SimulationEngine? = null
 
+    // Latest-wins thumbstick nudge targets. Only the service's hold job
+    // collects, so nudges are structurally dead outside a hold.
+    private val _holdMoves = MutableSharedFlow<LatLng>(
+        extraBufferCapacity = 1,
+        onBufferOverflow = BufferOverflow.DROP_OLDEST,
+    )
+    internal val holdMoves: SharedFlow<LatLng> = _holdMoves.asSharedFlow()
+
     /** Staged for the service, which consumes it (routes exceed intent-extra limits). */
     private var pendingRoute: Route? = null
+
+    /** Thumbstick: move the held location to [position]; ignored unless holding. */
+    fun requestHoldMove(position: LatLng) {
+        if (_session.value is MockSessionState.Holding) _holdMoves.tryEmit(position)
+    }
 
     /** Stage a route for the next session; the caller then starts the service. */
     fun requestStart(route: Route) {
@@ -98,6 +115,14 @@ class MockSessionRepository @Inject constructor() {
 
     internal fun holdStarted(position: LatLng, source: HoldSource) {
         _session.value = MockSessionState.Holding(position, source)
+    }
+
+    /** A nudge landed: keep the source, drop the stale name until re-resolved. */
+    internal fun holdMoved(position: LatLng) {
+        val current = _session.value
+        if (current is MockSessionState.Holding) {
+            _session.value = current.copy(position = position, placeName = null)
+        }
     }
 
     /** Attach a resolved place name — only if we're still holding that same spot. */

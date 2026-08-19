@@ -147,6 +147,9 @@ class MapViewModel @Inject constructor(
     private var lastKnownCamera: MapCamera? = null
     private val cameraSaves = MutableStateFlow<MapCamera?>(null)
 
+    /** Latest idle camera (target + zoom); the thumbstick reads zoom from here. */
+    val camera: StateFlow<MapCamera?> = cameraSaves.asStateFlow()
+
     init {
         viewModelScope.launch {
             routeHandoff.pending.collect { loaded ->
@@ -297,7 +300,7 @@ class MapViewModel @Inject constructor(
 
     /** Pans the camera (never touches mock state). */
     fun panTo(position: LatLng) {
-        _cameraCommand.value = CameraCommand(position, LOCATE_ZOOM, seq = cameraSeq++)
+        _cameraCommand.value = CameraCommand.Center(position, LOCATE_ZOOM, seq = cameraSeq++)
     }
 
     /** Pans to the device's REAL location; requires fine-location permission. */
@@ -392,7 +395,7 @@ class MapViewModel @Inject constructor(
 
     fun selectSearchResult(result: GeocodingResult) {
         _search.update { it.copy(results = emptyList(), errorMessage = null) }
-        _cameraCommand.value = CameraCommand(result.position, SEARCH_ZOOM, seq = cameraSeq++)
+        _cameraCommand.value = CameraCommand.Center(result.position, SEARCH_ZOOM, seq = cameraSeq++)
     }
 
     fun clearSearchResults() {
@@ -416,6 +419,7 @@ class MapViewModel @Inject constructor(
                 trafficFactor = settingsRepository.currentTrafficFactor(),
             )
         }
+        _cameraCommand.value = CameraCommand.FitRoute(route.points, seq = cameraSeq++)
         enrichWithElevations(route)
     }
 
@@ -463,6 +467,7 @@ class MapViewModel @Inject constructor(
                             trafficFactor = settingsRepository.currentTrafficFactor(),
                         )
                     }
+                    _cameraCommand.value = CameraCommand.EnsureVisible(route.points, seq = cameraSeq++)
                     enrichWithElevations(route)
                 },
                 onFailure = { error ->
@@ -476,6 +481,9 @@ class MapViewModel @Inject constructor(
                             isRouting = false,
                             errorMessage = friendlyMessage(error),
                         )
+                    }
+                    fallback?.let {
+                        _cameraCommand.value = CameraCommand.EnsureVisible(it.points, seq = cameraSeq++)
                     }
                 },
             )

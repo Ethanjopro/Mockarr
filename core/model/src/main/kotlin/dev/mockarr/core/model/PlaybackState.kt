@@ -11,11 +11,16 @@ sealed interface PlaybackState {
 
     data class Paused(val progress: Double, val remainingSeconds: Double = 0.0) : PlaybackState
 
-    /** Waiting at a user-set stop; playback resumes when the wait elapses. */
+    /**
+     * Waiting at a user-set stop; playback resumes when the wait elapses.
+     * @property waypointIndex index of the waypoint being waited at, or -1
+     *   when unknown
+     */
     data class Dwelling(
         val progress: Double,
         val remainingSeconds: Double = 0.0,
         val waitSecondsLeft: Double = 0.0,
+        val waypointIndex: Int = -1,
     ) : PlaybackState
 
     /** Decelerating to a stop before finishing, so playback never teleports. */

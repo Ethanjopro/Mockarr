@@ -34,10 +34,29 @@ class RouteGeometryDwellTest {
         assertEquals(1, geometry.dwellStops.size)
         val stop = geometry.dwellStops.single()
         assertEquals(45, stop.waitSeconds)
+        assertEquals(1, stop.waypointIndex)
         // Leg 0 spans 3 × 100 m of great-circle segments.
         assertEquals(300.0, stop.distanceMeters, 1.0)
         // The stop's vertex is a hard zero so playback brakes into it.
         assertEquals(0.0, geometry.allowedVertexSpeeds[3])
+    }
+
+    @Test
+    fun `dwell stops carry their waypoint indices in order`() {
+        val start = LatLng(0.0, 0.0)
+        val points = (0..9).map { GeoMath.destination(start, 90.0, 100.0 * it) }
+        val distances = List(3) { 100.0 }
+        val leg = RouteLeg(distances, distances.map { it / 10.0 })
+        val route = Route(
+            points = points,
+            legs = listOf(leg, leg, leg),
+            distanceMeters = 900.0,
+            durationSeconds = 90.0,
+            waypointWaitsSeconds = listOf(0, 20, 30, 0),
+        )
+        val geometry = RouteGeometry(route, decel)
+        assertEquals(listOf(1, 2), geometry.dwellStops.map { it.waypointIndex })
+        assertEquals(listOf(20, 30), geometry.dwellStops.map { it.waitSeconds })
     }
 
     @Test

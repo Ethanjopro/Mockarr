@@ -20,7 +20,6 @@ import dev.mockarr.core.model.MapCamera
 import dev.mockarr.core.model.Waypoint
 import org.maplibre.android.camera.CameraPosition
 import org.maplibre.android.camera.CameraUpdateFactory
-import org.maplibre.android.geometry.LatLngBounds
 import org.maplibre.android.maps.MapLibreMap
 import org.maplibre.android.maps.MapView
 import org.maplibre.android.maps.Style
@@ -45,12 +44,15 @@ private const val FALLBACK_SOURCE = "fallback-source"
 private const val FALLBACK_LAYER = "fallback-layer"
 internal const val WAYPOINT_SOURCE = "waypoint-source"
 internal const val WAYPOINT_LAYER = "waypoint-layer"
+internal const val WAIT_CHIP_SOURCE = "wait-chip-source"
+internal const val WAIT_CHIP_LAYER = "wait-chip-layer"
 private const val PIN_SOURCE = "pin-source"
 private const val PIN_LAYER = "pin-layer"
 private const val PLAYBACK_SOURCE = "playback-source"
 private const val PLAYBACK_LAYER = "playback-layer"
 internal const val ICON_KEY = "icon"
 internal const val SORT_KEY = "sort"
+internal const val RANK_KEY = "rank"
 
 // The liberty style's flat building-footprint layer (outlined fills, z13-14).
 private const val FLAT_BUILDING_LAYER = "building"
@@ -77,6 +79,8 @@ fun MockarrMap(
     onCameraIdle: (MapCamera) -> Unit,
     onUserGesture: () -> Unit,
     threeDimensional: Boolean,
+    selectedWaypoint: Int? = null,
+    activeDwell: ActiveDwell? = null,
     cameraCommand: CameraCommand? = null,
     pinPosition: LatLng? = null,
     playbackPosition: LatLng? = null,
@@ -199,7 +203,7 @@ fun MockarrMap(
             // Each style defines its own building maxZoom — re-capture after reload.
             flatBuildingMaxZoom = null
             libreMap.setStyle(Style.Builder().fromUri(styleUrl)) { loadedStyle ->
-                setUpLayers(loadedStyle)
+                setUpLayers(loadedStyle, density)
                 style = loadedStyle
             }
         }
@@ -212,9 +216,16 @@ fun MockarrMap(
         applyMapMode(loadedStyle, map, threeDimensional, flatBuildingMaxZoom)
     }
 
-    LaunchedEffect(style, waypoints, density) {
+    LaunchedEffect(style, waypoints, selectedWaypoint, density) {
         val loadedStyle = style ?: return@LaunchedEffect
-        updateWaypoints(loadedStyle, waypoints, density)
+        updateWaypoints(loadedStyle, waypoints, selectedWaypoint, density)
+    }
+
+    // Keyed on style: a style reload drops its images, so the tracker restarts.
+    val chipIcons = remember(style) { mutableSetOf<String>() }
+    LaunchedEffect(style, waypoints, activeDwell, density) {
+        val loadedStyle = style ?: return@LaunchedEffect
+        updateWaitChips(loadedStyle, waypoints, activeDwell, density, chipIcons)
     }
 
     LaunchedEffect(style, routePoints, routeIsFallback) {
@@ -227,6 +238,25 @@ fun MockarrMap(
         loadedStyle.getSourceAs<GeoJsonSource>(PIN_SOURCE)?.setGeoJson(pinPosition.toFeatures())
     }
 
+    // Keep a nudged hold pin in view: when it crosses into the outer margin of
+    // the viewport, ease the camera back onto it. A stationary pin never
+    // triggers this — the effect only runs when pinPosition changes.
+    LaunchedEffect(map, pinPosition) {
+        val libreMap = map ?: return@LaunchedEffect
+        val pin = pinPosition ?: return@LaunchedEffect
+        val screen = libreMap.projection.toScreenLocation(pin.toMapLibre())
+        val marginX = libreMap.width * KEEP_IN_VIEW_MARGIN
+        val marginY = libreMap.height * KEEP_IN_VIEW_MARGIN
+        val outside = screen.x < marginX || screen.x > libreMap.width - marginX ||
+            screen.y < marginY || screen.y > libreMap.height - marginY
+        if (outside) {
+            libreMap.easeCamera(
+                CameraUpdateFactory.newLatLng(pin.toMapLibre()),
+                KEEP_IN_VIEW_EASE_MILLIS,
+            )
+        }
+    }
+
     LaunchedEffect(style, playbackPosition) {
         val loadedStyle = style ?: return@LaunchedEffect
         loadedStyle.getSourceAs<GeoJsonSource>(PLAYBACK_SOURCE)
@@ -236,18 +266,7 @@ fun MockarrMap(
     LaunchedEffect(map, cameraCommand) {
         val libreMap = map ?: return@LaunchedEffect
         val command = cameraCommand ?: return@LaunchedEffect
-        libreMap.animateCamera(
-            CameraUpdateFactory.newLatLngZoom(command.target.toMapLibre(), command.zoom),
-        )
-    }
-
-    LaunchedEffect(map, routePoints) {
-        val libreMap = map ?: return@LaunchedEffect
-        if (routePoints.size >= 2) {
-            val bounds = LatLngBounds.Builder()
-            routePoints.forEach { bounds.include(it.toMapLibre()) }
-            libreMap.animateCamera(CameraUpdateFactory.newLatLngBounds(bounds.build(), CAMERA_PADDING))
-        }
+        applyCameraCommand(libreMap, command, density)
     }
 
     // Follow eases the camera to each fix. The zoom floor applies only when
@@ -274,15 +293,16 @@ fun MockarrMap(
     }
 }
 
-private const val CAMERA_PADDING = 120
 private const val FOLLOW_MIN_ZOOM = 15.0
 private const val FOLLOW_EASE_MILLIS = 900
+private const val KEEP_IN_VIEW_MARGIN = 0.2f
+private const val KEEP_IN_VIEW_EASE_MILLIS = 400
 
 // World-landmark fallback for a fresh install with no saved camera yet.
 private val FALLBACK_CENTER = LatLng(48.8584, 2.2945)
 private const val FALLBACK_ZOOM = 12.0
 
-private fun LatLng.toMapLibre() = MapLibreLatLng(latitude, longitude)
+internal fun LatLng.toMapLibre() = MapLibreLatLng(latitude, longitude)
 
 internal fun LatLng.toPoint(): Point = Point.fromLngLat(longitude, latitude)
 
@@ -323,14 +343,14 @@ private fun applyMapMode(
     }
 }
 
-private fun setUpLayers(style: Style) {
+private fun setUpLayers(style: Style, density: Float) {
     // Line sources keep full geometry: the default geojson-vt options (tolerance
     // 0.375, maxZoom 18) re-simplify the route client-side, visibly cutting
     // corners off the road when overzoomed past z18.
     val lineSourceOptions = GeoJsonOptions().withMaxZoom(22).withTolerance(0.0f)
     listOf(ROUTE_SOURCE, FALLBACK_SOURCE)
         .forEach { style.addSource(GeoJsonSource(it, lineSourceOptions)) }
-    listOf(WAYPOINT_SOURCE, PIN_SOURCE, PLAYBACK_SOURCE)
+    listOf(WAYPOINT_SOURCE, WAIT_CHIP_SOURCE, PIN_SOURCE, PLAYBACK_SOURCE)
         .forEach { style.addSource(GeoJsonSource(it)) }
     style.addLayer(
         LineLayer(ROUTE_LAYER, ROUTE_SOURCE).withProperties(
@@ -355,10 +375,10 @@ private fun setUpLayers(style: Style) {
             PropertyFactory.lineDasharray(arrayOf(1.5f, 1.5f)),
         ),
     )
-    addPointLayers(style)
+    addPointLayers(style, density)
 }
 
-private fun addPointLayers(style: Style) {
+private fun addPointLayers(style: Style, density: Float) {
     style.addLayer(
         CircleLayer(PLAYBACK_LAYER, PLAYBACK_SOURCE).withProperties(
             PropertyFactory.circleRadius(8f),
@@ -383,7 +403,19 @@ private fun addPointLayers(style: Style) {
             PropertyFactory.iconImage(Expression.get(ICON_KEY)),
             PropertyFactory.iconAllowOverlap(true),
             PropertyFactory.iconIgnorePlacement(true),
-            PropertyFactory.symbolSortKey(Expression.get(SORT_KEY)),
+            PropertyFactory.symbolSortKey(Expression.get(RANK_KEY)),
+        ),
+    )
+    // Wait chips float above their markers: bottom-anchored at the waypoint,
+    // lifted clear of the marker circle. Offset is in bitmap pixels, and the
+    // chip bitmaps are baked at device density — hence the multiply.
+    style.addLayer(
+        SymbolLayer(WAIT_CHIP_LAYER, WAIT_CHIP_SOURCE).withProperties(
+            PropertyFactory.iconImage(Expression.get(ICON_KEY)),
+            PropertyFactory.iconAllowOverlap(true),
+            PropertyFactory.iconIgnorePlacement(true),
+            PropertyFactory.iconAnchor(Property.ICON_ANCHOR_BOTTOM),
+            PropertyFactory.iconOffset(arrayOf(0f, -WAIT_CHIP_LIFT_DP * density)),
         ),
     )
 }

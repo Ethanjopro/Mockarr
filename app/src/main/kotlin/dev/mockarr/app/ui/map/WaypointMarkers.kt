@@ -21,10 +21,14 @@ private const val WAYPOINT_STROKE_DP = 2.5f
 private const val WAYPOINT_TEXT_DP = 13f
 private const val WAIT_BADGE_RADIUS_DP = 4.5f
 private const val WAIT_BADGE_OFFSET_FRACTION = 0.7f
+private const val SELECTION_RING_GAP_DP = 1.5f
+private const val SELECTION_RING_WIDTH_DP = 2.5f
+private const val RANK_SELECTED_BOOST = 1_000
 private val WAYPOINT_START_COLOR = Color.rgb(46, 125, 50)
 private val WAYPOINT_END_COLOR = Color.rgb(198, 40, 40)
 private val WAYPOINT_VIA_COLOR = Color.rgb(69, 90, 100)
 private val WAIT_BADGE_COLOR = Color.rgb(249, 168, 37)
+private val SELECTION_RING_COLOR = Color.rgb(26, 115, 232)
 
 /** Index (SORT_KEY) of the topmost waypoint marker under the tap, or null. */
 internal fun MapLibreMap.waypointIndexAt(point: MapLibreLatLng, density: Float): Int? {
@@ -36,7 +40,12 @@ internal fun MapLibreMap.waypointIndexAt(point: MapLibreLatLng, density: Float):
         .maxOrNull() // higher sort key renders on top — matches what the user sees
 }
 
-internal fun updateWaypoints(style: Style, waypoints: List<Waypoint>, density: Float) {
+internal fun updateWaypoints(
+    style: Style,
+    waypoints: List<Waypoint>,
+    selectedIndex: Int?,
+    density: Float,
+) {
     val features = waypoints.mapIndexed { index, waypoint ->
         val role = when (index) {
             0 -> "start"
@@ -44,24 +53,40 @@ internal fun updateWaypoints(style: Style, waypoints: List<Waypoint>, density: F
             else -> "via"
         }
         val hasWait = waypoint.waitSeconds > 0
-        // The wait flag is part of the key: addImage caches by name, so a
-        // same-named icon would keep showing the stale badge-less bitmap.
-        val icon = "waypoint-$role-${index + 1}" + if (hasWait) "-wait" else ""
-        style.addImage(icon, waypointBitmap(role, index + 1, density, hasWait))
+        val selected = index == selectedIndex
+        // Wait and selection flags are part of the key: addImage caches by
+        // name, so a same-named icon would keep showing the stale bitmap.
+        val icon = "waypoint-$role-${index + 1}" +
+            (if (hasWait) "-wait" else "") +
+            if (selected) "-sel" else ""
+        style.addImage(icon, waypointBitmap(role, index + 1, density, hasWait, selected))
+        // RANK_KEY drives draw order (selected wins the overlap); SORT_KEY
+        // stays the untouched tap identity read back by waypointIndexAt.
+        val rank = if (selected) index + RANK_SELECTED_BOOST else index
         Feature.fromGeometry(waypoint.position.toPoint()).apply {
             addStringProperty(ICON_KEY, icon)
-            // Higher sort key renders on top — a later stop wins the overlap.
             addNumberProperty(SORT_KEY, index)
+            addNumberProperty(RANK_KEY, rank)
         }
     }
     style.getSourceAs<GeoJsonSource>(WAYPOINT_SOURCE)
         ?.setGeoJson(FeatureCollection.fromFeatures(features))
 }
 
-private fun waypointBitmap(role: String, number: Int, density: Float, hasWait: Boolean): Bitmap {
+private fun waypointBitmap(
+    role: String,
+    number: Int,
+    density: Float,
+    hasWait: Boolean,
+    selected: Boolean,
+): Bitmap {
     val fillRadius = WAYPOINT_RADIUS_DP * density
     val stroke = WAYPOINT_STROKE_DP * density
-    val size = ceil((fillRadius + stroke) * 2).toInt()
+    val ringGap = SELECTION_RING_GAP_DP * density
+    val ringWidth = SELECTION_RING_WIDTH_DP * density
+    // Every variant reserves ring headroom: uniform bitmap size keeps the
+    // icon's center anchor fixed, so selecting never shifts the marker.
+    val size = ceil((fillRadius + stroke + ringGap + ringWidth) * 2).toInt()
     val center = size / 2f
     val bitmap = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888)
     val canvas = Canvas(bitmap)
@@ -95,6 +120,14 @@ private fun waypointBitmap(role: String, number: Int, density: Float, hasWait: B
         badge.style = Paint.Style.STROKE
         badge.strokeWidth = stroke / 2f
         canvas.drawCircle(center + offset, center - offset, badgeRadius, badge)
+    }
+    if (selected) {
+        val ring = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            color = SELECTION_RING_COLOR
+            style = Paint.Style.STROKE
+            strokeWidth = ringWidth
+        }
+        canvas.drawCircle(center, center, fillRadius + stroke + ringGap + ringWidth / 2f, ring)
     }
     return bitmap
 }

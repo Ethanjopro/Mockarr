@@ -45,8 +45,8 @@ class RouteGeometry(
     /** Max speed allowed *at* vertex i (turn caps + braking backward pass). */
     internal val allowedVertexSpeeds: DoubleArray
 
-    /** A user-requested stop along the route. */
-    data class DwellStop(val distanceMeters: Double, val waitSeconds: Int)
+    /** A user-requested stop along the route; [waypointIndex] names its waypoint. */
+    data class DwellStop(val distanceMeters: Double, val waitSeconds: Int, val waypointIndex: Int)
 
     /** User-requested stops ordered by distance; interior waypoints and the start only. */
     val dwellStops: List<DwellStop>
@@ -82,9 +82,9 @@ class RouteGeometry(
         }
         totalDurationSeconds = cumulativeDurations[n - 1]
 
-        val dwellVertexWaits = dwellVertexWaits(route, n)
-        dwellStops = dwellVertexWaits.map { (vertex, wait) -> DwellStop(cumulative[vertex], wait) }
-        val dwellVertices = dwellVertexWaits.keys
+        val dwells = dwellVertices(route, n)
+        dwellStops = dwells.map { DwellStop(cumulative[it.vertex], it.waitSeconds, it.waypointIndex) }
+        val dwellVertices = dwells.map { it.vertex }.toSet()
 
         // Turn caps at interior vertices, then a backward pass so every vertex
         // speed is reachable under the deceleration limit.
@@ -102,21 +102,23 @@ class RouteGeometry(
         allowedVertexSpeeds[0] = 0.0 // start from rest
     }
 
+    private data class DwellVertex(val vertex: Int, val waitSeconds: Int, val waypointIndex: Int)
+
     /**
-     * Geometry vertex → wait seconds for every waited waypoint except the
-     * destination (the engine already comes to rest there). Legs map 1:1 to
-     * waypoint pairs, so waypoint k's vertex is the boundary after leg k-1.
-     * Empty when waits or leg segments don't align with the geometry.
+     * Geometry vertex + wait for every waited waypoint except the destination
+     * (the engine already comes to rest there). Legs map 1:1 to waypoint
+     * pairs, so waypoint k's vertex is the boundary after leg k-1. Empty when
+     * waits or leg segments don't align with the geometry.
      */
-    private fun dwellVertexWaits(route: Route, n: Int): Map<Int, Int> {
+    private fun dwellVertices(route: Route, n: Int): List<DwellVertex> {
         val waits = route.waypointWaitsSeconds
         val aligned = waits.size == route.legs.size + 1 &&
             route.legs.sumOf { it.segmentDistancesMeters.size } == n - 1
-        if (!aligned) return emptyMap()
+        if (!aligned) return emptyList()
         var vertex = 0
-        val result = mutableMapOf<Int, Int>()
+        val result = mutableListOf<DwellVertex>()
         for (k in 0 until waits.lastIndex) {
-            if (waits[k] > 0) result[vertex] = waits[k]
+            if (waits[k] > 0) result += DwellVertex(vertex, waits[k], k)
             vertex += route.legs[k].segmentDistancesMeters.size
         }
         return result
