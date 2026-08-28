@@ -58,10 +58,24 @@ case "${1:-help}" in
     ;;
   # Switch bottom-nav tab by its exact label/desc: scripts/emu.sh tab Routes
   tab)
-    coords=$("$0" find "$2")   # find prefers an exact label/desc match
-    if [ -z "$coords" ]; then echo "no tab named $2" >&2; exit 1; fi
-    # shellcheck disable=SC2086
-    "$ADB" shell input tap $coords && echo "switched to $2"
+    # There is no navigation bar any more: Map is the root, Routes and
+    # Settings are rows at the bottom of the Map sheet's drag-up list.
+    case "$2" in
+      Map)
+        for _ in 1 2 3; do
+          "$0" assert "Start|Pause|Resume|Done" >/dev/null 2>&1 && break
+          "$ADB" shell input keyevent KEYCODE_BACK; sleep 1
+        done
+        "$0" assert "Start|Pause|Resume|Done" >/dev/null && echo "switched to Map" ;;
+      Routes|Settings)
+        "$0" tab Map >/dev/null || exit 1
+        label="Saved routes"; [ "$2" = Settings ] && label="All settings"
+        "$ADB" shell input swipe 540 2100 540 600 400
+        "$0" waitfor "$label" 10 >/dev/null || exit 1
+        sleep 0.5   # let the sheet settle before the row is tapped
+        "$0" tapon "$label" >/dev/null && echo "switched to $2" ;;
+      *) echo "no screen named $2 (Map|Routes|Settings)" >&2; exit 1 ;;
+    esac
     ;;
   kill)      "$ADB" emu kill ;;
   tap)       "$ADB" shell input tap "$2" "$3" ;;                    # tap X Y
@@ -188,7 +202,7 @@ case "${1:-help}" in
 usage: scripts/emu.sh <command> [args]
   boot                       boot mockarr_test (reuses a running one; 180 s deadline)
   settle [timeout=20]        wait until the app has drawn (do this before the first tap)
-  tab Map|Routes|Settings    switch bottom-nav tab by content-desc
+  tab Map|Routes|Settings    open a screen (Map = back to root; others via the sheet's drag-up rows)
   shell <adb shell args…>    raw adb shell passthrough
   record <secs> [out.mp4]    screen recording (blocks for <secs>) for motion checks
   kill                       shut the emulator down

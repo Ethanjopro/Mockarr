@@ -38,12 +38,6 @@ object Motion {
     val topChromeExit: ExitTransition =
         slideOutVertically(tween(QUICK_MILLIS)) { -it } + fadeOut(tween(QUICK_MILLIS))
 
-    /** Chrome at the bottom edge leaves downward. */
-    val bottomChromeEnter: EnterTransition =
-        slideInVertically(tween(STANDARD_MILLIS)) { it } + fadeIn(tween(STANDARD_MILLIS))
-    val bottomChromeExit: ExitTransition =
-        slideOutVertically(tween(QUICK_MILLIS)) { it } + fadeOut(tween(QUICK_MILLIS))
-
     /** Floating controls pop from their centre. */
     val floatingEnter: EnterTransition =
         scaleIn(tween(STANDARD_MILLIS), initialScale = SCALE_FROM) + fadeIn(tween(STANDARD_MILLIS))

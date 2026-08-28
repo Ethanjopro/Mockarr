@@ -32,12 +32,14 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material3.BottomSheetDefaults
 import androidx.compose.material3.BottomSheetScaffold
 import androidx.compose.material3.Card
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledIconToggleButton
 import androidx.compose.material3.FilledTonalIconButton
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -51,6 +53,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberBottomSheetScaffoldState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -92,6 +95,7 @@ import dev.mockarr.app.ui.theme.Tokens
 import dev.mockarr.core.model.DistanceUnits
 import dev.mockarr.core.model.GeoMath
 import dev.mockarr.core.model.LatLng
+import dev.mockarr.core.model.PlaybackState
 import dev.mockarr.core.model.Route
 import dev.mockarr.core.model.Waypoint
 import dev.mockarr.core.routing.GeocodingResult
@@ -199,14 +203,16 @@ fun MapLayer(
 }
 
 /**
- * The Map tab's controls — a transparent overlay above the persistent map.
- * One bottom sheet owns the bottom edge (status strip + peek content, expanding
- * to route options and stops); the search field and FAB stack float at the top.
+ * The Map screen's controls — a transparent overlay above the persistent map,
+ * laid out like Strava's Record screen: the search field and FAB stack float
+ * at the top, the stat card floats above the sheet, and the sheet's peek is
+ * the action row (Pause while driving), expanding to options and stops.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MapScreen(
     onOpenSetup: () -> Unit,
+    onOpenRoutes: () -> Unit,
     onOpenSettings: () -> Unit,
     viewModel: MapViewModel,
     sessionViewModel: MockSessionViewModel,
@@ -421,38 +427,41 @@ fun MapScreen(
         if (selectedWaypoint != null) sheetState.expand()
     }
 
+    // The strip never shows raw coordinates: while a hold's name resolves,
+    // stripFor returns null and the previous line stays on screen.
+    val nextStrip = stripFor(
+        state = state,
+        playbackState = playbackState,
+        holding = holding,
+        playing = playing,
+        builder = builderMode,
+        setupReady = setupStatus?.readyToMock != false,
+    )
+    var lastStrip by remember { mutableStateOf(nextStrip ?: StripModel("", StripTone.Neutral)) }
+    val strip = nextStrip ?: lastStrip
+    SideEffect { if (nextStrip != null) lastStrip = nextStrip }
+    var cardHeightPx by remember { mutableIntStateOf(0) }
+    val cardHeight = with(LocalDensity.current) { cardHeightPx.toDp() }
+
     BottomSheetScaffold(
         scaffoldState = scaffoldState,
         sheetPeekHeight = peekHeight,
         sheetShape = Tokens.sheetShape,
         sheetContainerColor = MaterialTheme.colorScheme.surfaceContainerLow,
+        sheetShadowElevation = Tokens.sheetElevation,
         sheetDragHandle = null,
         containerColor = Color.Transparent,
         snackbarHost = { SnackbarHost(snackbarHostState) },
         sheetContent = {
-            // The bar hides during playback, so the sheet owns the system
-            // navigation inset then; otherwise the bar already covers it.
-            val insetModifier = if (playing) Modifier.navigationBarsPadding() else Modifier
-            Column(modifier = insetModifier.fillMaxWidth()) {
-                Column(modifier = Modifier.onSizeChanged { peekHeightPx = it.height }) {
-                    val strip = stripFor(
-                        state = state,
-                        playbackState = playbackState,
-                        holding = holding,
-                        playing = playing,
-                        builder = builderMode,
-                        setupReady = setupStatus?.readyToMock != false,
-                    )
-                    StatusStrip(
-                        text = strip.text,
-                        tone = strip.tone,
-                        actionLabel = strip.actionLabel,
-                        onAction = when (strip.action) {
-                            StripAction.FIX -> onOpenSetup
-                            StripAction.RELEASE -> sessionViewModel::release
-                            null -> null
-                        },
-                    )
+            Column(modifier = Modifier.fillMaxWidth()) {
+                // The measured peek is everything that must stay visible at rest:
+                // the handle, the peek content and (no navigation bar) the system inset.
+                Column(
+                    modifier = Modifier
+                        .onSizeChanged { peekHeightPx = it.height }
+                        .navigationBarsPadding(),
+                ) {
+                    BottomSheetDefaults.DragHandle(modifier = Modifier.align(Alignment.CenterHorizontally))
                     val peekMode = when {
                         playing -> PeekMode.PLAYING
                         builderMode -> PeekMode.BUILDER
@@ -464,16 +473,13 @@ fun MapScreen(
                         label = "peek",
                     ) { mode ->
                         when (mode) {
-                            PeekMode.PLAYING -> PlaybackPeek(
-                                playbackState = playbackState,
-                                route = state.route,
-                                units = units,
-                                speedMultiplier = speedMultiplier,
-                                speedExpanded = expanded,
-                                sessionViewModel = sessionViewModel,
-                                onToggleSpeed = {
-                                    scope.launch { if (expanded) sheetState.partialExpand() else sheetState.expand() }
-                                },
+                            PeekMode.PLAYING -> PlaybackControls(
+                                paused = playbackState is PlaybackState.Paused,
+                                stopping = playbackState is PlaybackState.Stopping,
+                                onPause = sessionViewModel::pause,
+                                onResume = sessionViewModel::resume,
+                                onFinish = sessionViewModel::stopPlayback,
+                                modifier = Modifier.padding(horizontal = Tokens.inset, vertical = Tokens.space2),
                             )
                             PeekMode.BUILDER -> BuilderPeek(
                                 state = state,
@@ -489,7 +495,6 @@ fun MapScreen(
                             )
                             PeekMode.RECORD -> RecordPeek(
                                 state = state,
-                                units = units,
                                 holdActive = holding != null,
                                 onPickMode = { showModePicker = true },
                                 onStart = ::playOrAskStart,
@@ -535,6 +540,7 @@ fun MapScreen(
                             onStayChange = optionsViewModel::setStayAtDestination,
                             onTrafficChange = optionsViewModel::setTrafficSimEnabled,
                             onWobbleChange = optionsViewModel::setJitterEnabled,
+                            onOpenRoutes = onOpenRoutes,
                             onOpenSettings = onOpenSettings,
                         )
                     }
@@ -597,13 +603,57 @@ fun MapScreen(
                 )
             }
 
+            // Strava's "run box": floats above the sheet and rides its top edge.
+            // Builder mode keeps its trio inside the sheet, so the card is
+            // strip-only there; at rest with nothing loaded it is strip-only too.
+            val speedText = formatMultiplier(speedMultiplier)
+            val speedDescription = stringResource(R.string.sheet_speed_cd, speedText)
+            val speedPill: (@Composable () -> Unit)? = if (playing) {
+                {
+                    FilterChip(
+                        selected = expanded,
+                        onClick = {
+                            scope.launch { if (expanded) sheetState.partialExpand() else sheetState.expand() }
+                        },
+                        label = { Text(stringResource(R.string.sheet_speed_value, speedText)) },
+                        modifier = Modifier.semantics { contentDescription = speedDescription },
+                    )
+                }
+            } else {
+                null
+            }
+            val recordCells = if (builderMode) null else recordCells(state, units)
+            val stats: (@Composable () -> Unit)? = when {
+                playing -> {
+                    { PlaybackStats(playbackState, state.route, units, sessionViewModel) }
+                }
+                recordCells != null -> {
+                    { StatTrio(cells = recordCells) }
+                }
+                else -> null
+            }
+            StatCard(
+                strip = strip,
+                stats = stats,
+                onStripAction = when (strip.action) {
+                    StripAction.FIX -> onOpenSetup
+                    StripAction.RELEASE -> sessionViewModel::release
+                    null -> null
+                },
+                trailing = speedPill,
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .padding(horizontal = Tokens.mapEdge)
+                    .padding(bottom = peekHeight + Tokens.mapEdge)
+                    .onSizeChanged { cardHeightPx = it.height },
+            )
             AnimatedVisibility(
                 visible = builderMode && !playing,
                 enter = Motion.floatingEnter,
                 exit = Motion.floatingExit,
                 modifier = Modifier
                     .align(Alignment.BottomEnd)
-                    .padding(end = Tokens.mapEdge, bottom = peekHeight + Tokens.mapEdge),
+                    .padding(end = Tokens.mapEdge, bottom = peekHeight + cardHeight + Tokens.mapEdge * 2),
             ) {
                 BuilderTools(
                     canUndo = state.waypoints.isNotEmpty(),
@@ -648,50 +698,24 @@ fun MapScreen(
     }
 }
 
-/** Record layout peek: the stat card (zeros at rest, the loaded route's stats) and the action row. */
+/** Record layout peek: the action row (the stat card floats above the sheet). */
 @Composable
 private fun RecordPeek(
     state: MapViewModel.UiState,
-    units: DistanceUnits,
     holdActive: Boolean,
     onPickMode: () -> Unit,
     onStart: () -> Unit,
     onEditRoute: () -> Unit,
 ) {
     val route = state.route
-    val placeholder = stringResource(R.string.stat_placeholder)
-    val cells = if (route != null) {
-        val seconds = route.durationSeconds * state.trafficFactor + route.waypointWaitsSeconds.sum()
-        val minutes = (seconds / SECONDS_PER_MINUTE).roundToInt().coerceAtLeast(1)
-        listOf(
-            StatCell(stringResource(R.string.stat_distance), formatDistance(route.distanceMeters, units)),
-            StatCell(
-                stringResource(R.string.stat_duration),
-                formatDurationShort(minutes * SECONDS_PER_MINUTE.toDouble()),
-            ),
-            StatCell(stringResource(R.string.stat_stops), state.waypoints.size.toString()),
-        )
-    } else {
-        listOf(
-            StatCell(stringResource(R.string.stat_time), placeholder),
-            StatCell(stringResource(R.string.stat_distance), placeholder),
-            StatCell(stringResource(R.string.stat_speed), placeholder),
-        )
-    }
-    Column {
-        StatTrio(
-            cells = cells,
-            modifier = Modifier.padding(horizontal = Tokens.inset, vertical = Tokens.space3),
-        )
-        ActionRow(
-            profile = state.profile,
-            canStart = route != null || (state.waypoints.size == 1 && holdActive),
-            routeLoaded = route != null || state.waypoints.isNotEmpty(),
-            onPickMode = onPickMode,
-            onStart = onStart,
-            onEditRoute = onEditRoute,
-        )
-    }
+    ActionRow(
+        profile = state.profile,
+        canStart = route != null || (state.waypoints.size == 1 && holdActive),
+        routeLoaded = route != null || state.waypoints.isNotEmpty(),
+        onPickMode = onPickMode,
+        onStart = onStart,
+        onEditRoute = onEditRoute,
+    )
 }
 
 /** Expanded builder content: the stops, then Save. */
@@ -945,7 +969,6 @@ private enum class PeekMode { RECORD, BUILDER, PLAYING }
 private const val START_FROM_HOLD_METERS = 30.0
 private const val DEFAULT_NUDGE_ZOOM = 15.0
 private const val MILLIS_PER_SECOND = 1_000.0
-private const val SECONDS_PER_MINUTE = 60
 private val RESULTS_MAX_HEIGHT = 280.dp
 private val PEEK_FALLBACK_HEIGHT = 200.dp
 

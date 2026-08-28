@@ -82,7 +82,7 @@ fun SetupScreen(
                     IconButton(onClick = onBack) {
                         Icon(
                             painterResource(R.drawable.ic_arrow_back),
-                            contentDescription = stringResource(R.string.setup_back_cd),
+                            contentDescription = stringResource(R.string.back_cd),
                         )
                     }
                 },

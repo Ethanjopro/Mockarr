@@ -29,6 +29,8 @@ sealed interface MockSessionState {
         val source: HoldSource,
         /** Reverse-geocoded short name of the spot; null until (or unless) resolved. */
         val placeName: String? = null,
+        /** The lookup failed or timed out: the banner falls back to a generic label. */
+        val nameFailed: Boolean = false,
     ) : MockSessionState
 }
 
@@ -121,15 +123,15 @@ class MockSessionRepository @Inject constructor() {
     internal fun holdMoved(position: LatLng) {
         val current = _session.value
         if (current is MockSessionState.Holding) {
-            _session.value = current.copy(position = position, placeName = null)
+            _session.value = current.copy(position = position, placeName = null, nameFailed = false)
         }
     }
 
-    /** Attach a resolved place name — only if we're still holding that same spot. */
-    internal fun holdNameResolved(position: LatLng, name: String) {
+    /** Attach a resolved place name (null = lookup failed) — only if we're still holding that same spot. */
+    internal fun holdNameResolved(position: LatLng, name: String?) {
         val current = _session.value
         if (current is MockSessionState.Holding && current.position == position) {
-            _session.value = current.copy(placeName = name)
+            _session.value = current.copy(placeName = name, nameFailed = name == null)
         }
     }
 

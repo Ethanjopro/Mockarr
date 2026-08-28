@@ -73,8 +73,8 @@ typography:
     lineHeight: 1.22
   headline:
     fontFamily: "Roboto, system-ui, sans-serif"
-    fontSize: "24sp"
-    fontWeight: 600
+    fontSize: "28sp"
+    fontWeight: 700
     lineHeight: 1.33
     fontFeature: "tnum"
   title:
@@ -181,6 +181,24 @@ components:
     typography: "{typography.title}"
     height: "40dp"
     padding: "8dp 20dp 0"
+  stat-card:
+    backgroundColor: "{colors.surface-container-lowest}"
+    textColor: "{colors.paper-on}"
+    rounded: "{rounded.card}"
+    shadow: "4dp"
+    padding: "0"
+  button-pill:
+    backgroundColor: "{colors.night-indigo}"
+    textColor: "{colors.night-indigo-on}"
+    rounded: "{rounded.full}"
+    height: "56dp"
+    padding: "0 24dp"
+  button-pill-inverse:
+    backgroundColor: "{colors.paper-on}"
+    textColor: "{colors.paper}"
+    rounded: "{rounded.full}"
+    height: "56dp"
+    padding: "0 24dp"
   card:
     backgroundColor: "{colors.surface-container}"
     textColor: "{colors.paper-on}"
@@ -206,27 +224,30 @@ components:
 **Creative North Star: "The Quiet Dashboard"**
 
 Mockarr looks like a car's instrument cluster at night: neutral surfaces, one indigo
-signal, big legible numerals, and state shown as a tinted band rather than a pile of
-cards. The map is the product; every piece of chrome either serves the drive in progress
-or recedes. Nothing decorates. Colour appears where it means something — the route, the
-position, the primary action, the state strip — and nowhere else.
+signal, big bold numerals, and state shown as a tinted band on a card that floats over
+the map. The map is the product; every piece of chrome either serves the drive in progress
+or recedes. Colour appears where it means something — the route, the position, the primary
+action, the state strip — and nowhere else; weight and lift (bold type, soft shadows, a
+64dp Start) carry the energy instead.
 
-The system is Material 3 in structure (navigation bar, sheets, chips, snackbars, tonal
-elevation) with a hand-authored indigo scheme on every API level; dynamic colour is off so
-the map palette never fights a wallpaper. Dark is designed as its own set, not an
-inversion: the evening-on-the-couch scene is the primary one. Strava's Record screen is
-the reference for how controls sit — a single row of equal-weight actions under a stat
-readout — translated into Material, never copied as iOS chrome. Confirmed anti-references:
-the pre-2026-08 card stack, Strava orange, hero numerals, iOS wheel pickers and
+The system is Material 3 in structure (sheet, chips, snackbars, pills) with a hand-authored
+indigo scheme on every API level; dynamic colour is off so the map palette never fights a
+wallpaper. Dark is designed as its own set, not an inversion: the evening-on-the-couch
+scene is the primary one. **Strava's Record screen is the layout, matched exactly** (brief
+3, 2026-08-28): a stat card with a coloured strip floating above a separate sheet whose
+peek is the action row; Pause is one full-width pill that splits into Resume + Finish. Only
+the palette and the components are Material. Confirmed anti-references: the pre-2026-08
+card stack, Strava orange, hero numerals, a bottom navigation bar, iOS wheel pickers and
 Cancel/Done headers.
 
 **Key Characteristics:**
 - Restrained colour: neutral ground, indigo accent, semantic state tints kept separate.
-- One sheet owns the bottom edge; a status strip on its top edge carries state.
-- Label-over-value stat cells in equal-weight trios; tabular figures; no hero number.
-- Tonal layering only — no drop shadows on the map or its sheets.
+- Card over sheet: the stat card (strip + trio) floats above the sheet and rides its edge.
+- Value-over-label stat cells in equal-weight trios; bold tabular figures; no hero number.
+- Soft lift: the card and the sheet carry a low shadow; nothing else does.
 - One radius family: 12 / 16 / 28 dp and full pills.
-- Chrome recedes during playback (search, 3D toggle and the navigation bar hide).
+- No navigation bar; chrome recedes during playback (search, 3D toggle, action row hide —
+  the card stays).
 
 ## Colors
 
@@ -266,7 +287,9 @@ waits.
 
 **The State Is a Band Rule.** Session state (ready / driving / waiting / holding / paused /
 error) is communicated by the strip's container colour and one line of copy — never by a
-new card, never by an icon alone.
+new card, never by an icon alone. The band never shows raw coordinates: while a hold's
+place name resolves, the previous line stays; if the lookup fails it reads "Holding at
+dropped pin".
 
 **The Palette Travels Rule.** Map colours are never literals: they come from `MapPalette`
 in `ui/theme/Theme.kt`, and anything that bakes a colour into a bitmap or cache includes
@@ -284,8 +307,9 @@ over every value.
 
 ### Hierarchy
 - **Display** (400, 36sp): reserved; not used on any current screen.
-- **Headline** (600, 24sp, tabular figures): stat values — time left, distance, speed,
-  stop count. Always paired with a Label above it.
+- **Headline** (700, 28sp, tabular figures): stat values — time left, distance, speed,
+  stop count. Always paired with a Label under it. The strip's line and pill labels are
+  Title at bold.
 - **Title** (500, 14sp): the status strip copy, dialog titles, list-card titles.
 - **Body** (400, 16sp / 14sp small): sheet hints, list rows, dialog text. Measure is
   bounded by the sheet inset, never wider than ~60ch.
@@ -293,22 +317,27 @@ over every value.
   section headers ("STOPS", "SPEED"), chip text at 14sp in sentence case.
 
 ### Named Rules
-**The Label Over Value Rule.** A number never appears alone: an uppercase label sits
-directly above it, and the three cells of a trio share one baseline.
+**The Value Over Label Rule.** A number never appears alone: its label sits directly under
+it (Strava's trio), centred, and the three cells of a trio share one baseline. A trio with
+nothing to count is not shown — never placeholders for undefined numbers.
 
 **The No Hero Rule.** Stat trios are equal weight. No single numeral is enlarged to
-dominate the sheet.
+dominate the card.
 
 ## Layout
 
 Phone portrait first, one column. The map fills the window edge to edge behind
 everything; the status bar inset is applied by the app shell, the navigation-bar inset by
-the bottom bar when present and by the sheet when the bar is hidden (playback).
+the sheet (and by pushed screens). There is no navigation bar.
 
-- **Bottom sheet** (`{spacing.inset}` horizontal inset, 28dp top corners) with two
-  states: *peek* — strip + the primary block, measured at runtime and never assumed — and
-  *expanded* — the same plus a scrollable detail column. The peek is the screen's resting
-  state.
+- **Stat card** floats `{spacing.map-edge}` above the sheet's top edge and inset from the
+  sides, 16dp corners: the status strip on top, the trio (and progress while driving)
+  below. It stays through playback and hides behind the sheet when it expands.
+- **Bottom sheet** (`{spacing.inset}` horizontal inset, 28dp top corners, drag handle) with
+  two states: *peek* — the action row (Mode · Start · Add route), or Pause / Resume + Finish
+  while driving, measured at runtime and never assumed — and *expanded* — the same plus a
+  scrollable options list ending in *Saved routes ›* and *All settings ›*. The peek is the
+  screen's resting state.
 - **Top overlays** sit `{spacing.map-edge}` from the edges: the search field full-width,
   then the FAB stack aligned to the right edge (3D toggle, locate / follow), 8dp apart.
 - **Spacing rhythm** is the 4dp grid: 4 / 8 / 12 / 16 / 24 / 32, with 20dp as the sheet and
@@ -320,15 +349,18 @@ the bottom bar when present and by the sheet when the bar is hidden (playback).
 
 ## Elevation & Depth
 
-Tonal layering only. Surfaces step through the container ramp (sheet on
-`surface-container-low`, strips on `-high`, selected rows on `-high`, tracks on
-`-highest`); the map itself is the lowest layer. No drop shadows are drawn on map overlays
-or sheets — the basemap already supplies visual noise, and a shadow would compete with it.
-Material's default component elevation (dialog, snackbar, navigation bar) is left as is.
+Tonal layering plus one soft lift. Surfaces step through the container ramp (card on
+`surface-container-lowest`, sheet on `surface-container-low`, strips on `-high`, selected
+rows on `-high`, tracks on `-highest`); the map itself is the lowest layer. The stat card
+(4dp) and the sheet (8dp) carry a low ambient shadow so they read as objects over the
+basemap — Strava's card is the reference. FABs keep tonal elevation; chips, markers and
+strips never get a shadow. Material's default component elevation (dialog, snackbar) is
+left as is.
 
 ### Named Rules
-**The Flat Over Map Rule.** Anything floating over the map is distinguished by container
-tone and its 28/16/12dp corner, never by a shadow.
+**The Soft Lift Rule.** Only the stat card and the sheet cast a shadow, and only the low
+one in `Tokens` (`cardElevation` / `sheetElevation`). Everything else floating over the map
+is distinguished by container tone and its 28/16/12dp corner.
 
 ## Shapes
 
@@ -342,40 +374,48 @@ Direction chevrons on the route are 10dp, 2dp stroke, drawn in the casing colour
 
 ### Buttons
 - **Shape:** full pill (`{rounded.full}`), 40dp tall, 24dp horizontal padding.
-- **Primary:** Night Indigo fill, white text; one per surface (Play, Pause/Resume). Carries
+- **Primary:** Night Indigo fill, white text; one per surface (Start, Pause/Resume). Carries
   a leading 24dp icon when the verb has one.
-- **Outlined:** transparent, 1dp `outline` stroke, indigo text — the secondary verb beside a
-  primary (Stop).
+- **Pill (playback):** 56dp tall, full width or half of a two-up row, Title bold label +
+  24dp icon. Primary = indigo (Pause, Resume); **inverse** = `inverseSurface` fill with
+  `inverseOnSurface` text (Finish) — Strava's black Finish, in the theme's own ink.
+- **Outlined:** transparent, 1dp `outline` stroke, indigo text — a secondary verb beside a
+  primary in dialogs.
 - **Text:** indigo text, no container — tertiary actions in rows (Save · Undo · Clear) and
   the strip's action (Fix, Stop).
 - **Disabled:** Material's 38% alpha; never hidden to signal disabled.
 
 ### The Action Row (signature)
-Strava's Record screen is the reference: under the stat readout, one horizontal row of
-equal-height actions — primary filled and weighted to fill, secondary outlined, and a
-compact pill (the "1×" speed chip) at the end. 8dp gaps. Never stack actions vertically in
-the peek.
+Strava's Record screen, matched: the sheet's peek is one 96dp row of three equal slots —
+Mode (48dp tonal icon + label) · **Start** (64dp filled indigo FAB + label) · Add / Edit
+route (48dp tonal icon + label). While driving the row is replaced by the **Pause pill**,
+which splits into **Resume** (primary) + **Finish** (inverse) when paused; the "1×" speed
+chip sits in the card's strip. Never stack actions vertically in the peek.
 
 ### Motion (one authored moment)
-Play is the only choreographed transition, built from four reusable pieces in
-`ui/Motion.kt`: top chrome (search bar) slides up and fades (200ms out / 300ms in), bottom
-chrome (navigation bar) slides down the same way, floating controls (3D toggle, builder
-pills, thumbstick) scale from 80% with a fade, and the sheet peek swaps content with a
-Material fade-through (90ms out, 300ms in from 96%). The strip's colour crossfade and the
-camera ease complete it; Stop reverses everything. Compose animations follow the system
+Play is the only choreographed transition, built from three reusable pieces in
+`ui/Motion.kt`: top chrome (search bar) slides up and fades (200ms out / 300ms in),
+floating controls (3D toggle, builder pills, thumbstick) scale from 80% with a fade, and
+the sheet peek swaps content with a Material fade-through (90ms out, 300ms in from 96%) —
+the action row becomes the Pause pill. The card's strip crossfades to indigo, its trio
+animates in, and the camera eases; Finish reverses everything. Pause splits the pill into
+Resume + Finish with the same fade-through. Compose animations follow the system
 "Remove animations" setting on their own; MapLibre camera moves are gated by
 `rememberSystemAnimationsEnabled()` and cut instead of easing when it is off.
 
-### Status Strip (signature)
-The sheet's top band: 8dp above a 32×4dp drag handle (foreground at 40% alpha), then a
-40dp-min row of Title copy with an optional trailing text action. Container and content
-colours crossfade between the five tones (neutral / ready / accent / hold / error) —
-the transition is a colour animation on one surface, never a swap of components.
+### Stat Card (signature)
+Strava's "run box": a 16dp-corner `surface-container-lowest` card with the soft lift,
+floating `map-edge` above the sheet. **Status strip** on top: a 48dp-min band of bold Title
+copy, centred when alone, with an optional trailing text action (Fix / Stop) or the speed
+chip while driving. Container and content colours crossfade between the five tones
+(neutral / ready / accent / hold / error) — a colour animation on one surface, never a
+swap of components. Below it the **Stat Trio** when there is something to count.
 
 ### Stat Trio
-Three equal `weight(1f)` columns; Label (uppercase, on-surface-variant) over Headline
-value (600, tabular). Under it, when progress applies, a 4dp `LinearProgressIndicator` with
-a `surface-container-highest` track and no stop indicator.
+Three equal `weight(1f)` centred columns; Headline value (700, tabular) over its Label
+(on-surface-variant). Under it while driving, a 4dp `LinearProgressIndicator` with a
+`surface-container-highest` track and no stop indicator. Hidden entirely when the numbers
+are undefined (nothing loaded).
 
 ### Chips
 - **Filter chip:** 12dp radius, 32dp tall, 16dp padding; unselected is outlined, selected
@@ -394,9 +434,10 @@ a `surface-container-highest` track and no stop indicator.
 - **Dialog text fields:** Material outlined, single line.
 
 ### Navigation
-- Material `NavigationSuiteScaffold`: bottom bar with three destinations (Map / Routes /
-  Settings) on compact widths, rail on expanded. Indigo-container indicator, label always
-  shown. Hidden entirely during playback on the Map tab; returns on Stop.
+- No navigation bar. The Map is the root; **Saved routes** and **All settings** are rows
+  at the bottom of the sheet's drag-up list and open as pushed screens with a centred top
+  bar and a back arrow; Setup opens from Settings or the strip's Fix action. System back
+  always returns to the map.
 
 ### Map markers
 - **Stop discs:** 11dp radius, numbered, bold label; start in `map-stop-start`, vias in
@@ -415,15 +456,18 @@ a `surface-container-highest` track and no stop indicator.
   snackbar.
 - **Do** present numbers as Label-over-Headline cells in equal trios with tabular figures.
 - **Do** measure the sheet's peek at runtime and fall back to 200dp until measured.
-- **Do** hide non-essential chrome (search, 3D, navigation bar, thumbstick) during playback
+- **Do** hide non-essential chrome (search, 3D, action row, thumbstick) during playback
   or when its state does not apply — through the `Motion` transitions, never a hard cut.
+- **Do** hide the trio rather than show placeholders when its numbers are undefined.
 - **Do** keep every touch target at 48dp and every list scrollable with IME padding.
 
 ### Don't:
-- **Don't** stack cards above the sheet; there is one sheet.
+- **Don't** add a second card above the sheet; there is one card and one sheet.
 - **Don't** enlarge one stat into a hero numeral.
 - **Don't** use Strava orange, or any second saturated accent beside indigo.
-- **Don't** draw drop shadows on anything floating over the map.
+- **Don't** put a shadow on anything but the card and the sheet.
+- **Don't** add a navigation bar or tabs; everything is reachable from the sheet.
+- **Don't** ever show raw coordinates in the strip or the notification.
 - **Don't** add iOS chrome — wheel pickers, Cancel/Done header pairs, Cupertino switches.
 - **Don't** hard-code a colour, radius or spacing literal in a screen; extend `Tokens` or
   the theme instead.

@@ -60,6 +60,7 @@ import kotlinx.coroutines.launch
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SavedRoutesScreen(
+    onBack: () -> Unit,
     onRouteLoaded: () -> Unit,
     onPlanDrive: () -> Unit,
     viewModel: SavedRoutesViewModel = hiltViewModel(),
@@ -96,6 +97,14 @@ fun SavedRoutesScreen(
         topBar = {
             CenterAlignedTopAppBar(
                 title = { Text(stringResource(R.string.routes_title)) },
+                navigationIcon = {
+                    IconButton(onClick = onBack) {
+                        Icon(
+                            painterResource(R.drawable.ic_arrow_back),
+                            contentDescription = stringResource(R.string.back_cd),
+                        )
+                    }
+                },
                 actions = { SortAction(sort = sort, onSort = viewModel::setSort) },
                 colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
                     containerColor = MaterialTheme.colorScheme.surface,

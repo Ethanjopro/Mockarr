@@ -27,4 +27,11 @@ object Tokens {
     val controlShape = RoundedCornerShape(12.dp)
 
     val touchTarget = 48.dp
+
+    /** Soft lift for the floating stat card and the sheet (DESIGN.md → Soft Lift). */
+    val cardElevation = 4.dp
+    val sheetElevation = 8.dp
+
+    /** Full-width pill actions (Pause / Resume / Finish). */
+    val pillHeight = 56.dp
 }

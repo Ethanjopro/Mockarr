@@ -248,7 +248,7 @@ fun OptionLinkRow(iconRes: Int, title: String, onClick: () -> Unit) {
     }
 }
 
-/** The drag-up list under the action row: the settings that change a drive. */
+/** The drag-up list under the action row: the settings that change a drive, then the other screens. */
 @Composable
 fun OptionsList(
     settings: MockarrSettings,
@@ -257,6 +257,7 @@ fun OptionsList(
     onStayChange: (Boolean) -> Unit,
     onTrafficChange: (Boolean) -> Unit,
     onWobbleChange: (Boolean) -> Unit,
+    onOpenRoutes: () -> Unit,
     onOpenSettings: () -> Unit,
 ) {
     Text(
@@ -292,6 +293,11 @@ fun OptionsList(
         description = stringResource(R.string.option_wobble_desc),
         checked = settings.jitterEnabled,
         onCheckedChange = onWobbleChange,
+    )
+    OptionLinkRow(
+        iconRes = R.drawable.ic_list,
+        title = stringResource(R.string.option_routes),
+        onClick = onOpenRoutes,
     )
     OptionLinkRow(
         iconRes = R.drawable.ic_settings,

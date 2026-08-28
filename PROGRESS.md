@@ -484,3 +484,37 @@ Verified end-to-end like a human: app-drawer swipe → tapped the Mockarr icon �
   (`rememberSystemAnimationsEnabled`); Compose animations already honour it.
 - **emu.sh `record <secs> [out.mp4]`** + an ffmpeg tile recipe in the usage text: motion is
   verified from frame sheets, not guesses. DESIGN.md gained a Motion section.
+
+### 2026-08-28 — Session 15h (Record-tab parity: no nav bar, floating card, Pause split)
+
+- **Ethan's adjustments** (plan approved): match Strava's Record screen exactly. The
+  "impeccable options" that fought it were DESIGN.md / `.impeccable/design.json` rules from
+  brief 1 (one merged sheet, Flat Over Map, label-over-value quiet numerals) — rewritten,
+  not re-run: Card over sheet · Soft Lift (card 4dp / sheet 8dp) · Value over Label (bold
+  28sp) · no navigation bar. Indigo-only stays. `docs/design/brief-3-record-parity.md`.
+- **Navigation bar removed** (`MockarrApp.kt`): Map is the root; Saved routes / All
+  settings are rows at the end of the sheet's drag-up list and push screens with a back
+  arrow (`SavedRoutesScreen`, `SettingsScreen` gained `onBack`); `AdaptiveNavigation` and
+  `Motion.bottomChrome*` deleted. `OpaqueScreen` pads the navigation inset *inside* the
+  Surface (first cut left a strip of map under the gesture bar).
+- **Floating stat card** (`MapStatCard.kt`): strip + trio (+ progress while driving) in a
+  `surface-container-lowest` card riding `map-edge` above the sheet; strip-only when nothing
+  is loaded (no `—` placeholders) and in builder mode (its trio stays in the sheet). The
+  speed `1×` chip sits in the strip while driving. `StatusStrip`/`StatTrio`/`DriveProgress`
+  moved here; `MapSheet.kt` keeps `PlaybackControls`, `stripFor`, `PlaybackStats`.
+- **Sheet peek = action row**, or the **Pause pill** (56dp) that splits into Resume +
+  Finish (inverse surface) via fade-through + `animateContentSize`; Finish = Stop. The peek
+  block now measures the drag handle and the navigation inset itself (`sheetDragHandle =
+  null`, `BottomSheetDefaults.DragHandle` inside the measured Column) — the default handle
+  outside the measured block left the row half off-screen.
+- **Hold banner never shows coordinates**: `Holding.nameFailed`; `stripFor` returns null
+  while the name resolves and `MapScreen` keeps the last strip (`SideEffect`); service
+  `resolveHoldName` with a 5 s `withTimeoutOrNull` → "Holding at dropped pin" on failure;
+  notification text follows the same rule. Frame sheet from `emu.sh record`: "Plan a
+  drive" → "Holding at Amphitheatre Parkway", no coordinate frame.
+- **emu.sh `tab`** now means "open that screen": Map = BACK until the action row / Pause
+  shows; Routes/Settings = drag the sheet up, `waitfor` the row, tap. Skill doc updated.
+- Verified light + dark: idle, builder, loaded, playing, paused, Finish, expanded list,
+  Routes/Settings pushed + back, hold. Watch: `tab Map` leaves the sheet expanded if it
+  was; map taps then hit the options switches — collapse first (`swipe 540 1030 540 2300`).
+

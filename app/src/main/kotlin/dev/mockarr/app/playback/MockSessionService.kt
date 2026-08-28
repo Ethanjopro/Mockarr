@@ -41,6 +41,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withTimeoutOrNull
 import java.time.LocalDateTime
 import javax.inject.Inject
 import kotlin.random.Random
@@ -249,14 +250,9 @@ class MockSessionService : Service() {
                     fix = fix.copy(altitudeMeters = it)
                 }
             }
-            // Name the spot for the banner/notification (silent fallback to coords).
-            launch {
-                geocoder.reverse(position).getOrNull()?.name?.let { name ->
-                    repository.holdNameResolved(position, name)
-                    getSystemService(NotificationManager::class.java)
-                        .notify(NOTIFICATION_ID, buildNotification())
-                }
-            }
+            // Name the spot for the banner/notification. The banner waits for
+            // this (never shows raw coordinates), so a failure must still land.
+            launch { resolveHoldName(position) }
             // Thumbstick nudges: push the moved fix immediately; the keepalive
             // below re-pushes it. Lives in holdJob, so it dies with the hold.
             launch {
@@ -274,11 +270,7 @@ class MockSessionService : Service() {
                     elevationClient.elevations(listOf(target)).getOrNull()?.firstOrNull()?.let {
                         fix = fix.copy(altitudeMeters = it)
                     }
-                    geocoder.reverse(target).getOrNull()?.name?.let { name ->
-                        repository.holdNameResolved(target, name)
-                        getSystemService(NotificationManager::class.java)
-                            .notify(NOTIFICATION_ID, buildNotification())
-                    }
+                    resolveHoldName(target)
                 }
             }
             while (isActive) {
@@ -286,6 +278,15 @@ class MockSessionService : Service() {
                 mockController.push(fix)
             }
         }
+        getSystemService(NotificationManager::class.java)
+            .notify(NOTIFICATION_ID, buildNotification())
+    }
+
+    private suspend fun resolveHoldName(position: LatLng) {
+        val name = withTimeoutOrNull(HOLD_NAME_TIMEOUT_MILLIS) {
+            geocoder.reverse(position).getOrNull()?.name
+        }
+        repository.holdNameResolved(position, name)
         getSystemService(NotificationManager::class.java)
             .notify(NOTIFICATION_ID, buildNotification())
     }
@@ -360,11 +361,12 @@ class MockSessionService : Service() {
     }
 
     private fun holdingNotification(holding: MockSessionState.Holding): Notification {
-        val coords = "%.4f, %.4f".format(holding.position.latitude, holding.position.longitude)
+        // Never raw coordinates: a generic label until (or unless) the name resolves.
         val text = holding.placeName?.let { "Holding at $it" }
-            ?: when (holding.source) {
-                HoldSource.DESTINATION -> "Holding at destination"
-                HoldSource.PIN -> "Holding at $coords"
+            ?: when {
+                holding.source == HoldSource.DESTINATION -> "Holding at destination"
+                holding.nameFailed -> "Holding at dropped pin"
+                else -> "Holding\u2026"
             }
         return NotificationCompat.Builder(this, CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_stat_pin)
@@ -436,6 +438,7 @@ class MockSessionService : Service() {
         private const val PROGRESS_MAX = 100
         private const val HOLD_TICK_MILLIS = 1_000L
         private const val HOLD_SETTLE_MILLIS = 1_500L
+        private const val HOLD_NAME_TIMEOUT_MILLIS = 5_000L
         private const val SECONDS_PER_MINUTE = 60.0
         private const val SPEED_VARIANCE_FRACTION = 0.08
         private const val HOLD_ACCURACY_METERS = 5.0

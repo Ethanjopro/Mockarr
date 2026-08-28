@@ -39,13 +39,15 @@ emulator binary yourself.
   within ~1 s are a MapLibre double-tap zoom, not two stops.
 - `find`/`tapon` prefer an exact text/desc match and fall back to substring —
   `tapon "Play"` hits the Play button before hint copy containing the word.
-  Still check `waitfor`'s echoed match. Switch tabs with
-  `scripts/emu.sh tab Routes` (content-desc, never substring), not `tapon "Map"`.
+  Still check `waitfor`'s echoed match. There is no navigation bar: open
+  screens with `scripts/emu.sh tab Routes|Settings` (drags the Map sheet up and
+  taps its row) and `tab Map` (backs out to the root).
 - zsh does not word-split command substitutions: never `tap $COORDS`; use
   `tapon`, or extract x/y with awk.
-- The Map tab is one bottom sheet: swipe the handle up (`swipe 540 1880 540 900`)
-  to reach the stop list, Save/Undo/Clear and the speed chips; the bottom nav
-  hides during playback by design.
+- The Map screen is a floating stat card over one bottom sheet: swipe the
+  handle up (`swipe 540 2100 540 600`) to reach the options list (ending in
+  Saved routes / All settings), the stop list and the speed chips. Search, 3D
+  and the action row hide during playback by design; the card stays.
 - Text fields: `scripts/emu.sh type "text"` (spaces handled); focus the field
   with a tap first.
 - Verify mock state empirically when it matters:
@@ -55,9 +57,8 @@ emulator binary yourself.
   (e.g. for missing-layer or GL errors) instead of declaring logs unreachable.
 - Orientation: `scripts/emu.sh rotate landscape|portrait` (disables
   auto-rotate). Tablet layouts: `scripts/emu.sh resize 2560x1600 320` emulates
-  a tablet window without a second AVD; `resize reset` restores. Note: phone
-  landscape keeps the bottom bar BY DESIGN (Material switches to a rail only
-  when window height is non-compact) — don't file that as a bug.
+  a tablet window without a second AVD; `resize reset` restores. Note: there
+  is no navigation bar or rail on any width — don't file that as a bug.
 - Compose merged semantics look "wrong" in `ui` dumps: the focusable
   checkable row shows an empty content-desc while an inert child carries the
   label/description. That IS the correct TalkBack pattern (the reader

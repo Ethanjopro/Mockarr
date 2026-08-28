@@ -3,9 +3,7 @@
     <string name="app_name">Mockarr</string>
 
     <!-- Top-level navigation -->
-    <string name="tab_map">Map</string>
-    <string name="tab_routes">Routes</string>
-    <string name="tab_settings">Settings</string>
+    <string name="back_cd">Back</string>
 
     <!-- Map: status strip -->
     <string name="strip_not_set_up">Mocking isn\'t set up — playback won\'t move your location</string>
@@ -19,7 +17,7 @@
     <string name="strip_waiting">Waiting at stop %1$d · %2$s</string>
     <string name="strip_holding_at">Holding at %1$s</string>
     <string name="strip_holding_destination">Holding at destination</string>
-    <string name="strip_holding_coords">Holding at %1$s</string>
+    <string name="strip_holding_pin">Holding at dropped pin</string>
     <string name="strip_stop_hold">Stop</string>
     <string name="strip_hold_hint">Play to route from your held spot</string>
 
@@ -30,7 +28,7 @@
     <string name="sheet_play">Play</string>
     <string name="sheet_pause">Pause</string>
     <string name="sheet_resume">Resume</string>
-    <string name="sheet_stop">Stop</string>
+    <string name="sheet_finish">Finish</string>
     <string name="sheet_save">Save</string>
     <string name="sheet_undo">Undo</string>
     <string name="sheet_clear">Clear</string>
@@ -117,7 +115,6 @@
     <string name="builder_keep">Keep editing</string>
     <string name="strip_building">Building a route</string>
     <string name="strip_route_loaded">Route ready</string>
-    <string name="stat_time">Time</string>
     <string name="stat_placeholder">—</string>
     <string name="options_header">Options</string>
     <string name="option_follow">Follow camera</string>
@@ -128,6 +125,7 @@
     <string name="option_traffic_desc">Slow the drive at busy hours</string>
     <string name="option_wobble">Realistic GPS wobble</string>
     <string name="option_wobble_desc">Add position noise like a real receiver</string>
+    <string name="option_routes">Saved routes</string>
     <string name="option_settings">All settings</string>
 
     <!-- Routes tab (brief 2) -->
@@ -204,7 +202,6 @@
 
     <!-- Setup checklist -->
     <string name="setup_title">Set up mocking</string>
-    <string name="setup_back_cd">Back</string>
     <string name="setup_intro">Mockarr uses Android\'s built-in mock location testing feature. Two one-time steps are required; the rest make long drives more reliable.</string>
     <string name="setup_ready">All set — Mockarr can mock your location</string>
     <string name="setup_steps_left">%1$d required step left</string>
