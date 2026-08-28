@@ -50,8 +50,9 @@ Realism is the feature; honesty is the trust story.
   and Samsung across API 26 / 31 / 34+.
 
 ## Capabilities and Constraints
-- Three-tab information architecture is settled: **Map / Routes / Settings**. Setup checklist
-  is reached from Settings. The UI pass restyles within this structure.
+- Information architecture (2026-08-28): the Map is the root — no navigation bar; Saved
+  routes, Settings and Setup are pushed from the Map sheet's drag-up list (Strava's Record
+  screen). Search direction: `docs/research/search-rnd.md`.
 - Device floor API 26; dynamic color only on 31+, so a static brand scheme is required.
 - Kotlin + Jetpack Compose + Material 3 + MapLibre; Hilt; Room; DataStore. Kotlin comes from
   AGP. Pure-Kotlin simulation core stays Android-free.

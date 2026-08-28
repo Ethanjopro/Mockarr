@@ -536,4 +536,12 @@ Verified end-to-end like a human: app-drawer swipe → tapped the Mockarr icon �
   `saveRoute` and `loadSavedRoute` and cleared in `scheduleRouteFetch` (every edit).
 - Verified: slow drag, handle tap, chevron; builder Save → dialog → snackbar; Done →
   "Saved" row; light. Search R&D doc is the next commit (`docs/research/search-rnd.md`).
+- **Search R&D** (`docs/research/search-rnd.md`): measured Photon at a ~0.5 s floor per
+  request and ~1.2 s keystroke-to-list end to end; found a relevance bug — the anchor
+  order (mocked → *real* → camera) ranked Ukiah Starbucks first while the map sat on
+  Mountain View; `zoom` matters more than `location_bias_scale`; provider table (Nominatim
+  forbids autocomplete, Mapbox/Google display terms rule them out, Stadia is the only
+  keyed upgrade path). Recommendation: keep Photon, fix the client (anchor order, 200 ms /
+  2 chars, prefix cache, recents, structured rows, dedupe, search-server setting,
+  `Geocoder` interface). PRODUCT.md's stale "three-tab IA" line replaced.
 
