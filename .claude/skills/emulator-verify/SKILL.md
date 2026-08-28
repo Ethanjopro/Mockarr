@@ -59,6 +59,10 @@ emulator binary yourself.
   auto-rotate). Tablet layouts: `scripts/emu.sh resize 2560x1600 320` emulates
   a tablet window without a second AVD; `resize reset` restores. Note: there
   is no navigation bar or rail on any width — don't file that as a bug.
+- After `scripts/emu.sh shell pm clear dev.mockarr.app` (fresh-install checks) the
+  runtime permissions are gone too: `shell pm grant dev.mockarr.app
+  android.permission.ACCESS_FINE_LOCATION` (and `POST_NOTIFICATIONS`) before the
+  first hold, or every long-press lands on a system dialog `tapon` cannot reach.
 - Non-modal Compose `Popup`s (the stop popover over a marker) are NOT in the
   `ui` dump, so `waitfor`/`tapon` cannot see them — verify with `shot` + Read
   and tap by pixel. Modal popups (the builder `⋯` menu) are dumped normally.

@@ -13,7 +13,6 @@ import dev.mockarr.core.data.SavedRouteEntity
 import dev.mockarr.core.data.SavedRoutesRepository
 import dev.mockarr.core.data.SettingsRepository
 import dev.mockarr.core.model.DistanceUnits
-import dev.mockarr.core.model.RoutingProfile
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -48,18 +47,14 @@ class SavedRoutesViewModel @Inject constructor(
     private val _sort = MutableStateFlow(Sort.RECENT)
     val sort: StateFlow<Sort> = _sort.asStateFlow()
 
-    /** null = every travel mode. */
-    private val _profileFilter = MutableStateFlow<RoutingProfile?>(null)
-    val profileFilter: StateFlow<RoutingProfile?> = _profileFilter.asStateFlow()
-
     /** True once any route exists at all — separates "empty" from "nothing matches". */
     val hasAnyRoutes: StateFlow<Boolean> = repository.observeAll()
         .map { it.isNotEmpty() }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(STOP_TIMEOUT_MILLIS), false)
 
     val routes: StateFlow<List<SavedRouteEntity>> =
-        combine(repository.observeAll(), _query, _sort, _profileFilter) { all, query, sort, profile ->
-            filterAndSort(all, query, sort, profile)
+        combine(repository.observeAll(), _query, _sort) { all, query, sort ->
+            filterAndSort(all, query, sort)
         }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(STOP_TIMEOUT_MILLIS), emptyList())
 
     fun setQuery(value: String) {
@@ -68,10 +63,6 @@ class SavedRoutesViewModel @Inject constructor(
 
     fun setSort(value: Sort) {
         _sort.value = value
-    }
-
-    fun setProfileFilter(value: RoutingProfile?) {
-        _profileFilter.value = value
     }
 
     fun rename(entity: SavedRouteEntity, name: String) {
@@ -136,12 +127,10 @@ internal fun filterAndSort(
     all: List<SavedRouteEntity>,
     query: String,
     sort: SavedRoutesViewModel.Sort,
-    profile: RoutingProfile?,
 ): List<SavedRouteEntity> {
     val trimmed = query.trim()
     val filtered = all.filter { entity ->
-        (trimmed.isEmpty() || entity.name.contains(trimmed, ignoreCase = true)) &&
-            (profile == null || RoutingProfile.fromNameOrDefault(entity.profile) == profile)
+        trimmed.isEmpty() || entity.name.contains(trimmed, ignoreCase = true)
     }
     return when (sort) {
         SavedRoutesViewModel.Sort.RECENT -> filtered.sortedByDescending { it.createdAtEpochMillis }

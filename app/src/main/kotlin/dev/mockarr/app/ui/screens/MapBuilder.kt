@@ -16,6 +16,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
@@ -23,16 +24,9 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.vector.rememberVectorPainter
-import androidx.compose.ui.layout.boundsInWindow
-import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
@@ -41,8 +35,6 @@ import dev.mockarr.app.R
 import dev.mockarr.app.ui.formatDistance
 import dev.mockarr.app.ui.formatDurationShort
 import dev.mockarr.app.ui.theme.MapIconPill
-import dev.mockarr.app.ui.theme.MapPopover
-import dev.mockarr.app.ui.theme.PopoverRow
 import dev.mockarr.app.ui.theme.Tokens
 import dev.mockarr.core.model.DistanceUnits
 import kotlin.math.roundToInt
@@ -56,6 +48,7 @@ import kotlin.math.roundToInt
 fun BuilderPeek(
     state: MapViewModel.UiState,
     units: DistanceUnits,
+    saving: Boolean,
     onSave: () -> Unit,
     onDone: () -> Unit,
     onClose: () -> Unit,
@@ -126,8 +119,13 @@ fun BuilderPeek(
                 }
             }
             // Strava keeps Save in the builder sheet (map-348): outlined beside Done.
-            OutlinedButton(onClick = onSave, enabled = route != null && !state.routeIsFallback) {
-                Text(stringResource(R.string.builder_save))
+            // Save waits for the route's place name; the spinner says so.
+            OutlinedButton(onClick = onSave, enabled = route != null && !state.routeIsFallback && !saving) {
+                if (saving) {
+                    CircularProgressIndicator(modifier = Modifier.size(SPINNER_SIZE), strokeWidth = 2.dp)
+                } else {
+                    Text(stringResource(R.string.builder_save))
+                }
             }
             Button(onClick = onDone, modifier = Modifier.weight(1f)) {
                 Icon(painterResource(R.drawable.ic_check), contentDescription = null)
@@ -139,8 +137,8 @@ fun BuilderPeek(
 }
 
 /**
- * Strava's builder tools, bottom-centre of the map: ⋯ · reverse · undo as
- * white shadowed pills; ⋯ opens the caret popover with the rarer actions.
+ * Strava's builder tools, bottom-centre of the map: clear · reverse · undo as
+ * white shadowed pills. Clear asks first (the host shows the discard dialog).
  */
 @Composable
 fun BuilderTools(
@@ -148,18 +146,15 @@ fun BuilderTools(
     canReverse: Boolean,
     onUndo: () -> Unit,
     onReverse: () -> Unit,
-    onAddAtCenter: () -> Unit,
     onClearAll: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    var menuOpen by remember { mutableStateOf(false) }
-    var menuAnchor by remember { mutableStateOf(Offset.Zero) }
     Row(modifier = modifier, horizontalArrangement = Arrangement.spacedBy(Tokens.space3)) {
         MapIconPill(
-            painter = painterResource(R.drawable.ic_more),
-            contentDescription = stringResource(R.string.builder_more_cd),
-            onClick = { menuOpen = true },
-            modifier = Modifier.onGloballyPositioned { menuAnchor = it.boundsInWindow().topCenter },
+            painter = rememberVectorPainter(Icons.Filled.Delete),
+            contentDescription = stringResource(R.string.builder_clear_all),
+            onClick = onClearAll,
+            enabled = canUndo,
         )
         MapIconPill(
             painter = painterResource(R.drawable.ic_swap),
@@ -173,38 +168,6 @@ fun BuilderTools(
             onClick = onUndo,
             enabled = canUndo,
         )
-    }
-    if (menuOpen) {
-        MapPopover(anchor = menuAnchor, onDismiss = { menuOpen = false }) {
-            PopoverRow(
-                label = stringResource(R.string.builder_add_at_center),
-                icon = painterResource(R.drawable.ic_add_route),
-                divider = false,
-                onClick = {
-                    menuOpen = false
-                    onAddAtCenter()
-                },
-            )
-            PopoverRow(
-                label = stringResource(R.string.builder_reverse_cd),
-                icon = painterResource(R.drawable.ic_swap),
-                enabled = canReverse,
-                onClick = {
-                    menuOpen = false
-                    onReverse()
-                },
-            )
-            PopoverRow(
-                label = stringResource(R.string.builder_clear_all),
-                icon = rememberVectorPainter(Icons.Filled.Delete),
-                enabled = canUndo,
-                destructive = true,
-                onClick = {
-                    menuOpen = false
-                    onClearAll()
-                },
-            )
-        }
     }
 }
 
@@ -221,3 +184,4 @@ fun DiscardRouteDialog(onDiscard: () -> Unit, onDismiss: () -> Unit) {
 }
 
 private const val SECONDS_PER_MINUTE = 60
+private val SPINNER_SIZE = 20.dp

@@ -13,7 +13,6 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -114,24 +113,17 @@ internal fun SaveRouteDialog(
     onConfirm: (String) -> Unit,
     onDismiss: () -> Unit,
 ) {
+    // The host resolved (or gave up on) the place name before opening us, so
+    // the field never changes under the user's cursor.
     val defaultName = remember { "Route " + formatRouteTimestamp(System.currentTimeMillis()) }
     var name by remember { mutableStateOf(suggestedName ?: defaultName) }
-    var edited by remember { mutableStateOf(false) }
-    // The reverse-geocoded suggestion may arrive after the dialog opens; adopt
-    // it only while the user hasn't typed anything.
-    LaunchedEffect(suggestedName) {
-        if (!edited && suggestedName != null) name = suggestedName
-    }
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(stringResource(R.string.dialog_save_title)) },
         text = {
             OutlinedTextField(
                 value = name,
-                onValueChange = {
-                    name = it
-                    edited = true
-                },
+                onValueChange = { name = it },
                 label = { Text(stringResource(R.string.dialog_save_name)) },
                 singleLine = true,
             )

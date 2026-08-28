@@ -92,6 +92,7 @@
     <string name="row_start_from_route">Route start</string>
     <string name="row_start_from_route_cd">Start from the beginning of the route</string>
     <string name="row_start_choice_cd">Choose where the drive starts</string>
+    <string name="row_start_choice_title">Start the drive from</string>
     <string name="mode_picker_title">Travel mode</string>
     <string name="mode_locked">Needs a custom routing server (Settings)</string>
     <string name="builder_done">Done</string>
@@ -99,8 +100,6 @@
     <string name="builder_close_cd">Leave route building</string>
     <string name="builder_undo_cd">Undo last stop</string>
     <string name="builder_reverse_cd">Reverse route</string>
-    <string name="builder_more_cd">More route actions</string>
-    <string name="builder_add_at_center">Add stop at map centre</string>
     <string name="builder_clear_all">Clear all stops</string>
     <string name="builder_discard_title">Discard this route?</string>
     <string name="builder_discard_body">The stops you placed will be removed.</string>
@@ -136,8 +135,6 @@
     <string name="routes_sort_longest">Longest first</string>
     <string name="routes_sort_name">A to Z</string>
     <string name="routes_search_hint">Search by keyword</string>
-    <string name="routes_filter_all">All</string>
-    <string name="routes_filter_mode_cd">Filter by travel mode</string>
     <string name="routes_card_meta">%1$s · %2$s</string>
     <string name="routes_created_today">Created today</string>
     <string name="routes_created_yesterday">Created yesterday</string>
@@ -225,6 +222,11 @@
     <string name="setup_battery_sub">Keeps long drives alive on aggressive devices</string>
     <string name="setup_battery_how">Find Mockarr in the list and choose “Don\'t optimise”. Some manufacturers hide this — see dontkillmyapp.com for your device.</string>
     <string name="setup_battery_action">Open battery settings</string>
+
+    <!-- Map: first-run hint -->
+    <string name="hint_sheet_title">Pull up for more</string>
+    <string name="hint_sheet_body">Drag the sheet up, or tap its handle, for route options, saved routes and settings.</string>
+    <string name="hint_got_it">Got it</string>
 
     <!-- Map: transient feedback -->
     <string name="snack_dismiss">Dismiss</string>

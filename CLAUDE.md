@@ -6,7 +6,8 @@ Photon, Open-Meteo — no API keys today. **Direction under review (ADR 0001,
 `docs/adr/`)**: iOS port possible, licence/openness/monetisation undecided (repo
 private until the licence is picked), Strava UX/UI is the visual baseline
 (`docs/design/brief.md`). Do not add "open source / no tracking / F-Droid" claims
-to user-facing copy until decided.
+to user-facing copy until decided. Tooling priority is **cheap/free over open-source**:
+a free non-OSS API is acceptable when it noticeably improves the app (ADR 0001 addendum).
 
 ## Build & verify
 - Build/lint/test: `scripts/gradle build` (wraps `./gradlew` with the Android

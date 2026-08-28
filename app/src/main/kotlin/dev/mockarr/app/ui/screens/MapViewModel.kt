@@ -85,10 +85,6 @@ class MapViewModel @Inject constructor(
     private val _builderMode = MutableStateFlow(false)
     val builderMode: StateFlow<Boolean> = _builderMode.asStateFlow()
 
-    /** Suggested name for the Save dialog ("X to Y, City"), null until resolved. */
-    private val _suggestedName = MutableStateFlow<String?>(null)
-    val suggestedName: StateFlow<String?> = _suggestedName.asStateFlow()
-
     val tileStyleUrl: StateFlow<String> = settingsRepository.settings
         .map { it.tileStyleUrl }
         .stateIn(
@@ -165,7 +161,7 @@ class MapViewModel @Inject constructor(
                 settingsRepository.setLastCamera(camera)
             }
         }
-        // Seed the camera memory so "add stop at camera" works before the first idle.
+        // Seed the camera memory (the thumbstick reads zoom from it) before the first idle.
         viewModelScope.launch {
             val saved = settingsRepository.awaitLoaded().lastCamera
             if (lastKnownCamera == null) lastKnownCamera = saved
@@ -271,17 +267,20 @@ class MapViewModel @Inject constructor(
         _uiState.update { it.copy(savedConfirmation = null) }
     }
 
-    /** Kicks off "«start» to «end», «city»" naming for the Save dialog. */
-    fun requestNameSuggestion() {
-        val route = _uiState.value.route ?: return
-        _suggestedName.value = null
-        viewModelScope.launch {
+    /**
+     * "«start» to «end», «city»" for the Save dialog, or null when either
+     * lookup fails or the network is slow — the caller opens the dialog only
+     * once this returns, so the name never changes under the user.
+     */
+    suspend fun suggestName(): String? {
+        val route = _uiState.value.route ?: return null
+        return withTimeoutOrNull(NAME_TIMEOUT_MILLIS) {
             val start = geocoder.reverse(route.points.first()).getOrNull()
             val end = geocoder.reverse(route.points.last()).getOrNull()
-            val startName = start?.name ?: return@launch
-            val endName = end?.name ?: return@launch
+            val startName = start?.name ?: return@withTimeoutOrNull null
+            val endName = end?.name ?: return@withTimeoutOrNull null
             val citySuffix = end.city?.let { ", $it" }.orEmpty()
-            _suggestedName.value = "$startName to $endName$citySuffix"
+            "$startName to $endName$citySuffix"
         }
     }
 
@@ -342,12 +341,6 @@ class MapViewModel @Inject constructor(
         interaction.reset()
         _uiState.update { it.copy(waypoints = it.waypoints.asReversed()) }
         scheduleRouteFetch()
-    }
-
-    /** On-sheet equivalent of tapping the map: a stop at the camera target. */
-    fun addWaypointAtCamera() {
-        val target = lastKnownCamera?.target ?: return
-        addWaypoint(target)
     }
 
     private fun loadSavedRoute(route: Route, profile: RoutingProfile) {
@@ -448,6 +441,7 @@ class MapViewModel @Inject constructor(
         const val SEARCH_ZOOM = 16.0
         const val LOCATE_ZOOM = 15.0
         const val LOCATE_REFINE_METERS = 50.0
+        const val NAME_TIMEOUT_MILLIS = 4_000L
     }
 }
 

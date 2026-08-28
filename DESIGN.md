@@ -300,7 +300,8 @@ waits.
 
 **The State Is a Band Rule.** Session state (ready / driving / waiting / holding / paused /
 error) is communicated by the strip's container colour and one line of copy — never by a
-new card, never by an icon alone. The band never shows raw coordinates: while a hold's
+new card, never by an icon alone. Idle prompts ("Plan a drive", "Building a route") are not
+state: the card is hidden until there is something to report. The band never shows raw coordinates: while a hold's
 place name resolves, the previous line stays; if the lookup fails it reads "Holding at
 dropped pin".
 
@@ -408,10 +409,11 @@ Direction chevrons on the route are 10dp, 2dp stroke, drawn in the casing colour
 
 ### The Action Row (signature)
 Strava's Record screen, matched: the sheet's peek is one 96dp row of three equal slots —
-Mode (48dp tonal icon + label) · **Start** (64dp filled indigo FAB + label) · Add / Edit
-route (48dp tonal icon + label). **Start while holding elsewhere** does not raise a dialog:
-the row fade-throughs into two 56dp pills — **From held spot** (primary) · **From route
-start** (inverse) — and returns once one is picked; Back or a map tap cancels. In builder
+Mode (56dp tonal icon + label) · **Start** (72dp filled indigo FAB + label) · Add / Edit
+route (56dp tonal icon + label) — Strava `hud-048` sizes. **Start while holding elsewhere**
+does not raise a dialog: the row fade-throughs into a "START THE DRIVE FROM" caption over
+two 56dp pills — **Held spot** (primary) · **Route start** (inverse) — and returns once one
+is picked; Back or a map tap cancels. In builder
 mode the row is ✕ (white circle, hairline) · **Save** (outlined, enabled once a road route
 exists) · **Done** (filled) — Strava keeps Save in the builder sheet (`map-348`). While
 driving the row is replaced by the **Pause pill**, which splits into **Resume** (primary) +
@@ -428,7 +430,7 @@ stack and the builder tools; never inside the sheet.
 Strava's builder menu and its tap-a-point callout: a 16dp `surface-container-lowest` card
 with the popover shadow and a **caret** on its anchor (`MapPopover`), sitting above the
 anchor and flipping below when there is no room. Rows (`PopoverRow`) are label-left,
-glyph-right, 52dp min, hairline dividers; a destructive row uses the error role and comes
+glyph-right, 44dp min, hairline dividers; a destructive row uses the error role and comes
 last. The **stop popover** (`StopPopover`) rides the selected marker on every camera frame:
 header = disc + "Stop 2" + its wait, then *Wait here…* (not on the destination) · *Move
 stop* · *Delete stop*. Outside tap and Back dismiss. Move puts the strip in "Tap the map to
@@ -482,10 +484,14 @@ are undefined (nothing loaded).
   always returns to the map.
 
 ### Map markers
+- **Thumbstick (hold only):** a 120dp white pill-family base with the floating shadow and a
+  44dp knob that warms from indigo to hold-amber with push strength; 8% dead zone, squared
+  response, 20 Hz (`docs/research/thumbstick-rnd.md`).
 - **Stop discs:** 11dp radius, numbered, bold label; start in `map-stop-start`, vias in
   `map-stop-via`, destination in `map-stop-end` with the ring colour as its text, on a
   baked soft shadow (3dp blur, 1.5dp down). Wait badge: 4.5dp amber dot at the top-right.
-  Selected: an extra `map-selection` ring. Tapping one opens the stop popover.
+  Selected: the disc itself lifts to `map-selection` and grows 2dp (no halo); the number
+  flips to whichever ink contrasts. Tapping one opens the stop popover.
 - **Position:** 8dp `map-position` circle with a 3dp ground-colour ring. **Hold pin:** 9dp
   `map-hold-pin` circle, same ring. **Wait chip:** rounded pill, 11dp bold text with a
   clock glyph; ground-toned by default, amber while the wait is live.

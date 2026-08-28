@@ -35,7 +35,9 @@ Two claims, weighted equally and told in this order:
    the open-source stance may narrow and light monetisation (ads or similar) is possible;
    until decided, do not put "open source / no tracking" claims in new user-facing copy.
    What survives any outcome: no anti-detection, and nothing phones home or shows ads
-   without being disclosed in-app.
+   without being disclosed in-app. **Tooling policy (Ethan, 2026-08-28):** the priority is
+   cheap/free over open-source — a free but non-open API or service is fine when it
+   noticeably improves the app.
 Realism is the feature; honesty is the trust story.
 
 ## Operating Context

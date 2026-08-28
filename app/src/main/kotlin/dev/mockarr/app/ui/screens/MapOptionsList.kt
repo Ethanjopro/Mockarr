@@ -7,8 +7,10 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.selection.toggleable
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -22,6 +24,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.unit.dp
 import dev.mockarr.app.R
 import dev.mockarr.app.ui.theme.Tokens
 import dev.mockarr.core.data.MockarrSettings
@@ -60,7 +63,14 @@ fun OptionSwitchRow(
 
 /** A navigating option row ("All settings ›"). */
 @Composable
-fun OptionLinkRow(iconRes: Int, title: String, onClick: () -> Unit, enabled: Boolean = true, divider: Boolean = true) {
+fun OptionLinkRow(
+    iconRes: Int,
+    title: String,
+    onClick: () -> Unit,
+    enabled: Boolean = true,
+    divider: Boolean = true,
+    busy: Boolean = false,
+) {
     if (divider) HorizontalDivider(modifier = Modifier.padding(horizontal = Tokens.inset))
     val ink = if (enabled) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant
     Row(
@@ -71,7 +81,11 @@ fun OptionLinkRow(iconRes: Int, title: String, onClick: () -> Unit, enabled: Boo
             .padding(horizontal = Tokens.inset, vertical = Tokens.space2),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Icon(painterResource(iconRes), contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+        if (busy) {
+            CircularProgressIndicator(modifier = Modifier.size(SPINNER_SIZE), strokeWidth = 2.dp)
+        } else {
+            Icon(painterResource(iconRes), contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
         Spacer(Modifier.width(Tokens.space4))
         Text(title, style = MaterialTheme.typography.bodyLarge, color = ink, modifier = Modifier.weight(1f))
         if (enabled) {
@@ -88,6 +102,7 @@ enum class SaveRowState { HIDDEN, UNSAVED, SAVED }
 fun OptionsList(
     settings: MockarrSettings,
     saveState: SaveRowState,
+    saving: Boolean,
     onSaveRoute: () -> Unit,
     followCamera: Boolean,
     onFollowChange: (Boolean) -> Unit,
@@ -104,7 +119,8 @@ fun OptionsList(
             iconRes = if (saved) R.drawable.ic_check else R.drawable.ic_route,
             title = stringResource(if (saved) R.string.option_saved else R.string.option_save_route),
             onClick = onSaveRoute,
-            enabled = !saved,
+            enabled = !saved && !saving,
+            busy = saving,
         )
     }
     Text(
@@ -152,3 +168,5 @@ fun OptionsList(
         onClick = onOpenSettings,
     )
 }
+
+private val SPINNER_SIZE = 20.dp

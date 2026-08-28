@@ -1,26 +1,20 @@
 package dev.mockarr.app.ui.screens
 
-import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.CenterAlignedTopAppBar
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -49,12 +43,11 @@ import dev.mockarr.app.ui.map.effectiveStyleUrl
 import dev.mockarr.app.ui.theme.MockarrTheme
 import dev.mockarr.app.ui.theme.Tokens
 import dev.mockarr.core.data.SavedRouteEntity
-import dev.mockarr.core.model.RoutingProfile
 import kotlinx.coroutines.launch
 
 /**
  * The Routes tab, after Strava's Saved Routes: centred title with a sort
- * action, a keyword field, a filter-chip row, and thumbnail cards. Tapping a
+ * action, a keyword field, and thumbnail cards. Tapping a
  * card hands the route to the Map tab; ⋯ renames or deletes (with undo).
  */
 @OptIn(ExperimentalMaterial3Api::class)
@@ -69,7 +62,6 @@ fun SavedRoutesScreen(
     val hasAnyRoutes by viewModel.hasAnyRoutes.collectAsStateWithLifecycle()
     val query by viewModel.query.collectAsStateWithLifecycle()
     val sort by viewModel.sort.collectAsStateWithLifecycle()
-    val profileFilter by viewModel.profileFilter.collectAsStateWithLifecycle()
     val units by viewModel.units.collectAsStateWithLifecycle()
     val mapStyleUrl by viewModel.mapStyleUrl.collectAsStateWithLifecycle()
     val thumbStyleUrl = effectiveStyleUrl(mapStyleUrl, isSystemInDarkTheme())
@@ -132,12 +124,6 @@ fun SavedRoutesScreen(
                         .fillMaxWidth()
                         .padding(horizontal = Tokens.space3, vertical = Tokens.space2),
                 )
-                FilterRow(
-                    sort = sort,
-                    profileFilter = profileFilter,
-                    onSort = viewModel::setSort,
-                    onProfileFilter = viewModel::setProfileFilter,
-                )
             }
             if (routes.isEmpty()) {
                 RoutesEmptyState(hasAnyRoutes = hasAnyRoutes, onPlanDrive = onPlanDrive)
@@ -198,74 +184,6 @@ private fun SortAction(sort: SavedRoutesViewModel.Sort, onSort: (SavedRoutesView
                     open = false
                     onSort(option)
                 },
-            )
-        }
-    }
-}
-
-/** "All ▾" mode filter, then the two orderings as chips — Strava's filter strip. */
-@Composable
-private fun FilterRow(
-    sort: SavedRoutesViewModel.Sort,
-    profileFilter: RoutingProfile?,
-    onSort: (SavedRoutesViewModel.Sort) -> Unit,
-    onProfileFilter: (RoutingProfile?) -> Unit,
-) {
-    var modeMenu by remember { mutableStateOf(false) }
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .horizontalScroll(rememberScrollState())
-            .padding(horizontal = Tokens.space3, vertical = Tokens.space1),
-        horizontalArrangement = Arrangement.spacedBy(Tokens.space2),
-    ) {
-        Box {
-            FilterChip(
-                selected = profileFilter != null,
-                onClick = { modeMenu = true },
-                label = {
-                    Text(
-                        profileFilter?.let { stringResource(it.shortLabelRes()) }
-                            ?: stringResource(R.string.routes_filter_all),
-                    )
-                },
-                leadingIcon = profileFilter?.let { filter ->
-                    {
-                        Icon(painterResource(filter.iconRes()), contentDescription = null)
-                    }
-                },
-                trailingIcon = {
-                    Icon(
-                        Icons.Filled.ArrowDropDown,
-                        contentDescription = stringResource(R.string.routes_filter_mode_cd),
-                    )
-                },
-            )
-            DropdownMenu(expanded = modeMenu, onDismissRequest = { modeMenu = false }) {
-                DropdownMenuItem(
-                    text = { Text(stringResource(R.string.routes_filter_all)) },
-                    onClick = {
-                        modeMenu = false
-                        onProfileFilter(null)
-                    },
-                )
-                RoutingProfile.entries.forEach { profile ->
-                    DropdownMenuItem(
-                        text = { Text(stringResource(profile.shortLabelRes())) },
-                        leadingIcon = { Icon(painterResource(profile.iconRes()), contentDescription = null) },
-                        onClick = {
-                            modeMenu = false
-                            onProfileFilter(profile)
-                        },
-                    )
-                }
-            }
-        }
-        listOf(SavedRoutesViewModel.Sort.RECENT, SavedRoutesViewModel.Sort.LONGEST).forEach { option ->
-            FilterChip(
-                selected = sort == option,
-                onClick = { onSort(option) },
-                label = { Text(stringResource(option.labelRes())) },
             )
         }
     }

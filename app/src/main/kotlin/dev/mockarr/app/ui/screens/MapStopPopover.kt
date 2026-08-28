@@ -45,7 +45,7 @@ internal fun StopPopover(
     val hasWait = waypoint.waitSeconds > 0
     MapPopover(anchor = anchor, onDismiss = onDismiss, modal = false) {
         Row(
-            modifier = Modifier.padding(horizontal = Tokens.inset, vertical = Tokens.space3),
+            modifier = Modifier.padding(horizontal = Tokens.space4, vertical = Tokens.space2),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             StopDisc(number = index + 1, isStart = index == 0, isEnd = isEnd)
@@ -53,7 +53,7 @@ internal fun StopPopover(
             Column {
                 Text(
                     text = stopName(index, count),
-                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                    style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
                 )
                 if (hasWait) {
                     val waitLabel = formatDurationShort(waypoint.waitSeconds.toDouble())

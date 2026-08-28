@@ -474,18 +474,6 @@ private fun chevronBitmap(color: Int, density: Float): Bitmap {
 }
 
 private fun addPointLayers(style: Style, density: Float) {
-    style.addLayer(
-        CircleLayer(PLAYBACK_LAYER, PLAYBACK_SOURCE).withProperties(
-            PropertyFactory.circleRadius(8f),
-            PropertyFactory.circleStrokeWidth(3f),
-        ),
-    )
-    style.addLayer(
-        CircleLayer(PIN_LAYER, PIN_SOURCE).withProperties(
-            PropertyFactory.circleRadius(9f),
-            PropertyFactory.circleStrokeWidth(3f),
-        ),
-    )
     // One symbol layer with the circle+number baked into each icon bitmap: a
     // CircleLayer + text SymbolLayer pair draws ALL circles beneath ALL numbers,
     // so overlapping markers showed the lower marker's number on the upper circle.
@@ -507,6 +495,20 @@ private fun addPointLayers(style: Style, density: Float) {
             PropertyFactory.iconIgnorePlacement(true),
             PropertyFactory.iconAnchor(Property.ICON_ANCHOR_BOTTOM),
             PropertyFactory.iconOffset(arrayOf(0f, -WAIT_CHIP_LIFT_DP * density)),
+        ),
+    )
+    // The mocked location is the top of the stack: the hold pin and the live
+    // dot draw over stop discs and wait chips, never under them.
+    style.addLayer(
+        CircleLayer(PIN_LAYER, PIN_SOURCE).withProperties(
+            PropertyFactory.circleRadius(9f),
+            PropertyFactory.circleStrokeWidth(3f),
+        ),
+    )
+    style.addLayer(
+        CircleLayer(PLAYBACK_LAYER, PLAYBACK_SOURCE).withProperties(
+            PropertyFactory.circleRadius(8f),
+            PropertyFactory.circleStrokeWidth(3f),
         ),
     )
 }

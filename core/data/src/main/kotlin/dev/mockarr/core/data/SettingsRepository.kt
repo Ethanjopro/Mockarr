@@ -33,6 +33,8 @@ data class MockarrSettings(
     val map3dEnabled: Boolean = true,
     val trafficSimEnabled: Boolean = true,
     val setupSeen: Boolean = false,
+    /** The one-time "pull the sheet up" hint on the Map has been dismissed. */
+    val sheetHintSeen: Boolean = false,
 ) {
     /** Walking/cycling need a full OSRM install; the public demo only serves driving. */
     val customServerConfigured: Boolean
@@ -104,6 +106,8 @@ class SettingsRepository(
 
     suspend fun setSetupSeen(value: Boolean) = edit { it[KEY_SETUP_SEEN] = value }
 
+    suspend fun setSheetHintSeen(value: Boolean) = edit { it[KEY_SHEET_HINT_SEEN] = value }
+
     suspend fun setLastCamera(camera: MapCamera) = edit {
         it[KEY_CAMERA_LAT] = camera.target.latitude
         it[KEY_CAMERA_LNG] = camera.target.longitude
@@ -134,6 +138,7 @@ class SettingsRepository(
         map3dEnabled = this[KEY_MAP_3D] ?: DEFAULTS.map3dEnabled,
         trafficSimEnabled = this[KEY_TRAFFIC_SIM] ?: DEFAULTS.trafficSimEnabled,
         setupSeen = this[KEY_SETUP_SEEN] ?: DEFAULTS.setupSeen,
+        sheetHintSeen = this[KEY_SHEET_HINT_SEEN] ?: DEFAULTS.sheetHintSeen,
     )
 
     private fun Preferences.toCamera(): MapCamera? {
@@ -156,6 +161,7 @@ class SettingsRepository(
         val KEY_MAP_3D = booleanPreferencesKey("map_3d_enabled")
         val KEY_TRAFFIC_SIM = booleanPreferencesKey("traffic_sim_enabled")
         val KEY_SETUP_SEEN = booleanPreferencesKey("setup_seen")
+        val KEY_SHEET_HINT_SEEN = booleanPreferencesKey("sheet_hint_seen")
         val KEY_CAMERA_LAT = doublePreferencesKey("camera_lat")
         val KEY_CAMERA_LNG = doublePreferencesKey("camera_lng")
         val KEY_CAMERA_ZOOM = doublePreferencesKey("camera_zoom")

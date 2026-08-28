@@ -24,22 +24,38 @@ class ThumbstickHelpersTest {
     }
 
     @Test
-    fun `nudge distance scales with tick duration and deflection`() {
+    fun `nudge distance scales with tick duration`() {
         val base = nudgeMeters(deflection = 1f, zoom = 17.0, latitudeDegrees = 45.0, dtSeconds = 0.2)
         val halfTick = nudgeMeters(deflection = 1f, zoom = 17.0, latitudeDegrees = 45.0, dtSeconds = 0.1)
-        val halfStick = nudgeMeters(deflection = 0.5f, zoom = 17.0, latitudeDegrees = 45.0, dtSeconds = 0.2)
         assertEquals(base / 2, halfTick, 1e-6)
-        assertEquals(base / 2, halfStick, 1e-6)
     }
 
     @Test
-    fun `nudge speed clamps at both ends`() {
+    fun `response curve is dead near rest, fine in the middle, full at the rim`() {
+        assertEquals(0f, responseCurve(0f))
+        assertEquals(0f, responseCurve(0.08f))
+        val half = responseCurve(0.5f)
+        assertTrue(half in 0.18f..0.26f, "half stick is a fine range, was $half")
+        assertEquals(1f, responseCurve(1f), 1e-6f)
+        // Monotonic: more travel never means less speed.
+        var last = -1f
+        for (step in 0..20) {
+            val next = responseCurve(step / 20f)
+            assertTrue(next >= last)
+            last = next
+        }
+    }
+
+    @Test
+    fun `nudge speed clamps at both ends and rests in the dead zone`() {
+        // Inside the dead zone the stick does nothing at all — no creep.
+        assertEquals(0.0, nudgeMeters(deflection = 0.05f, zoom = 22.0, latitudeDegrees = 0.0, dtSeconds = 1.0))
         // Deep zoom + slight deflection → tiny speed → clamped up to the minimum.
-        val creep = nudgeMeters(deflection = 0.01f, zoom = 22.0, latitudeDegrees = 0.0, dtSeconds = 1.0)
-        assertEquals(0.3, creep, 1e-9)
+        val creep = nudgeMeters(deflection = 0.12f, zoom = 22.0, latitudeDegrees = 0.0, dtSeconds = 1.0)
+        assertEquals(0.1, creep, 1e-9)
         // Whole-world zoom → clamped down to the maximum speed.
         val sprint = nudgeMeters(deflection = 1f, zoom = 0.0, latitudeDegrees = 0.0, dtSeconds = 1.0)
-        assertEquals(1_000.0, sprint, 1e-9)
+        assertEquals(300.0, sprint, 1e-9)
     }
 
     @Test

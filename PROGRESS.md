@@ -583,3 +583,33 @@ Verified end-to-end like a human: app-drawer swipe → tapped the Mockarr icon �
 - Verified on the emulator, light + dark: pills/menu/popover, Wait → badge, Move (strip +
   relocation + refetch), Delete, popover flips below and rides a pan, map tap dismisses,
   Start split → Back → Route start → Driving, font scale 1.3 on the split row, logcat clean.
+
+### 2026-08-28 — Session 17 (route maker follow-ups)
+
+- **Ethan's review of session 16, all eleven items:** selected marker = the disc lifts to
+  `map-selection` (+2 dp, no halo; `contrastInk` picks the legible number ink, tested);
+  popover rows 44 dp / narrower; "START THE DRIVE FROM" caption over the two Start pills;
+  the stat card is **hidden** for "Plan a drive" / "Building a route" (`StripModel.hidden`,
+  animated); action-row buttons 56 / 72 dp (Strava `hud-048`); builder tools are now
+  🗑 · reverse · undo (trash asks via `DiscardRouteDialog`, builder stays open;
+  `addWaypointAtCamera` and the ⋯ menu are gone); Saved routes lost its chip row and the
+  mode filter (sort stays in the app bar); **Save waits for the place name** (spinner in
+  the builder Save pill and the options row, `MapViewModel.suggestName()` with a 4 s
+  timeout, `SaveRouteDialog` no longer swaps the field); hold pin + playback dot are the
+  top map layers; **first-run hint** = one-time `SheetHintPopover` on the sheet handle
+  (`sheetHintSeen` in DataStore, read via `awaitLoaded` so existing users never see a
+  flash; the handle tap also marks it seen).
+- **Thumbstick R&D** (`docs/research/thumbstick-rnd.md`): the stutter was 5 Hz ticks
+  (44 px hops, ≈ 42 m at z17) plus a linear curve. Now 20 Hz, 8 % dead zone + squared
+  response, 38 dp travel (base 120 / knob 44), 180 px/s, 0.1–300 m/s clamps, knob tints
+  indigo → hold-amber with push, base is a shadowed white pill. Dead zone = no fix pushed.
+  Tests updated (`ThumbstickHelpersTest`).
+- **Policy**: cheap/free tooling over open-source; free non-OSS APIs OK when they
+  noticeably help — PRODUCT.md, CLAUDE.md, ADR 0001 addendum.
+- Verified on the emulator (fresh `pm clear` install; light + dark; font 1.3): Setup →
+  back → hint popover → Got it; idle map without a card; builder empty without a card;
+  trash pill → confirm; selected disc recoloured + tight popover; Save spinner → dialog
+  with the place name; hold on stop 1 → amber pin over the disc; Start caption; nudge
+  moved the pin and re-resolved the strip; Saved routes without chips; logcat clean.
+  Gotcha recorded in the skill: `pm clear` wipes runtime permissions — `pm grant`
+  location + notifications before holding, or every long-press hits a system dialog.

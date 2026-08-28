@@ -23,8 +23,15 @@ private const val WAYPOINT_STROKE_DP = 2.5f
 private const val WAYPOINT_TEXT_DP = 13f
 private const val WAIT_BADGE_RADIUS_DP = 4.5f
 private const val WAIT_BADGE_OFFSET_FRACTION = 0.7f
-private const val SELECTION_RING_GAP_DP = 1.5f
-private const val SELECTION_RING_WIDTH_DP = 2.5f
+private const val SELECTED_GROW_DP = 2f
+private const val LUMINANCE_THRESHOLD = 0.5
+private const val LUMA_R = 0.299
+private const val LUMA_G = 0.587
+private const val LUMA_B = 0.114
+private const val CHANNEL_MAX = 255.0
+private const val CHANNEL_MASK = 0xFF
+private const val SHIFT_RED = 16
+private const val SHIFT_GREEN = 8
 private const val SHADOW_BLUR_DP = 3f
 private const val SHADOW_DY_DP = 1.5f
 private const val SHADOW_ALPHA = 0x48
@@ -91,13 +98,12 @@ private fun waypointBitmap(
     val (density, palette) = markerStyle
     val fillRadius = WAYPOINT_RADIUS_DP * density
     val stroke = WAYPOINT_STROKE_DP * density
-    val ringGap = SELECTION_RING_GAP_DP * density
-    val ringWidth = SELECTION_RING_WIDTH_DP * density
+    val grow = SELECTED_GROW_DP * density
     val shadowBlur = SHADOW_BLUR_DP * density
     val shadowDy = SHADOW_DY_DP * density
-    // Every variant reserves ring + shadow headroom: uniform bitmap size keeps
+    // Every variant reserves grow + shadow headroom: uniform bitmap size keeps
     // the icon's center anchor fixed, so selecting never shifts the marker.
-    val size = ceil((fillRadius + stroke + ringGap + ringWidth + shadowBlur + shadowDy) * 2).toInt()
+    val size = ceil((fillRadius + grow + stroke + shadowBlur + shadowDy) * 2).toInt()
     val center = size / 2f
     val bitmap = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888)
     val canvas = Canvas(bitmap)
@@ -106,20 +112,25 @@ private fun waypointBitmap(
         color = Color.argb(SHADOW_ALPHA, 0, 0, 0)
         maskFilter = BlurMaskFilter(shadowBlur, BlurMaskFilter.Blur.NORMAL)
     }
-    canvas.drawCircle(center, center + shadowDy, fillRadius + stroke, shadow)
+    // Selected: the disc itself lifts to the selection colour and grows a
+    // touch — no halo (Ethan, session 17).
+    val radius = if (selected) fillRadius + grow else fillRadius
+    canvas.drawCircle(center, center + shadowDy, radius + stroke, shadow)
     val paint = Paint(Paint.ANTI_ALIAS_FLAG)
-    paint.color = when (role) {
-        "start" -> palette.stopStart
-        "end" -> palette.stopEnd
+    paint.color = when {
+        selected -> palette.selection
+        role == "start" -> palette.stopStart
+        role == "end" -> palette.stopEnd
         else -> palette.stopVia
     }
-    canvas.drawCircle(center, center, fillRadius, paint)
+    val fill = paint.color
+    canvas.drawCircle(center, center, radius, paint)
     paint.color = palette.stopRing
     paint.style = Paint.Style.STROKE
     paint.strokeWidth = stroke
-    canvas.drawCircle(center, center, fillRadius + stroke / 2f, paint)
+    canvas.drawCircle(center, center, radius + stroke / 2f, paint)
     val text = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        color = if (role == "end") palette.stopRing else palette.stopText
+        color = contrastInk(fill, palette.stopText, palette.stopRing)
         typeface = Typeface.DEFAULT_BOLD
         textSize = WAYPOINT_TEXT_DP * density
         textAlign = Paint.Align.CENTER
@@ -138,13 +149,24 @@ private fun waypointBitmap(
         badge.strokeWidth = stroke / 2f
         canvas.drawCircle(center + offset, center - offset, badgeRadius, badge)
     }
-    if (selected) {
-        val ring = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-            color = palette.selection
-            style = Paint.Style.STROKE
-            strokeWidth = ringWidth
-        }
-        canvas.drawCircle(center, center, fillRadius + stroke + ringGap + ringWidth / 2f, ring)
-    }
     return bitmap
+}
+
+/**
+ * Whichever of the two inks reads on [fill]: the palette's text colour is
+ * tuned for the via/start discs, but the selection tint is near-white in
+ * dark mode, where the ring colour (the ground) is the legible one.
+ */
+internal fun contrastInk(fill: Int, text: Int, ring: Int): Int {
+    val fillLight = luminance(fill) > LUMINANCE_THRESHOLD
+    val textLight = luminance(text) > LUMINANCE_THRESHOLD
+    return if (fillLight == textLight) ring else text
+}
+
+// Bit maths, not android.graphics.Color: keeps this unit-testable on the JVM.
+private fun luminance(argb: Int): Double {
+    val r = (argb shr SHIFT_RED) and CHANNEL_MASK
+    val g = (argb shr SHIFT_GREEN) and CHANNEL_MASK
+    val b = argb and CHANNEL_MASK
+    return (LUMA_R * r + LUMA_G * g + LUMA_B * b) / CHANNEL_MAX
 }

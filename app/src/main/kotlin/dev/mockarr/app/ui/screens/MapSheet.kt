@@ -201,6 +201,8 @@ internal data class StripModel(
     val tone: StripTone,
     val actionLabel: String? = null,
     val action: StripAction? = null,
+    /** Idle prompts ("Plan a drive", "Building a route") show no card at all. */
+    val hidden: Boolean = false,
 )
 
 /**
@@ -242,9 +244,9 @@ internal fun stripFor(
     state.errorMessage != null -> StripModel(state.errorMessage, StripTone.Error)
     state.isRouting -> StripModel(stringResource(R.string.strip_routing), StripTone.Neutral)
     builder && state.route != null -> StripModel(stringResource(R.string.strip_ready), StripTone.Ready)
-    builder -> StripModel(stringResource(R.string.strip_building), StripTone.Neutral)
+    builder -> StripModel(stringResource(R.string.strip_building), StripTone.Neutral, hidden = true)
     state.route != null -> StripModel(stringResource(R.string.strip_route_loaded), StripTone.Ready)
-    else -> StripModel(stringResource(R.string.strip_plan), StripTone.Neutral)
+    else -> StripModel(stringResource(R.string.strip_plan), StripTone.Neutral, hidden = true)
 }
 
 @Composable

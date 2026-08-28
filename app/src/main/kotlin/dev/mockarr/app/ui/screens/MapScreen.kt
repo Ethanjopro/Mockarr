@@ -61,7 +61,10 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clipToBounds
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.boundsInWindow
+import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
@@ -229,6 +232,8 @@ fun MapScreen(
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val builderMode by viewModel.builderMode.collectAsStateWithLifecycle()
     val options by optionsViewModel.settings.collectAsStateWithLifecycle()
+    val sheetHintPending by optionsViewModel.sheetHintPending.collectAsStateWithLifecycle()
+    var handleAnchor by remember { mutableStateOf(Offset.Zero) }
     val customServerConfigured by viewModel.customServerConfigured.collectAsStateWithLifecycle()
     val setupStatus by setupViewModel.status.collectAsStateWithLifecycle()
 
@@ -242,7 +247,6 @@ fun MapScreen(
     LaunchedEffect(camera) { camera?.let { searchViewModel.cameraBias = it.target } }
     val map3d by viewModel.map3dEnabled.collectAsStateWithLifecycle()
     val followCamera by viewModel.followCamera.collectAsStateWithLifecycle()
-    val suggestedName by viewModel.suggestedName.collectAsStateWithLifecycle()
     val session by sessionViewModel.session.collectAsStateWithLifecycle()
     val playbackState by sessionViewModel.playbackState.collectAsStateWithLifecycle()
     val playbackError by sessionViewModel.error.collectAsStateWithLifecycle()
@@ -288,6 +292,19 @@ fun MapScreen(
     val playing = session is MockSessionState.Playing
     val holding = session as? MockSessionState.Holding
     var showSaveDialog by remember { mutableStateOf(false) }
+    // Save resolves the place name first (spinner), then opens the dialog with
+    // it — the field never changes under the user (Ethan, session 17).
+    var naming by remember { mutableStateOf(false) }
+    var saveName by remember { mutableStateOf<String?>(null) }
+    fun beginSave() {
+        if (naming) return
+        scope.launch {
+            naming = true
+            saveName = viewModel.suggestName()
+            naming = false
+            showSaveDialog = true
+        }
+    }
 
     // Play while holding: the action row splits into "from held spot / from
     // route start" (Strava's Pause → Resume/Finish move). All session reads
@@ -386,6 +403,17 @@ fun MapScreen(
             onDismiss = { showDiscard = false },
         )
     }
+    // The trash pill: same question, but the builder stays open afterwards.
+    var showClearAll by remember { mutableStateOf(false) }
+    if (showClearAll) {
+        DiscardRouteDialog(
+            onDiscard = {
+                showClearAll = false
+                viewModel.clearWaypoints()
+            },
+            onDismiss = { showClearAll = false },
+        )
+    }
     var waitEditIndex by remember { mutableStateOf<Int?>(null) }
     if (selectedWaypoint != null && state.waypoints.getOrNull(selectedWaypoint!!) == null) {
         // The list changed under the selection (undo/clear) — drop it.
@@ -403,7 +431,7 @@ fun MapScreen(
     }
     if (showSaveDialog) {
         SaveRouteDialog(
-            suggestedName = suggestedName,
+            suggestedName = saveName,
             onConfirm = { name ->
                 viewModel.saveRoute(name)
                 showSaveDialog = false
@@ -458,7 +486,8 @@ fun MapScreen(
     val strip = nextStrip ?: lastStrip
     SideEffect { if (nextStrip != null) lastStrip = nextStrip }
     var cardHeightPx by remember { mutableIntStateOf(0) }
-    val cardHeight = with(LocalDensity.current) { cardHeightPx.toDp() }
+    // A hidden card (idle prompts) takes no room: the tools row drops to the sheet.
+    val cardHeight = if (strip.hidden) 0.dp else with(LocalDensity.current) { cardHeightPx.toDp() }
 
     BottomSheetScaffold(
         scaffoldState = scaffoldState,
@@ -471,6 +500,8 @@ fun MapScreen(
         snackbarHost = { SnackbarHost(snackbarHostState) },
         sheetContent = {
             fun toggleSheet() {
+                // Using the handle proves the point the hint makes.
+                if (sheetHintPending) optionsViewModel.markSheetHintSeen()
                 scope.launch { if (expanded) sheetState.partialExpand() else sheetState.expand() }
             }
             // clipToBounds: the always-composed detail column must never bleed
@@ -484,7 +515,11 @@ fun MapScreen(
                         .background(MaterialTheme.colorScheme.surfaceContainerLow)
                         .navigationBarsPadding(),
                 ) {
-                    SheetHandle(expanded = expanded, onToggle = ::toggleSheet)
+                    SheetHandle(
+                        expanded = expanded,
+                        onToggle = ::toggleSheet,
+                        modifier = Modifier.onGloballyPositioned { handleAnchor = it.boundsInWindow().topCenter },
+                    )
                     val peekMode = when {
                         playing -> PeekMode.PLAYING
                         builderMode -> PeekMode.BUILDER
@@ -507,10 +542,8 @@ fun MapScreen(
                             PeekMode.BUILDER -> BuilderPeek(
                                 state = state,
                                 units = units,
-                                onSave = {
-                                    viewModel.requestNameSuggestion()
-                                    showSaveDialog = true
-                                },
+                                saving = naming,
+                                onSave = ::beginSave,
                                 onDone = { viewModel.setBuilderMode(false) },
                                 onClose = {
                                     if (state.waypoints.isEmpty()) {
@@ -563,10 +596,8 @@ fun MapScreen(
                                 state.routeSaved -> SaveRowState.SAVED
                                 else -> SaveRowState.UNSAVED
                             },
-                            onSaveRoute = {
-                                viewModel.requestNameSuggestion()
-                                showSaveDialog = true
-                            },
+                            saving = naming,
+                            onSaveRoute = ::beginSave,
                             followCamera = followCamera,
                             onFollowChange = viewModel::setFollowCamera,
                             onStayChange = optionsViewModel::setStayAtDestination,
@@ -666,22 +697,34 @@ fun MapScreen(
                 }
                 else -> null
             }
-            StatCard(
-                strip = strip,
-                stats = stats,
-                onStripAction = when (strip.action) {
-                    StripAction.FIX -> onOpenSetup
-                    StripAction.RELEASE -> sessionViewModel::release
-                    StripAction.CANCEL_MOVE -> viewModel.interaction::cancelMove
-                    null -> null
-                },
-                trailing = speedPill,
+            // Idle prompts ("Plan a drive", "Building a route") show no card at all.
+            AnimatedVisibility(
+                visible = !strip.hidden,
+                enter = Motion.floatingEnter,
+                exit = Motion.floatingExit,
                 modifier = Modifier
                     .align(Alignment.BottomCenter)
                     .padding(horizontal = Tokens.mapEdge)
-                    .padding(bottom = peekHeight + Tokens.mapEdge)
-                    .onSizeChanged { cardHeightPx = it.height },
-            )
+                    .padding(bottom = peekHeight + Tokens.mapEdge),
+            ) {
+                StatCard(
+                    strip = strip,
+                    stats = stats,
+                    onStripAction = when (strip.action) {
+                        StripAction.FIX -> onOpenSetup
+                        StripAction.RELEASE -> sessionViewModel::release
+                        StripAction.CANCEL_MOVE -> viewModel.interaction::cancelMove
+                        null -> null
+                    },
+                    trailing = speedPill,
+                    modifier = Modifier.onSizeChanged { cardHeightPx = it.height },
+                )
+            }
+            // First run: point at the handle and say the sheet pulls up.
+            val hintAnchor = handleAnchor.takeIf { sheetHintPending && it != Offset.Zero }
+            if (hintAnchor != null && !playing && !builderMode) {
+                SheetHintPopover(anchor = hintAnchor, onDismiss = optionsViewModel::markSheetHintSeen)
+            }
             // Strava's tap-a-point callout rides the selected marker; a pending
             // Move hides it so the strip's instruction is what the user reads.
             val popoverIndex = selectedWaypoint
@@ -721,8 +764,7 @@ fun MapScreen(
                     canReverse = state.waypoints.size >= 2,
                     onUndo = viewModel::undoWaypoint,
                     onReverse = viewModel::reverseWaypoints,
-                    onAddAtCenter = viewModel::addWaypointAtCamera,
-                    onClearAll = viewModel::clearWaypoints,
+                    onClearAll = { showClearAll = true },
                 )
             }
             // Only while holding: the nudge control is chrome that must recede
@@ -748,9 +790,11 @@ fun MapScreen(
                                 latitudeDegrees = hold.position.latitude,
                                 dtSeconds = NUDGE_TICK_MILLIS / MILLIS_PER_SECOND,
                             )
-                            sessionViewModel.nudgeHold(
-                                GeoMath.destination(hold.position, bearingDegrees, meters),
-                            )
+                            if (meters > 0.0) {
+                                sessionViewModel.nudgeHold(
+                                    GeoMath.destination(hold.position, bearingDegrees, meters),
+                                )
+                            }
                         }
                     },
                 )

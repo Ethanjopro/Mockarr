@@ -173,12 +173,12 @@ fun PopoverRow(
             .fillMaxWidth()
             .heightIn(min = ROW_MIN_HEIGHT)
             .clickable(enabled = enabled, onClick = onClick)
-            .padding(horizontal = Tokens.inset, vertical = Tokens.space3),
+            .padding(horizontal = Tokens.space4, vertical = Tokens.space2),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Text(
             text = label,
-            style = MaterialTheme.typography.bodyLarge,
+            style = MaterialTheme.typography.bodyMedium,
             color = ink,
             modifier = Modifier.weight(1f),
         )
@@ -243,6 +243,6 @@ private class AnchorPositionProvider(
 private const val DISABLED_ALPHA = 0.38f
 private val POPOVER_GAP = 14.dp
 private val CARET_SIZE = 16.dp
-private val POPOVER_MIN_WIDTH = 220.dp
-private val POPOVER_MAX_WIDTH = 320.dp
-private val ROW_MIN_HEIGHT = 52.dp
+private val POPOVER_MIN_WIDTH = 176.dp
+private val POPOVER_MAX_WIDTH = 280.dp
+private val ROW_MIN_HEIGHT = 44.dp

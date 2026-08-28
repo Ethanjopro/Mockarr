@@ -93,34 +93,51 @@ fun ActionRow(
 @Composable
 private fun StartChoiceRow(choice: StartChoice) {
     val description = stringResource(R.string.row_start_choice_cd)
-    Row(
+    Column(
         modifier = Modifier
             .fillMaxWidth()
             .height(ROW_HEIGHT)
             .padding(horizontal = Tokens.inset)
             .semantics { contentDescription = description },
-        horizontalArrangement = Arrangement.spacedBy(Tokens.space2),
-        verticalAlignment = Alignment.CenterVertically,
+        verticalArrangement = Arrangement.Center,
     ) {
-        ActionPill(
-            label = stringResource(R.string.row_start_from_hold),
-            iconRes = R.drawable.ic_stat_pin,
-            enabled = true,
-            onClick = choice.onFromHold,
-            contentDescription = stringResource(R.string.row_start_from_hold_cd),
+        // Say what the two pills are for (Ethan): a section-header caption.
+        Text(
+            text = stringResource(R.string.row_start_choice_title).uppercase(),
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(bottom = Tokens.space1),
         )
-        ActionPill(
-            label = stringResource(R.string.row_start_from_route),
-            iconRes = R.drawable.ic_play,
-            enabled = true,
-            onClick = choice.onFromRouteStart,
-            contentDescription = stringResource(R.string.row_start_from_route_cd),
-            colors = ButtonDefaults.buttonColors(
-                containerColor = MaterialTheme.colorScheme.inverseSurface,
-                contentColor = MaterialTheme.colorScheme.inverseOnSurface,
-            ),
-        )
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(Tokens.space2),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            StartChoicePills(choice)
+        }
     }
+}
+
+@Composable
+private fun RowScope.StartChoicePills(choice: StartChoice) {
+    ActionPill(
+        label = stringResource(R.string.row_start_from_hold),
+        iconRes = R.drawable.ic_stat_pin,
+        enabled = true,
+        onClick = choice.onFromHold,
+        contentDescription = stringResource(R.string.row_start_from_hold_cd),
+    )
+    ActionPill(
+        label = stringResource(R.string.row_start_from_route),
+        iconRes = R.drawable.ic_play,
+        enabled = true,
+        onClick = choice.onFromRouteStart,
+        contentDescription = stringResource(R.string.row_start_from_route_cd),
+        colors = ButtonDefaults.buttonColors(
+            containerColor = MaterialTheme.colorScheme.inverseSurface,
+            contentColor = MaterialTheme.colorScheme.inverseOnSurface,
+        ),
+    )
 }
 
 @Composable
@@ -301,6 +318,8 @@ fun ModePickerSheet(
 private val ROW_HEIGHT = 96.dp
 private val PILL_MIN_FONT = 12.sp
 private val PILL_MAX_FONT = 16.sp
-private val SIDE_BUTTON = 48.dp
-private val START_BUTTON = 64.dp
-private val START_ICON = 32.dp
+
+// Strava's Record row (hud-048): side circles ≈ 56dp, Start ≈ 72dp.
+private val SIDE_BUTTON = 56.dp
+private val START_BUTTON = 72.dp
+private val START_ICON = 36.dp
