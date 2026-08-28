@@ -6,6 +6,10 @@
 
 android
 
+Android first. An iOS port is possible later (ADR 0001) — iOS has no mock-location API, so
+that would be a different product shape; the insurance today is keeping `core:*`
+platform-neutral. Design language stays Material 3 on Android.
+
 ## Users
 Primary: enthusiasts who want their phone to report a different location for a while so
 that *other* apps (games, travel and dating apps, map apps, privacy) follow along. They are
@@ -26,9 +30,13 @@ in-app instructions alone, and the drive looks like a real drive in whatever app
 Two claims, weighted equally and told in this order:
 1. **Realistic, road-true playback** — OSRM routes, kinematic braking before turns, graceful
    stops (never a teleport), Gaussian GPS jitter, per-stop wait times, live 0.25×–4× speed.
-2. **Fully open, no keys, no accounts, nothing phones home** — MapLibre, OpenStreetMap,
-   OpenFreeMap tiles, OSRM, Photon, Open-Meteo; self-hostable routing and tiles.
-Realism is the feature; openness is the trust story.
+2. **Open stack, no keys, no accounts** — MapLibre, OpenStreetMap, OpenFreeMap tiles,
+   OSRM, Photon, Open-Meteo; self-hostable routing and tiles. **Under review (ADR 0001):**
+   the open-source stance may narrow and light monetisation (ads or similar) is possible;
+   until decided, do not put "open source / no tracking" claims in new user-facing copy.
+   What survives any outcome: no anti-detection, and nothing phones home or shows ads
+   without being disclosed in-app.
+Realism is the feature; honesty is the trust story.
 
 ## Operating Context
 - Uses Android's official "Select mock location app" developer facility; registers test
@@ -52,8 +60,14 @@ Realism is the feature; openness is the trust story.
 - Zero-leak mock ownership: hold/stop transitions must never let the real location leak.
 - Terminology: *stop* (a waypoint), *hold* / *holding* (pinned location), *wait* (pause at a
   stop), *Play / Pause / Stop* for playback, *Following* (camera tracks the position).
-- Undecided: distribution channel (F-Droid + GitHub Releases planned; not confirmed as a
-  design constraint). License not yet chosen; repo private until it is.
+- Undecided: distribution channel (F-Droid + GitHub Releases planned; Play not excluded),
+  licence, monetisation model, iOS scope. Repo private until the licence is chosen.
+
+## Visual Baseline
+Strava iOS (Mobbin, Jul 2026) is the UX/UI reference, translated into Material 3 — sheet
+model, label-over-value stats, status strips, list cards, icon-grid settings. Palette:
+**indigo**, never Strava orange. Curated refs: `docs/design/refs/refs.md`; brief:
+`docs/design/brief.md`; tokens: `app/src/main/kotlin/dev/mockarr/app/ui/theme/`.
 
 ## Brand Commitments
 - Name "Mockarr" is in use; whether the name and the current green-pin launcher icon are
@@ -76,8 +90,8 @@ Realism is the feature; openness is the trust story.
    is the only tutorial.
 3. **The map is the product.** Chrome earns its place by serving the drive; when it doesn't,
    it recedes.
-4. **Honest tool.** No anti-detection, no dark patterns, no hidden telemetry; the openness
-   story is visible in the product, not just the README.
+4. **Honest tool.** No anti-detection, no dark patterns, no hidden telemetry; whatever
+   the app does with data or ads is visible in the product, not just the README.
 5. **Consumer-grade, developer-deep.** Defaults work for enthusiasts; settings depth serves
    testers without leaking into the primary flow.
 

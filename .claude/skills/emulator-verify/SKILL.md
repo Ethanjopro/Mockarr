@@ -10,11 +10,17 @@ All device interaction goes through `scripts/emu.sh` (full adb path and the
 emulator binary yourself.
 
 ## Setup
-1. `scripts/emu.sh boot` — run via Bash `run_in_background` (boot takes ~1–2
-   min; the script blocks until `sys.boot_completed`). Never foreground-sleep.
+1. `scripts/emu.sh boot` — **one emulator per machine.** `boot` reuses a
+   running instance ("already booted"), recovers an offline adb, and only
+   launches a new AVD when none exists; every wait has a 180 s deadline. Run
+   it via Bash `run_in_background` when it actually has to boot (~1–2 min).
+   Never foreground-sleep; never launch the emulator binary yourself.
 2. `scripts/emu.sh install` then `scripts/emu.sh mockallow` (grants the
-   mock-location appop; without it holds/playback silently fail).
-3. `scripts/emu.sh launch` starts the main activity directly.
+   mock-location appop; without it holds/playback silently fail). `install`
+   exits 75 with "Gradle busy" while another build holds the lock — wait for
+   that build (never queue a second Gradle behind a build agent) and retry.
+3. `scripts/emu.sh launch`, then **`scripts/emu.sh settle`** before the first
+   tap — the map swallows touches while it warms up.
 4. When finished: `scripts/emu.sh kill`. Never TaskStop the boot task — that
    kills the emulator child process.
 
@@ -26,17 +32,19 @@ emulator binary yourself.
   hand-roll sleep loops for dialogs.
 - If a dialog needs tapping without waitfor, remember it renders ~1 s after
   the triggering tap: screenshot first, confirm it's up, then tap.
-- `find`/`tapon` match substrings in text AND content-desc — `find "Play"` can
-  hit hint text containing "Play". Prefer longer unique strings, or read the
-  full `ui` dump and tap explicit coordinates.
+- `find`/`tapon` prefer an exact text/desc match and fall back to substring —
+  `tapon "Play"` hits the Play button before hint copy containing the word.
+  Still check `waitfor`'s echoed match. Switch tabs with
+  `scripts/emu.sh tab Routes` (content-desc, never substring), not `tapon "Map"`.
 - zsh does not word-split command substitutions: never `tap $COORDS`; use
   `tapon`, or extract x/y with awk.
-- The route-creator card collapses: Save and the expanded controls need the
-  chevron tapped first.
+- The Map tab is one bottom sheet: swipe the handle up (`swipe 540 1880 540 900`)
+  to reach the stop list, Save/Undo/Clear and the speed chips; the bottom nav
+  hides during playback by design.
 - Text fields: `scripts/emu.sh type "text"` (spaces handled); focus the field
   with a tap first.
-- Verify mock state empirically when it matters: poll
-  `dumpsys location` through `scripts/emu.sh` shell access for the mock
+- Verify mock state empirically when it matters:
+  `scripts/emu.sh shell dumpsys location | grep -i mock` shows the mock
   provider's coordinates — screenshots alone don't prove zero-leak behavior.
 - Logs: `scripts/emu.sh logcat [pattern] [lines]` — grep recent app output
   (e.g. for missing-layer or GL errors) instead of declaring logs unreachable.
@@ -56,8 +64,8 @@ Run the passes that apply; light features need only the first.
    change; check loading/empty/error states exist where relevant.
 2. **Dark theme** — `scripts/emu.sh night on`, sweep the changed screens,
    then `scripts/emu.sh night off`.
-3. **Font scale 1.3** — `adb shell settings put system font_scale 1.3`, check
-   for clipped/truncated labels on changed screens, restore `1.0`.
+3. **Font scale 1.3** — `scripts/emu.sh shell settings put system font_scale 1.3`,
+   check for clipped/truncated labels on changed screens, restore `1.0`.
 4. **Rotation** — landscape once through the changed screens if layout changed.
 5. **Logcat** — scan for exceptions/ANRs from `dev.mockarr.app` during the run.
 

@@ -1,8 +1,11 @@
 # Mockarr — project instructions
 
 Android app that mocks device location via the official mock-location developer
-feature, with realistic OSRM route playback. Fully open stack (MapLibre,
-OpenFreeMap, OSRM, Photon, Open-Meteo) — no API keys anywhere.
+feature, with realistic OSRM route playback. Stack: MapLibre, OpenFreeMap, OSRM,
+Photon, Open-Meteo — no API keys today. **Direction under review (ADR 0001,
+`docs/adr/`)**: iOS port possible, licence/openness/monetisation undecided,
+Strava UX/UI is the visual baseline (`docs/design/brief.md`). Do not add
+"open source / no tracking / F-Droid" claims to user-facing copy until decided.
 
 ## Build & verify
 - Build/lint/test: `scripts/gradle build` (wraps `./gradlew` with the Android
@@ -21,6 +24,21 @@ OpenFreeMap, OSRM, Photon, Open-Meteo) — no API keys anywhere.
   location leaks.
 - Kotlin comes from AGP: do NOT apply `org.jetbrains.kotlin.android`.
 - LICENSE is a placeholder; repo stays private until Ethan picks a license.
+
+## Restructure rules (the codebase will be reorganised over time — keep it legible)
+- Every structural change (module, platform, distribution, monetisation) gets an
+  ADR in `docs/adr/` BEFORE the code moves; later ADRs supersede earlier ones.
+- `core:model`, `core:simulation`, `core:routing` stay free of `android.*`,
+  `androidx.*`, Hilt and Compose — enforced by `checkCoreBoundary` in the build.
+  This is the KMP/iOS insurance; don't trade it for convenience.
+- UI reads colours only from `MaterialTheme` / `MockarrTheme` (`ui/theme/`);
+  map colours come from `MapPalette`. No literal colours in screens or map code.
+- New screens follow the Map tab's file split: `XScreen.kt` (layout) /
+  `XSheet.kt` or `XComponents.kt` (pieces) / `XDialogs.kt` / `XViewModel.kt` —
+  detekt caps functions per file, so split by role from the start.
+- User-facing copy goes in `res/values/strings.xml` from day one.
+- Visual direction: `docs/design/brief.md` + `PRODUCT.md`; references in
+  `docs/design/refs/` (raw Mobbin captures are git-ignored — never commit them).
 
 ## Modules
 - `app` — UI (Compose, Hilt), `MockSessionService`, map (`MockarrMap.kt`).

@@ -2,7 +2,15 @@
 
 An Android app that plays back road routes through Android's OS-sanctioned **mock location** developer facility. Pick points on a map, generate a realistic road route, press Play — the device's reported location drives the route realistically (acceleration, slowing for turns, GPS-like noise), visible in apps like Google Maps.
 
-**Stack decisions (locked):** Kotlin, Jetpack Compose, Material 3, MapLibre + OpenFreeMap tiles (no API keys), OSRM routing (public demo server by default, custom server URL in settings). No Google APIs. License: TBD before open-sourcing.
+> **Direction changes (2026-08-28, ADR 0001 in `docs/adr/`)** — provisional, noted so nothing
+> below is read as settled: (1) Android first, iOS port possible → `core:*` stays
+> platform-neutral; (2) open-source stance and licence under review, light monetisation
+> (ads or similar) possible — "no anti-detection" and "no hidden telemetry" stay firm;
+> (3) Strava iOS UX/UI is the visual baseline, indigo palette (`docs/design/brief.md`);
+> (4) the codebase will be restructured over time — ADRs record each move. §12 (open-source
+> readiness) and the F-Droid-first distribution in §11 are therefore *baseline*, not locked.
+
+**Stack decisions (baseline; licence and distribution under review):** Kotlin, Jetpack Compose, Material 3, MapLibre + OpenFreeMap tiles (no API keys), OSRM routing (public demo server by default, custom server URL in settings). No Google APIs. License: TBD.
 
 Items marked **[VERIFY]** should be checked against current API/library state at implementation time.
 

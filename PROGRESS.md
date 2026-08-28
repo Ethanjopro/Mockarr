@@ -333,3 +333,29 @@ Verified end-to-end like a human: app-drawer swipe → tapped the Mockarr icon �
   end marker is a dark numbered disc, not a chequered flag; notification layout untouched.
 - **Next rounds**: Saved Routes (cards → sheet model, thumbnails), Settings (top app bar,
   icon grid), Setup (top app bar, optional-step glyph), then motion pass + adapt pass.
+
+### 2026-08-28 — Session 15c (re-baseline for the raised ambition + emulator hardening)
+
+- **Direction change recorded, not enacted**: Android first / iOS possible, openness and
+  monetisation under review, Strava UX/UI baseline, restructuring expected. Captured in
+  `docs/adr/0001-direction-2026-08.md` (new ADR mechanism, `docs/adr/README.md`), and the
+  claims marked *under review* in `CLAUDE.md`, `PLAN.md`, `PRODUCT.md`. README and
+  CONTRIBUTING left as-is until real decisions land. Firm regardless: no anti-detection,
+  no hidden telemetry.
+- **Restructure rules** added to CLAUDE.md (ADR before structural change; `core:*`
+  Android-free; theme-only colours; Screen/Sheet/Dialogs/ViewModel split; strings.xml).
+  `checkCoreBoundary` Gradle task (root `build.gradle.kts`, wired into `check` of
+  core:model/simulation/routing) fails on any `android.*`/`androidx.*` import — negative
+  test confirmed; configuration-cache safe.
+- **Emulator lock-up root-caused and fixed** (`scripts/emu.sh`): `boot` launched a second
+  emulator when one was running (→ adb "device offline"), its waits had no deadline, and
+  `install` queued silently behind a build agent's Gradle lock. Now: `boot` reuses/recovers
+  (180 s deadline), `install` exits 75 "Gradle busy" instead of hanging and refuses without
+  an online device, plus `settle` (wait for first frame — fixes the swallowed first tap),
+  `tab <Map|Routes|Settings>`, `shell` passthrough, and `find`/`tapon` prefer exact matches.
+  emulator-verify skill + verifier agent updated ("one emulator per machine").
+- **Answered**: closing the MacBook lid suspends the session, Gradle and the emulator —
+  keep it plugged in with `caffeinate -dims` (or the Battery → Options setting) for
+  unattended rounds. Suggested commands: `/claude-md-review`, `/progress-audit`,
+  `/impeccable document` (DESIGN.md from the new tokens), `/impeccable init` re-run.
+- **Next**: wait for Ethan's Strava layout brief → `/impeccable shape <surface>` per screen.
