@@ -3,6 +3,7 @@ package dev.mockarr.app.ui.screens
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
@@ -13,9 +14,11 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material3.BottomSheetDefaults
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonColors
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -27,6 +30,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.CustomAccessibilityAction
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.customActions
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -118,6 +125,35 @@ private fun RowScope.Pill(
         Icon(painterResource(iconRes), contentDescription = null)
         Spacer(Modifier.width(Tokens.space2))
         Text(label, style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold))
+    }
+}
+
+/**
+ * The sheet's grab area: a 48dp tap target around the Material handle. Tapping
+ * toggles peek ↔ expanded, and TalkBack gets the same as a custom action —
+ * the swipe alone is not an accessible path.
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun SheetHandle(expanded: Boolean, onToggle: () -> Unit, modifier: Modifier = Modifier) {
+    val label = stringResource(if (expanded) R.string.sheet_collapse_cd else R.string.sheet_expand_cd)
+    Box(
+        modifier = modifier
+            .fillMaxWidth()
+            .height(Tokens.touchTarget)
+            .clickable(onClick = onToggle)
+            .semantics {
+                contentDescription = label
+                customActions = listOf(
+                    CustomAccessibilityAction(label) {
+                        onToggle()
+                        true
+                    },
+                )
+            },
+        contentAlignment = Alignment.Center,
+    ) {
+        BottomSheetDefaults.DragHandle()
     }
 }
 

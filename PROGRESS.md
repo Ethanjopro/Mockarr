@@ -518,3 +518,22 @@ Verified end-to-end like a human: app-drawer swipe → tapped the Mockarr icon �
   Routes/Settings pushed + back, hold. Watch: `tab Map` leaves the sheet expanded if it
   was; map taps then hit the options switches — collapse first (`swipe 540 1030 540 2300`).
 
+### 2026-08-28 — Session 15i (sheet drag, Save discoverability)
+
+- **"Hard to pull up the options" — reproduced and fixed.** `emu.sh record` of a 1.8 s,
+  450 px drag: the sheet did not move a pixel until release, then snapped open. Cause: the
+  detail column was only composed once `targetValue == Expanded`, so at rest the sheet's
+  content was the peek + 16 dp and the Expanded anchor sat 16 dp above the peek — nothing
+  to drag towards; flings survived, slow drags felt dead. Fix: details always composed,
+  `clipToBounds()` + an opaque peek block replace the old "rows show through the gap"
+  guard. Plus a 48 dp tap-to-toggle handle (`SheetHandle`, TalkBack custom action) and
+  Strava's expand glyph on the stat card strip (`ic_expand`) when not driving.
+  Frame sheet after: the sheet follows the finger from the first frame.
+- **Saving routes** was builder-only, behind the drag, as a text button under the stop
+  list. Now: **Save** outlined pill in the builder row (✕ · Save · Done) and a **Save
+  route** row at the top of the options list whenever a road route is loaded, reading
+  **Saved** (disabled, check glyph) once it is; `UiState.routeSaved` is set by
+  `saveRoute` and `loadSavedRoute` and cleared in `scheduleRouteFetch` (every edit).
+- Verified: slow drag, handle tap, chevron; builder Save → dialog → snackbar; Done →
+  "Saved" row; light. Search R&D doc is the next commit (`docs/research/search-rnd.md`).
+

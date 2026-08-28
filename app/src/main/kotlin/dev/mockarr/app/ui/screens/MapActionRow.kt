@@ -231,27 +231,35 @@ fun OptionSwitchRow(
 
 /** A navigating option row ("All settings ›"). */
 @Composable
-fun OptionLinkRow(iconRes: Int, title: String, onClick: () -> Unit) {
-    HorizontalDivider(modifier = Modifier.padding(horizontal = Tokens.inset))
+fun OptionLinkRow(iconRes: Int, title: String, onClick: () -> Unit, enabled: Boolean = true, divider: Boolean = true) {
+    if (divider) HorizontalDivider(modifier = Modifier.padding(horizontal = Tokens.inset))
+    val ink = if (enabled) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .heightIn(min = Tokens.touchTarget + Tokens.space2)
-            .clickable(onClick = onClick)
+            .clickable(enabled = enabled, onClick = onClick)
             .padding(horizontal = Tokens.inset, vertical = Tokens.space2),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Icon(painterResource(iconRes), contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
         Spacer(Modifier.width(Tokens.space4))
-        Text(title, style = MaterialTheme.typography.bodyLarge, modifier = Modifier.weight(1f))
-        Text("›", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text(title, style = MaterialTheme.typography.bodyLarge, color = ink, modifier = Modifier.weight(1f))
+        if (enabled) {
+            Text("›", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
     }
 }
 
-/** The drag-up list under the action row: the settings that change a drive, then the other screens. */
+/** Whether the options list offers Save for the loaded route. */
+enum class SaveRowState { HIDDEN, UNSAVED, SAVED }
+
+/** The drag-up list under the action row: Save, the settings that change a drive, then the other screens. */
 @Composable
 fun OptionsList(
     settings: MockarrSettings,
+    saveState: SaveRowState,
+    onSaveRoute: () -> Unit,
     followCamera: Boolean,
     onFollowChange: (Boolean) -> Unit,
     onStayChange: (Boolean) -> Unit,
@@ -260,6 +268,16 @@ fun OptionsList(
     onOpenRoutes: () -> Unit,
     onOpenSettings: () -> Unit,
 ) {
+    if (saveState != SaveRowState.HIDDEN) {
+        val saved = saveState == SaveRowState.SAVED
+        OptionLinkRow(
+            divider = false,
+            iconRes = if (saved) R.drawable.ic_check else R.drawable.ic_route,
+            title = stringResource(if (saved) R.string.option_saved else R.string.option_save_route),
+            onClick = onSaveRoute,
+            enabled = !saved,
+        )
+    }
     Text(
         text = stringResource(R.string.options_header).uppercase(),
         style = MaterialTheme.typography.labelSmall,

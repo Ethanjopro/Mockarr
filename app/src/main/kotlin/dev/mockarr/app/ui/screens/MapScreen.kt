@@ -32,7 +32,6 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Search
-import androidx.compose.material3.BottomSheetDefaults
 import androidx.compose.material3.BottomSheetScaffold
 import androidx.compose.material3.Card
 import androidx.compose.material3.CircularProgressIndicator
@@ -62,6 +61,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalContext
@@ -453,15 +453,21 @@ fun MapScreen(
         containerColor = Color.Transparent,
         snackbarHost = { SnackbarHost(snackbarHostState) },
         sheetContent = {
-            Column(modifier = Modifier.fillMaxWidth()) {
+            fun toggleSheet() {
+                scope.launch { if (expanded) sheetState.partialExpand() else sheetState.expand() }
+            }
+            // clipToBounds: the always-composed detail column must never bleed
+            // past the sheet's rounded top while the peek re-anchors.
+            Column(modifier = Modifier.fillMaxWidth().clipToBounds()) {
                 // The measured peek is everything that must stay visible at rest:
                 // the handle, the peek content and (no navigation bar) the system inset.
                 Column(
                     modifier = Modifier
                         .onSizeChanged { peekHeightPx = it.height }
+                        .background(MaterialTheme.colorScheme.surfaceContainerLow)
                         .navigationBarsPadding(),
                 ) {
-                    BottomSheetDefaults.DragHandle(modifier = Modifier.align(Alignment.CenterHorizontally))
+                    SheetHandle(expanded = expanded, onToggle = ::toggleSheet)
                     val peekMode = when {
                         playing -> PeekMode.PLAYING
                         builderMode -> PeekMode.BUILDER
@@ -484,6 +490,10 @@ fun MapScreen(
                             PeekMode.BUILDER -> BuilderPeek(
                                 state = state,
                                 units = units,
+                                onSave = {
+                                    viewModel.requestNameSuggestion()
+                                    showSaveDialog = true
+                                },
                                 onDone = { viewModel.setBuilderMode(false) },
                                 onClose = {
                                     if (state.waypoints.isEmpty()) {
@@ -503,16 +513,14 @@ fun MapScreen(
                         }
                     }
                 }
-                // Only compose the detail column once the sheet is heading to
-                // Expanded: while the peek re-anchors after a mode change, the
-                // detail rows would otherwise show through the gap.
-                val showDetails = expanded || sheetState.targetValue == SheetValue.Expanded
+                // Always composed: the sheet's Expanded anchor comes from its content
+                // height, so an empty detail column left nothing to drag towards and
+                // a slow drag did not move the sheet at all (session 15i).
                 Column(
                     modifier = Modifier
                         .verticalScroll(rememberScrollState())
                         .padding(bottom = Tokens.space4),
                 ) {
-                    if (!showDetails) return@Column
                     if (playing) {
                         SpeedChips(
                             speedMultiplier = speedMultiplier,
@@ -527,14 +535,19 @@ fun MapScreen(
                             onSetWait = { waitEditIndex = it },
                             onClearWait = { viewModel.setWaypointWait(it, 0) },
                             onRemoveStop = viewModel::removeWaypoint,
-                            onSave = {
-                                viewModel.requestNameSuggestion()
-                                showSaveDialog = true
-                            },
                         )
                     } else {
                         OptionsList(
                             settings = options,
+                            saveState = when {
+                                state.route == null || state.routeIsFallback -> SaveRowState.HIDDEN
+                                state.routeSaved -> SaveRowState.SAVED
+                                else -> SaveRowState.UNSAVED
+                            },
+                            onSaveRoute = {
+                                viewModel.requestNameSuggestion()
+                                showSaveDialog = true
+                            },
                             followCamera = followCamera,
                             onFollowChange = viewModel::setFollowCamera,
                             onStayChange = optionsViewModel::setStayAtDestination,
@@ -608,7 +621,10 @@ fun MapScreen(
             // strip-only there; at rest with nothing loaded it is strip-only too.
             val speedText = formatMultiplier(speedMultiplier)
             val speedDescription = stringResource(R.string.sheet_speed_cd, speedText)
-            val speedPill: (@Composable () -> Unit)? = if (playing) {
+            // Strava's card carries an expand glyph top-right (hud-030); while
+            // driving that slot is the speed chip, which also opens the sheet.
+            val expandSheet: () -> Unit = { scope.launch { sheetState.expand() } }
+            val speedPill: @Composable () -> Unit = if (playing) {
                 {
                     FilterChip(
                         selected = expanded,
@@ -620,7 +636,14 @@ fun MapScreen(
                     )
                 }
             } else {
-                null
+                {
+                    IconButton(onClick = expandSheet) {
+                        Icon(
+                            painter = painterResource(R.drawable.ic_expand),
+                            contentDescription = stringResource(R.string.sheet_expand_cd),
+                        )
+                    }
+                }
             }
             val recordCells = if (builderMode) null else recordCells(state, units)
             val stats: (@Composable () -> Unit)? = when {
@@ -727,7 +750,6 @@ private fun BuilderDetails(
     onSetWait: (Int) -> Unit,
     onClearWait: (Int) -> Unit,
     onRemoveStop: (Int) -> Unit,
-    onSave: () -> Unit,
 ) {
     if (state.waypoints.isEmpty()) return
     Text(
@@ -747,11 +769,6 @@ private fun BuilderDetails(
             onClearWait = { onClearWait(index) },
             onRemove = { onRemoveStop(index) },
         )
-    }
-    Row(modifier = Modifier.padding(horizontal = Tokens.space3)) {
-        TextButton(onClick = onSave, enabled = state.route != null && !state.routeIsFallback) {
-            Text(stringResource(R.string.sheet_save))
-        }
     }
 }
 

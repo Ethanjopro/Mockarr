@@ -64,6 +64,8 @@ class MapViewModel @Inject constructor(
         val isRouting: Boolean = false,
         val errorMessage: String? = null,
         val savedConfirmation: String? = null,
+        /** The loaded route exists in Saved routes as-is; any edit clears it. */
+        val routeSaved: Boolean = false,
         /** Congestion preview multiplier for the "about N min" summary. */
         val trafficFactor: Double = 1.0,
     )
@@ -260,7 +262,7 @@ class MapViewModel @Inject constructor(
                 profile = state.profile,
                 nowEpochMillis = System.currentTimeMillis(),
             )
-            _uiState.update { it.copy(savedConfirmation = "Saved \"$name\"") }
+            _uiState.update { it.copy(savedConfirmation = "Saved \"$name\"", routeSaved = true) }
         }
     }
 
@@ -362,6 +364,7 @@ class MapViewModel @Inject constructor(
                 routeIsFallback = false,
                 isRouting = false,
                 errorMessage = null,
+                routeSaved = true,
                 trafficFactor = settingsRepository.currentTrafficFactor(),
             )
         }
@@ -391,6 +394,8 @@ class MapViewModel @Inject constructor(
 
     private fun scheduleRouteFetch() {
         routeJob?.cancel()
+        // Every stop/profile edit lands here, so this is where "saved" expires.
+        _uiState.update { if (it.routeSaved) it.copy(routeSaved = false) else it }
         val state = _uiState.value
         if (state.waypoints.size < 2) {
             _uiState.update { it.copy(route = null, routeIsFallback = false, errorMessage = null) }

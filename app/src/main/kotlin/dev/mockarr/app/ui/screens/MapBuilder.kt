@@ -16,6 +16,7 @@ import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.FilledTonalIconButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -44,6 +45,7 @@ import kotlin.math.roundToInt
 fun BuilderPeek(
     state: MapViewModel.UiState,
     units: DistanceUnits,
+    onSave: () -> Unit,
     onDone: () -> Unit,
     onClose: () -> Unit,
 ) {
@@ -102,6 +104,10 @@ fun BuilderPeek(
                     painterResource(R.drawable.ic_close),
                     contentDescription = stringResource(R.string.builder_close_cd),
                 )
+            }
+            // Strava keeps Save in the builder sheet (map-348): outlined beside Done.
+            OutlinedButton(onClick = onSave, enabled = route != null && !state.routeIsFallback) {
+                Text(stringResource(R.string.builder_save))
             }
             Button(onClick = onDone, modifier = Modifier.weight(1f)) {
                 Icon(painterResource(R.drawable.ic_check), contentDescription = null)

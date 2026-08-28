@@ -336,8 +336,12 @@ the sheet (and by pushed screens). There is no navigation bar.
 - **Bottom sheet** (`{spacing.inset}` horizontal inset, 28dp top corners, drag handle) with
   two states: *peek* — the action row (Mode · Start · Add route), or Pause / Resume + Finish
   while driving, measured at runtime and never assumed — and *expanded* — the same plus a
-  scrollable options list ending in *Saved routes ›* and *All settings ›*. The peek is the
-  screen's resting state.
+  scrollable options list — *Save route* first when a road route is loaded (reads *Saved*
+  once it is), the drive switches, then *Saved routes ›* and *All settings ›*. The peek is
+  the screen's resting state. The sheet is always draggable from anywhere on it, the
+  handle is a 48dp tap target that toggles peek ↔ expanded, and the stat card's strip
+  carries Strava's expand glyph (`hud-030`) — three ways in, because a swipe alone is
+  neither discoverable nor accessible.
 - **Top overlays** sit `{spacing.map-edge}` from the edges: the search field full-width,
   then the FAB stack aligned to the right edge (3D toggle, locate / follow), 8dp apart.
 - **Spacing rhythm** is the 4dp grid: 4 / 8 / 12 / 16 / 24 / 32, with 20dp as the sheet and
@@ -388,7 +392,9 @@ Direction chevrons on the route are 10dp, 2dp stroke, drawn in the casing colour
 ### The Action Row (signature)
 Strava's Record screen, matched: the sheet's peek is one 96dp row of three equal slots —
 Mode (48dp tonal icon + label) · **Start** (64dp filled indigo FAB + label) · Add / Edit
-route (48dp tonal icon + label). While driving the row is replaced by the **Pause pill**,
+route (48dp tonal icon + label). In builder mode the row is ✕ (tonal) · **Save**
+(outlined, enabled once a road route exists) · **Done** (filled) — Strava keeps Save in
+the builder sheet (`map-348`). While driving the row is replaced by the **Pause pill**,
 which splits into **Resume** (primary) + **Finish** (inverse) when paused; the "1×" speed
 chip sits in the card's strip. Never stack actions vertically in the peek.
 
