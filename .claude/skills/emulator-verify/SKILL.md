@@ -59,6 +59,9 @@ emulator binary yourself.
   auto-rotate). Tablet layouts: `scripts/emu.sh resize 2560x1600 320` emulates
   a tablet window without a second AVD; `resize reset` restores. Note: there
   is no navigation bar or rail on any width — don't file that as a bug.
+- Non-modal Compose `Popup`s (the stop popover over a marker) are NOT in the
+  `ui` dump, so `waitfor`/`tapon` cannot see them — verify with `shot` + Read
+  and tap by pixel. Modal popups (the builder `⋯` menu) are dumped normally.
 - Compose merged semantics look "wrong" in `ui` dumps: the focusable
   checkable row shows an empty content-desc while an inert child carries the
   label/description. That IS the correct TalkBack pattern (the reader
