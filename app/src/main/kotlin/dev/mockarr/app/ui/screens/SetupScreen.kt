@@ -7,6 +7,10 @@ import android.os.Build
 import android.provider.Settings
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -14,27 +18,46 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Check
-import androidx.compose.material.icons.filled.Close
+import androidx.compose.material3.Button
 import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.CenterAlignedTopAppBar
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import dev.mockarr.app.R
+import dev.mockarr.app.ui.theme.MockarrTheme
+import dev.mockarr.app.ui.theme.Tokens
 
+/**
+ * The one-time checklist. A readiness strip says whether mocking works right
+ * now; required steps that are missing get an error mark, optional ones a
+ * neutral ring — the strip never claims "all set" beside a red cross.
+ */
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SetupScreen(
     onBack: () -> Unit,
@@ -51,128 +74,207 @@ fun SetupScreen(
         onPauseOrDispose { }
     }
 
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .verticalScroll(rememberScrollState())
-            .padding(24.dp),
-    ) {
-        Text(
-            text = "Setup checklist",
-            style = MaterialTheme.typography.headlineMedium,
-        )
-        Spacer(Modifier.height(8.dp))
-        Text(
-            text = "Mockarr uses Android's built-in mock location testing feature. " +
-                "Two one-time steps are required; the rest improve reliability.",
-            style = MaterialTheme.typography.bodyMedium,
-        )
-        Spacer(Modifier.height(24.dp))
-
-        SetupCheckCard(
-            title = "Developer options enabled",
-            done = status?.developerOptionsEnabled == true,
-            instructions = "Settings → About phone → tap \"Build number\" seven times.",
-            actionLabel = "Open About phone",
-            onAction = { context.openSettings(Settings.ACTION_DEVICE_INFO_SETTINGS) },
-        )
-        Spacer(Modifier.height(16.dp))
-        SetupCheckCard(
-            title = "Mockarr selected as mock location app",
-            done = status?.selectedAsMockLocationApp == true,
-            instructions = "Developer options → scroll to \"Select mock location app\" → choose Mockarr.",
-            actionLabel = "Open developer options",
-            onAction = { context.openSettings(Settings.ACTION_APPLICATION_DEVELOPMENT_SETTINGS) },
-        )
-        Spacer(Modifier.height(16.dp))
-        SetupCheckCard(
-            title = "Notifications allowed",
-            subtitle = "Recommended — shows playback progress and controls",
-            done = status?.notificationsEnabled == true,
-            instructions = "Playback runs as a foreground service; its notification " +
-                "lets you pause or stop from anywhere.",
-            actionLabel = "Allow notifications",
-            onAction = {
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                    notificationLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
-                } else {
-                    context.openSettings(Settings.ACTION_APP_NOTIFICATION_SETTINGS)
-                }
-            },
-        )
-        Spacer(Modifier.height(16.dp))
-        SetupCheckCard(
-            title = "Battery optimization exemption",
-            subtitle = "Recommended — keeps long playbacks alive on aggressive devices",
-            done = status?.batteryOptimizationExempt == true,
-            instructions = "Find Mockarr in the list and choose \"Don't optimize\". " +
-                "Some manufacturers hide this — see dontkillmyapp.com for your device.",
-            actionLabel = "Open battery settings",
-            onAction = { context.openSettings(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS) },
-        )
-
-        Spacer(Modifier.height(24.dp))
-        if (status?.readyToMock == true) {
-            Text(
-                text = "All set — Mockarr can mock your location.",
-                style = MaterialTheme.typography.bodyLarge,
-                color = MaterialTheme.colorScheme.primary,
+    Scaffold(
+        topBar = {
+            CenterAlignedTopAppBar(
+                title = { Text(stringResource(R.string.setup_title)) },
+                navigationIcon = {
+                    IconButton(onClick = onBack) {
+                        Icon(
+                            painterResource(R.drawable.ic_arrow_back),
+                            contentDescription = stringResource(R.string.setup_back_cd),
+                        )
+                    }
+                },
+                colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
+                    containerColor = MaterialTheme.colorScheme.surface,
+                ),
             )
-            Spacer(Modifier.height(16.dp))
-        }
-        OutlinedButton(onClick = onBack) {
-            Text("Back")
+        },
+        containerColor = MaterialTheme.colorScheme.surface,
+    ) { padding ->
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(padding)
+                .verticalScroll(rememberScrollState())
+                .padding(horizontal = Tokens.space3, vertical = Tokens.space2),
+            verticalArrangement = Arrangement.spacedBy(Tokens.space3),
+        ) {
+            val required = listOf(status?.developerOptionsEnabled, status?.selectedAsMockLocationApp)
+            val missing = required.count { it != true }
+            ReadinessStrip(ready = status?.readyToMock == true, missing = missing)
+            Text(
+                text = stringResource(R.string.setup_intro),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(horizontal = Tokens.space1),
+            )
+            SetupStep(
+                iconRes = R.drawable.ic_developer,
+                title = stringResource(R.string.setup_dev_title),
+                required = true,
+                done = status?.developerOptionsEnabled == true,
+                instructions = stringResource(R.string.setup_dev_how),
+                actionLabel = stringResource(R.string.setup_dev_action),
+                onAction = { context.openSettings(Settings.ACTION_DEVICE_INFO_SETTINGS) },
+            )
+            SetupStep(
+                iconRes = R.drawable.ic_pin_check,
+                title = stringResource(R.string.setup_mock_title),
+                required = true,
+                done = status?.selectedAsMockLocationApp == true,
+                instructions = stringResource(R.string.setup_mock_how),
+                actionLabel = stringResource(R.string.setup_mock_action),
+                onAction = { context.openSettings(Settings.ACTION_APPLICATION_DEVELOPMENT_SETTINGS) },
+            )
+            SetupStep(
+                iconRes = R.drawable.ic_notifications,
+                title = stringResource(R.string.setup_notif_title),
+                subtitle = stringResource(R.string.setup_notif_sub),
+                required = false,
+                done = status?.notificationsEnabled == true,
+                instructions = stringResource(R.string.setup_notif_how),
+                actionLabel = stringResource(R.string.setup_notif_action),
+                onAction = {
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                        notificationLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+                    } else {
+                        context.openSettings(Settings.ACTION_APP_NOTIFICATION_SETTINGS)
+                    }
+                },
+            )
+            SetupStep(
+                iconRes = R.drawable.ic_battery,
+                title = stringResource(R.string.setup_battery_title),
+                subtitle = stringResource(R.string.setup_battery_sub),
+                required = false,
+                done = status?.batteryOptimizationExempt == true,
+                instructions = stringResource(R.string.setup_battery_how),
+                actionLabel = stringResource(R.string.setup_battery_action),
+                onAction = { context.openSettings(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS) },
+            )
+            Spacer(Modifier.height(Tokens.space6))
         }
     }
 }
 
+/** The status band: ready (teal) or how many required steps remain (error). */
 @Composable
-private fun SetupCheckCard(
+private fun ReadinessStrip(ready: Boolean, missing: Int) {
+    val colors = MockarrTheme.colors
+    val scheme = MaterialTheme.colorScheme
+    val (container, content) = if (ready) {
+        colors.readyContainer to colors.onReadyContainer
+    } else {
+        scheme.errorContainer to scheme.onErrorContainer
+    }
+    val text = when {
+        ready -> stringResource(R.string.setup_ready)
+        missing == 1 -> stringResource(R.string.setup_steps_left, missing)
+        else -> stringResource(R.string.setup_steps_left_plural, missing)
+    }
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(container, Tokens.cardShape)
+            .padding(horizontal = Tokens.inset, vertical = Tokens.space3),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Icon(
+            painter = painterResource(if (ready) R.drawable.ic_check else R.drawable.ic_info),
+            contentDescription = null,
+            tint = content,
+        )
+        Spacer(Modifier.width(Tokens.space3))
+        Text(text, style = MaterialTheme.typography.titleSmall, color = content)
+    }
+}
+
+@Composable
+private fun SetupStep(
+    iconRes: Int,
     title: String,
+    required: Boolean,
     done: Boolean,
     instructions: String,
     actionLabel: String,
     onAction: () -> Unit,
     subtitle: String? = null,
 ) {
-    Card(modifier = Modifier.fillMaxWidth()) {
-        Column(modifier = Modifier.padding(16.dp)) {
+    Card(
+        shape = Tokens.cardShape,
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
+        modifier = Modifier.fillMaxWidth(),
+    ) {
+        Column(modifier = Modifier.padding(Tokens.space4)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(
-                    imageVector = if (done) Icons.Filled.Check else Icons.Filled.Close,
-                    contentDescription = if (done) "Done" else "Not done",
-                    tint = if (done) {
-                        MaterialTheme.colorScheme.primary
-                    } else {
-                        MaterialTheme.colorScheme.error
-                    },
-                )
-                Spacer(Modifier.width(12.dp))
-                Column {
+                StepMark(done = done, required = required)
+                Spacer(Modifier.width(Tokens.space3))
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(title, style = MaterialTheme.typography.titleMedium)
                     Text(
-                        text = title,
-                        style = MaterialTheme.typography.titleMedium,
+                        text = subtitle ?: stringResource(
+                            if (required) R.string.setup_required else R.string.setup_optional,
+                        ),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
-                    if (subtitle != null) {
-                        Text(
-                            text = subtitle,
-                            style = MaterialTheme.typography.bodySmall,
-                        )
-                    }
                 }
+                Icon(
+                    painter = painterResource(iconRes),
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
             }
             if (!done) {
-                Spacer(Modifier.height(8.dp))
-                Text(
-                    text = instructions,
-                    style = MaterialTheme.typography.bodyMedium,
-                )
-                Spacer(Modifier.height(12.dp))
-                OutlinedButton(onClick = onAction) {
-                    Text(actionLabel)
+                Spacer(Modifier.height(Tokens.space3))
+                Text(instructions, style = MaterialTheme.typography.bodyMedium)
+                Spacer(Modifier.height(Tokens.space3))
+                if (required) {
+                    Button(onClick = onAction) { Text(actionLabel) }
+                } else {
+                    OutlinedButton(onClick = onAction) { Text(actionLabel) }
                 }
             }
         }
+    }
+}
+
+/** Done → teal check. Required and missing → error "!". Optional and missing → neutral ring. */
+@Composable
+private fun StepMark(done: Boolean, required: Boolean) {
+    val colors = MockarrTheme.colors
+    val scheme = MaterialTheme.colorScheme
+    val doneDescription = stringResource(R.string.setup_done_cd)
+    when {
+        done -> Box(
+            modifier = Modifier.size(MARK_SIZE).background(colors.readyContainer, CircleShape),
+            contentAlignment = Alignment.Center,
+        ) {
+            Icon(
+                painter = painterResource(R.drawable.ic_check),
+                contentDescription = doneDescription,
+                tint = colors.onReadyContainer,
+                modifier = Modifier.size(MARK_ICON),
+            )
+        }
+        required -> Box(
+            modifier = Modifier.size(MARK_SIZE).background(scheme.errorContainer, CircleShape),
+            contentAlignment = Alignment.Center,
+        ) {
+            Text(
+                text = "!",
+                style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                color = scheme.onErrorContainer,
+            )
+        }
+        else -> Box(
+            modifier = Modifier
+                .size(MARK_SIZE)
+                .border(2.dp, scheme.outlineVariant, CircleShape)
+                .background(Color.Transparent, CircleShape),
+        )
     }
 }
 
@@ -184,3 +286,6 @@ private fun Context.openSettings(action: String) {
         startActivity(Intent(Settings.ACTION_SETTINGS))
     }
 }
+
+private val MARK_SIZE = 32.dp
+private val MARK_ICON = 20.dp

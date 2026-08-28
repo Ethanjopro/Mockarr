@@ -157,6 +157,77 @@
     <string name="routes_no_match_body">Try another keyword or clear the filter.</string>
     <string name="routes_thumbnail_cd">Map of %1$s</string>
 
+    <!-- Settings (brief 2 follow-up) -->
+    <string name="settings_title">Settings</string>
+    <string name="settings_tile_mock">Mock location</string>
+    <string name="settings_tile_mock_ready">Ready</string>
+    <string name="settings_tile_mock_not_set_up">Not set up</string>
+    <string name="settings_tile_units">Units</string>
+    <string name="settings_units_miles">Miles</string>
+    <string name="settings_units_km">Kilometres</string>
+    <string name="settings_tile_mode">Travel mode</string>
+    <string name="settings_tile_server">Routing server</string>
+    <string name="settings_server_public">Public</string>
+    <string name="settings_server_custom">Custom</string>
+    <string name="settings_section_playback">Playback</string>
+    <string name="settings_section_gps">GPS</string>
+    <string name="settings_section_routing">Routing</string>
+    <string name="settings_section_about">About</string>
+    <string name="settings_stay">Stay at destination</string>
+    <string name="settings_stay_desc">Keep your location at the endpoint until you press Stop; otherwise return to a held pin or your real location</string>
+    <string name="settings_traffic">Rush-hour traffic</string>
+    <string name="settings_traffic_desc">Slow playback and lengthen estimates at peak commute hours</string>
+    <string name="settings_tick">Updates per second</string>
+    <string name="settings_tick_desc">Real phones report about once a second</string>
+    <string name="settings_tick_value">%1$.1f/s</string>
+    <string name="settings_tick_cd">Updates per second, %1$.1f</string>
+    <string name="settings_wobble">Realistic GPS wobble</string>
+    <string name="settings_wobble_desc">Tiny random offsets so positions look like real GPS, not a perfect line</string>
+    <string name="settings_wobble_amount">Wobble amount</string>
+    <string name="settings_wobble_amount_desc">How far the offsets can wander from the true position</string>
+    <string name="settings_wobble_value">%1$.1f m</string>
+    <string name="settings_wobble_cd">Wobble amount, %1$.1f metres</string>
+    <string name="settings_mode">Default travel mode</string>
+    <string name="settings_mode_desc">Used for new routes</string>
+    <string name="settings_server">Routing server</string>
+    <string name="settings_server_desc">The public OSRM server only routes driving; your own unlocks walking and cycling</string>
+    <string name="settings_server_title">Routing server</string>
+    <string name="settings_server_hint">https://your-osrm-host:5000</string>
+    <string name="settings_server_test">Test</string>
+    <string name="settings_server_testing">Testing…</string>
+    <string name="settings_server_ok">Server responded — routes work</string>
+    <string name="settings_server_use_public">Use public server</string>
+    <string name="settings_about_body">Mockarr uses Android\'s built-in mock location testing feature. Nothing is patched, hooked or rooted.</string>
+    <string name="settings_about_version">Version %1$s</string>
+    <string name="settings_about_credits">Map data © OpenStreetMap contributors · Routing by OSRM · Search by Photon (komoot) · Elevation by Open-Meteo · Rendering by MapLibre · Tiles by OpenFreeMap</string>
+    <string name="settings_open_setup_cd">Open mock location setup</string>
+
+    <!-- Setup checklist -->
+    <string name="setup_title">Set up mocking</string>
+    <string name="setup_back_cd">Back</string>
+    <string name="setup_intro">Mockarr uses Android\'s built-in mock location testing feature. Two one-time steps are required; the rest make long drives more reliable.</string>
+    <string name="setup_ready">All set — Mockarr can mock your location</string>
+    <string name="setup_steps_left">%1$d required step left</string>
+    <string name="setup_steps_left_plural">%1$d required steps left</string>
+    <string name="setup_required">Required</string>
+    <string name="setup_optional">Optional</string>
+    <string name="setup_done_cd">Done</string>
+    <string name="setup_missing_cd">Not done</string>
+    <string name="setup_dev_title">Developer options enabled</string>
+    <string name="setup_dev_how">Settings → About phone → tap “Build number” seven times.</string>
+    <string name="setup_dev_action">Open About phone</string>
+    <string name="setup_mock_title">Mockarr selected as mock location app</string>
+    <string name="setup_mock_how">Developer options → “Select mock location app” → Mockarr.</string>
+    <string name="setup_mock_action">Open developer options</string>
+    <string name="setup_notif_title">Notifications allowed</string>
+    <string name="setup_notif_sub">Shows playback progress and controls</string>
+    <string name="setup_notif_how">Playback runs as a foreground service; its notification lets you pause or stop from anywhere.</string>
+    <string name="setup_notif_action">Allow notifications</string>
+    <string name="setup_battery_title">Battery optimisation exemption</string>
+    <string name="setup_battery_sub">Keeps long drives alive on aggressive devices</string>
+    <string name="setup_battery_how">Find Mockarr in the list and choose “Don\'t optimise”. Some manufacturers hide this — see dontkillmyapp.com for your device.</string>
+    <string name="setup_battery_action">Open battery settings</string>
+
     <!-- Map: transient feedback -->
     <string name="snack_dismiss">Dismiss</string>
 </resources>

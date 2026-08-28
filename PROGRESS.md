@@ -446,3 +446,25 @@ Verified end-to-end like a human: app-drawer swipe → tapped the Mockarr icon �
 - **emu.sh fix**: `find`'s exact-match-first rewrite aborted under `pipefail` whenever the
   exact grep missed, so substring matches ("More actions…") silently returned nothing since
   session 15c. `|| true` on both greps; verified `find 'More actions'` → coords.
+
+### 2026-08-28 — Session 15f (Settings + Setup screens)
+
+- **Settings rebuilt** (`SettingsScreen.kt` + new `SettingsComponents.kt`): centred top
+  bar; Strava-style **tile grid** (Mock location Ready/Not set up → Setup, Units toggle,
+  Travel mode → picker, Routing server → dialog); small-caps sections PLAYBACK / GPS /
+  ROUTING / ABOUT with icon rows; sliders as label + trailing value + slider; descriptions
+  visible (tooltips removed). **Routing-server dialog restores the custom-OSRM entry** the
+  README promises but the screen had lost (URL + live Test + "Use public server").
+  About shows the version from PackageManager.
+- **Setup rebuilt** (`SetupScreen.kt`): top bar with back arrow (bottom Back button gone);
+  readiness strip (teal "All set" / error "N required steps left") replaces the contradictory
+  "All set" beside a red ✗; required steps get an error "!" mark and a filled action,
+  optional ones a neutral ring and an "Optional" tag.
+- All Settings/Setup strings externalised; 9 new glyph drawables.
+- Verified on emulator (light + dark): Settings top/scrolled, server dialog, Setup ready
+  and with the mock-app step denied ("1 required step left", error mark, filled action).
+  The emulator instance from the ANR session had died meanwhile; `boot` recovered cleanly.
+- **All four surfaces now follow DESIGN.md.** Next: motion pass (Play transition, strip
+  crossfade already in), adapt pass (expanded widths / landscape side panel), notification
+  layout, then the a11y follow-ups from the audit (map-gesture equivalents exist; TalkBack
+  sweep pending).
