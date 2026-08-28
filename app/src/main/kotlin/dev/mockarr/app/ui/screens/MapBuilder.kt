@@ -1,6 +1,8 @@
 package dev.mockarr.app.ui.screens
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -9,14 +11,15 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material3.FilledTonalIconButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -26,12 +29,20 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.vector.rememberVectorPainter
+import androidx.compose.ui.layout.boundsInWindow
+import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.dp
 import dev.mockarr.app.R
 import dev.mockarr.app.ui.formatDistance
 import dev.mockarr.app.ui.formatDurationShort
+import dev.mockarr.app.ui.theme.MapIconPill
+import dev.mockarr.app.ui.theme.MapPopover
+import dev.mockarr.app.ui.theme.PopoverRow
 import dev.mockarr.app.ui.theme.Tokens
 import dev.mockarr.core.model.DistanceUnits
 import kotlin.math.roundToInt
@@ -99,11 +110,20 @@ fun BuilderPeek(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(Tokens.space2),
         ) {
-            FilledTonalIconButton(onClick = onClose) {
-                Icon(
-                    painterResource(R.drawable.ic_close),
-                    contentDescription = stringResource(R.string.builder_close_cd),
-                )
+            // Strava's ✕: a white circle; inside the sheet it needs a hairline, not a shadow.
+            Surface(
+                onClick = onClose,
+                shape = CircleShape,
+                color = MaterialTheme.colorScheme.surfaceContainerLowest,
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+                modifier = Modifier.size(Tokens.pillSize),
+            ) {
+                Box(contentAlignment = Alignment.Center) {
+                    Icon(
+                        painterResource(R.drawable.ic_close),
+                        contentDescription = stringResource(R.string.builder_close_cd),
+                    )
+                }
             }
             // Strava keeps Save in the builder sheet (map-348): outlined beside Done.
             OutlinedButton(onClick = onSave, enabled = route != null && !state.routeIsFallback) {
@@ -118,7 +138,10 @@ fun BuilderPeek(
     }
 }
 
-/** Floating tool pills on the map's right edge while building: undo · reverse · more. */
+/**
+ * Strava's builder tools, bottom-centre of the map: ⋯ · reverse · undo as
+ * white shadowed pills; ⋯ opens the caret popover with the rarer actions.
+ */
 @Composable
 fun BuilderTools(
     canUndo: Boolean,
@@ -130,34 +153,57 @@ fun BuilderTools(
     modifier: Modifier = Modifier,
 ) {
     var menuOpen by remember { mutableStateOf(false) }
-    Row(modifier = modifier, horizontalArrangement = Arrangement.spacedBy(Tokens.space2)) {
-        FilledTonalIconButton(onClick = onUndo, enabled = canUndo) {
-            Icon(painterResource(R.drawable.ic_undo), contentDescription = stringResource(R.string.builder_undo_cd))
-        }
-        FilledTonalIconButton(onClick = onReverse, enabled = canReverse) {
-            Icon(painterResource(R.drawable.ic_swap), contentDescription = stringResource(R.string.builder_reverse_cd))
-        }
-        Column {
-            FilledTonalIconButton(onClick = { menuOpen = true }) {
-                Icon(painterResource(R.drawable.ic_more), contentDescription = stringResource(R.string.builder_more_cd))
-            }
-            DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
-                DropdownMenuItem(
-                    text = { Text(stringResource(R.string.builder_add_at_center)) },
-                    onClick = {
-                        menuOpen = false
-                        onAddAtCenter()
-                    },
-                )
-                DropdownMenuItem(
-                    text = { Text(stringResource(R.string.builder_clear_all)) },
-                    enabled = canUndo,
-                    onClick = {
-                        menuOpen = false
-                        onClearAll()
-                    },
-                )
-            }
+    var menuAnchor by remember { mutableStateOf(Offset.Zero) }
+    Row(modifier = modifier, horizontalArrangement = Arrangement.spacedBy(Tokens.space3)) {
+        MapIconPill(
+            painter = painterResource(R.drawable.ic_more),
+            contentDescription = stringResource(R.string.builder_more_cd),
+            onClick = { menuOpen = true },
+            modifier = Modifier.onGloballyPositioned { menuAnchor = it.boundsInWindow().topCenter },
+        )
+        MapIconPill(
+            painter = painterResource(R.drawable.ic_swap),
+            contentDescription = stringResource(R.string.builder_reverse_cd),
+            onClick = onReverse,
+            enabled = canReverse,
+        )
+        MapIconPill(
+            painter = painterResource(R.drawable.ic_undo),
+            contentDescription = stringResource(R.string.builder_undo_cd),
+            onClick = onUndo,
+            enabled = canUndo,
+        )
+    }
+    if (menuOpen) {
+        MapPopover(anchor = menuAnchor, onDismiss = { menuOpen = false }) {
+            PopoverRow(
+                label = stringResource(R.string.builder_add_at_center),
+                icon = painterResource(R.drawable.ic_add_route),
+                divider = false,
+                onClick = {
+                    menuOpen = false
+                    onAddAtCenter()
+                },
+            )
+            PopoverRow(
+                label = stringResource(R.string.builder_reverse_cd),
+                icon = painterResource(R.drawable.ic_swap),
+                enabled = canReverse,
+                onClick = {
+                    menuOpen = false
+                    onReverse()
+                },
+            )
+            PopoverRow(
+                label = stringResource(R.string.builder_clear_all),
+                icon = rememberVectorPainter(Icons.Filled.Delete),
+                enabled = canUndo,
+                destructive = true,
+                onClick = {
+                    menuOpen = false
+                    onClearAll()
+                },
+            )
         }
     }
 }

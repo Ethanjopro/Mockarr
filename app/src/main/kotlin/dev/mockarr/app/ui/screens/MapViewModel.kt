@@ -79,9 +79,8 @@ class MapViewModel @Inject constructor(
     private val _cameraCommand = MutableStateFlow<CameraCommand?>(null)
     val cameraCommand: StateFlow<CameraCommand?> = _cameraCommand.asStateFlow()
 
-    /** Index of the waypoint whose context menu is open, or null. */
-    private val _selectedWaypoint = MutableStateFlow<Int?>(null)
-    val selectedWaypoint: StateFlow<Int?> = _selectedWaypoint.asStateFlow()
+    /** Selection, pending Move and Start choice — reset on every stop edit. */
+    val interaction = MapInteraction { it in _uiState.value.waypoints.indices }
 
     private val _builderMode = MutableStateFlow(false)
     val builderMode: StateFlow<Boolean> = _builderMode.asStateFlow()
@@ -181,21 +180,21 @@ class MapViewModel @Inject constructor(
     }
 
     fun addWaypoint(point: LatLng) {
-        _selectedWaypoint.value = null
+        interaction.reset()
         _uiState.update { it.copy(waypoints = it.waypoints + Waypoint(point)) }
         scheduleRouteFetch()
     }
 
     /** Insert a new route origin (e.g. the held position, chosen at Play time). */
     fun prependWaypoint(point: LatLng) {
-        _selectedWaypoint.value = null
+        interaction.reset()
         _uiState.update { it.copy(waypoints = listOf(Waypoint(point)) + it.waypoints) }
         scheduleRouteFetch()
     }
 
     fun undoWaypoint() {
         if (_uiState.value.waypoints.isEmpty()) return
-        _selectedWaypoint.value = null
+        interaction.reset()
         _uiState.update { it.copy(waypoints = it.waypoints.dropLast(1)) }
         scheduleRouteFetch()
     }
@@ -203,7 +202,7 @@ class MapViewModel @Inject constructor(
     fun clearWaypoints() {
         routeJob?.cancel()
         elevationJob?.cancel()
-        _selectedWaypoint.value = null
+        interaction.reset()
         _uiState.update {
             it.copy(
                 waypoints = emptyList(),
@@ -217,7 +216,7 @@ class MapViewModel @Inject constructor(
 
     fun removeWaypoint(index: Int) {
         if (index !in _uiState.value.waypoints.indices) return
-        _selectedWaypoint.value = null
+        interaction.reset()
         _uiState.update { state ->
             state.copy(waypoints = state.waypoints.filterIndexed { i, _ -> i != index })
         }
@@ -231,7 +230,7 @@ class MapViewModel @Inject constructor(
      */
     fun setWaypointWait(index: Int, waitSeconds: Int) {
         if (index !in _uiState.value.waypoints.indices) return
-        _selectedWaypoint.value = null
+        interaction.reset()
         _uiState.update { state ->
             val updated = state.waypoints.mapIndexed { i, waypoint ->
                 if (i == index) waypoint.copy(waitSeconds = waitSeconds) else waypoint
@@ -240,9 +239,11 @@ class MapViewModel @Inject constructor(
         }
     }
 
-    /** Marker tapped on the map (or null to dismiss the waypoint menu). */
-    fun selectWaypoint(index: Int?) {
-        _selectedWaypoint.value = index
+    /** Relocates the stop being moved; its wait survives, the route refetches. */
+    fun moveWaypoint(point: LatLng) {
+        val index = interaction.takeMove() ?: return
+        _uiState.update { it.copy(waypoints = it.waypoints.movedTo(index, point)) }
+        scheduleRouteFetch()
     }
 
     fun setProfile(profile: RoutingProfile) {
@@ -331,14 +332,14 @@ class MapViewModel @Inject constructor(
 
     /** Builder mode: map taps place stops; the sheet shows the route under construction. */
     fun setBuilderMode(active: Boolean) {
-        _selectedWaypoint.value = null
+        interaction.reset()
         _builderMode.value = active
     }
 
     /** Drive the route the other way round. */
     fun reverseWaypoints() {
         if (_uiState.value.waypoints.size < 2) return
-        _selectedWaypoint.value = null
+        interaction.reset()
         _uiState.update { it.copy(waypoints = it.waypoints.asReversed()) }
         scheduleRouteFetch()
     }
@@ -451,6 +452,10 @@ class MapViewModel @Inject constructor(
 }
 
 private const val LOCATE_TIMEOUT_MILLIS = 5_000L
+
+/** The same stops with [index] relocated to [point]; its wait is kept. Out-of-range → unchanged. */
+internal fun List<Waypoint>.movedTo(index: Int, point: LatLng): List<Waypoint> =
+    if (index !in indices) this else mapIndexed { i, w -> if (i == index) w.copy(position = point) else w }
 
 // Permission is gated by the UI before callers reach this.
 @SuppressLint("MissingPermission")

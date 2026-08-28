@@ -1,6 +1,7 @@
 package dev.mockarr.app.ui.screens
 
 import android.Manifest
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedContent
@@ -36,8 +37,6 @@ import androidx.compose.material3.BottomSheetScaffold
 import androidx.compose.material3.Card
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FilledIconToggleButton
-import androidx.compose.material3.FilledTonalIconButton
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -90,6 +89,8 @@ import dev.mockarr.app.ui.map.ThumbstickOverlay
 import dev.mockarr.app.ui.map.effectiveStyleUrl
 import dev.mockarr.app.ui.map.nudgeMeters
 import dev.mockarr.app.ui.rememberSystemAnimationsEnabled
+import dev.mockarr.app.ui.theme.MapIconPill
+import dev.mockarr.app.ui.theme.MapPill
 import dev.mockarr.app.ui.theme.MockarrTheme
 import dev.mockarr.app.ui.theme.Tokens
 import dev.mockarr.core.model.DistanceUnits
@@ -119,7 +120,7 @@ fun MapLayer(
     val map3d by viewModel.map3dEnabled.collectAsStateWithLifecycle()
     val followCamera by viewModel.followCamera.collectAsStateWithLifecycle()
     val cameraCommand by viewModel.cameraCommand.collectAsStateWithLifecycle()
-    val selectedWaypoint by viewModel.selectedWaypoint.collectAsStateWithLifecycle()
+    val selectedWaypoint by viewModel.interaction.selectedWaypoint.collectAsStateWithLifecycle()
     val session by sessionViewModel.session.collectAsStateWithLifecycle()
     val latestFix by sessionViewModel.latestFix.collectAsStateWithLifecycle()
     val dwell by sessionViewModel.dwell.collectAsStateWithLifecycle()
@@ -161,7 +162,10 @@ fun MapLayer(
             // than dropping a new stop. Read .value at click time (repo rule).
             if (!playing) {
                 when {
-                    viewModel.selectedWaypoint.value != null -> viewModel.selectWaypoint(null)
+                    // A pending Move owns the next tap (Strava's Move Point).
+                    viewModel.interaction.movingWaypoint.value != null -> viewModel.moveWaypoint(it)
+                    viewModel.interaction.startChoiceRoute.value != null -> viewModel.interaction.clearStartChoice()
+                    viewModel.interaction.selectedWaypoint.value != null -> viewModel.interaction.select(null)
                     // Record layout is inert (Strava); only the builder places stops.
                     viewModel.builderMode.value -> viewModel.addWaypoint(it)
                     else -> Unit
@@ -170,11 +174,12 @@ fun MapLayer(
         },
         onWaypointTap = { index ->
             focusManager.clearFocus()
-            if (!playing) {
-                val toggled = index.takeIf { it != viewModel.selectedWaypoint.value }
-                viewModel.selectWaypoint(toggled)
+            if (!playing && viewModel.interaction.movingWaypoint.value == null) {
+                val toggled = index.takeIf { it != viewModel.interaction.selectedWaypoint.value }
+                viewModel.interaction.select(toggled)
             }
         },
+        onSelectedWaypointScreen = viewModel.interaction::setMarkerScreen,
         onMapLongPress = {
             focusManager.clearFocus()
             if (!playing) requestHold(it)
@@ -186,6 +191,7 @@ fun MapLayer(
         onCameraIdle = viewModel::saveCamera,
         onUserGesture = {
             viewModel.setFollowCamera(false)
+            viewModel.interaction.clearStartChoice()
             focusManager.clearFocus()
         },
         threeDimensional = map3d,
@@ -241,7 +247,10 @@ fun MapScreen(
     val playbackState by sessionViewModel.playbackState.collectAsStateWithLifecycle()
     val playbackError by sessionViewModel.error.collectAsStateWithLifecycle()
     val speedMultiplier by sessionViewModel.speedMultiplier.collectAsStateWithLifecycle()
-    val selectedWaypoint by viewModel.selectedWaypoint.collectAsStateWithLifecycle()
+    val selectedWaypoint by viewModel.interaction.selectedWaypoint.collectAsStateWithLifecycle()
+    val movingWaypoint by viewModel.interaction.movingWaypoint.collectAsStateWithLifecycle()
+    val markerScreen by viewModel.interaction.selectedMarkerScreen.collectAsStateWithLifecycle()
+    val startChoiceRoute by viewModel.interaction.startChoiceRoute.collectAsStateWithLifecycle()
 
     val context = LocalContext.current
     val focusManager = LocalFocusManager.current
@@ -280,11 +289,11 @@ fun MapScreen(
     val holding = session as? MockSessionState.Holding
     var showSaveDialog by remember { mutableStateOf(false) }
 
-    // Play while holding: offer to route from the held spot first. All session
-    // reads happen AT CLICK TIME via .value — never from composition-captured
-    // vals — so the prompt appears no matter which order route and hold were
-    // created in (a stale capture previously ate the prompt).
-    var startChoiceRoute by remember { mutableStateOf<Route?>(null) }
+    // Play while holding: the action row splits into "from held spot / from
+    // route start" (Strava's Pause → Resume/Finish move). All session reads
+    // happen AT CLICK TIME via .value — never from composition-captured vals —
+    // so the choice appears no matter which order route and hold were created
+    // in (a stale capture previously ate the prompt).
     var showRouteFromHoldPrompt by remember { mutableStateOf(false) }
     var playWhenRouteReady by remember { mutableStateOf(false) }
 
@@ -299,7 +308,11 @@ fun MapScreen(
             route != null -> {
                 val startsAtHold = hold != null &&
                     GeoMath.distanceMeters(route.points.first(), hold.position) <= START_FROM_HOLD_METERS
-                if (hold != null && !startsAtHold) startChoiceRoute = route else requestPlay(route)
+                if (hold != null && !startsAtHold) {
+                    viewModel.interaction.requestStartChoice(route)
+                } else {
+                    requestPlay(route)
+                }
             }
             ui.waypoints.size == 1 && hold != null -> showRouteFromHoldPrompt = true
             else -> Unit
@@ -315,19 +328,26 @@ fun MapScreen(
         }
     }
 
-    startChoiceRoute?.let { pendingRoute ->
-        StartChoiceDialog(
-            onStartFromHold = {
-                startChoiceRoute = null
+    val startChoice = startChoiceRoute?.let { pendingRoute ->
+        StartChoice(
+            onFromHold = {
+                viewModel.interaction.clearStartChoice()
                 currentHold()?.position?.let(viewModel::prependWaypoint)
                 playWhenRouteReady = true
             },
-            onPlayAsBuilt = {
-                startChoiceRoute = null
+            onFromRouteStart = {
+                viewModel.interaction.clearStartChoice()
                 requestPlay(pendingRoute)
             },
-            onDismiss = { startChoiceRoute = null },
         )
+    }
+    // Back unwinds the transient map states before anything else.
+    BackHandler(enabled = startChoice != null || movingWaypoint != null || selectedWaypoint != null) {
+        when {
+            startChoice != null -> viewModel.interaction.clearStartChoice()
+            movingWaypoint != null -> viewModel.interaction.cancelMove()
+            else -> viewModel.interaction.select(null)
+        }
     }
 
     if (showRouteFromHoldPrompt) {
@@ -369,7 +389,7 @@ fun MapScreen(
     var waitEditIndex by remember { mutableStateOf<Int?>(null) }
     if (selectedWaypoint != null && state.waypoints.getOrNull(selectedWaypoint!!) == null) {
         // The list changed under the selection (undo/clear) — drop it.
-        viewModel.selectWaypoint(null)
+        viewModel.interaction.select(null)
     }
     waitEditIndex?.let { index ->
         WaypointWaitDialog(
@@ -422,10 +442,6 @@ fun MapScreen(
     LaunchedEffect(playing, peekMeasured) {
         if (playing && peekMeasured) sheetState.partialExpand()
     }
-    // Tapping a marker opens its options inside the sheet.
-    LaunchedEffect(selectedWaypoint) {
-        if (selectedWaypoint != null) sheetState.expand()
-    }
 
     // The strip never shows raw coordinates: while a hold's name resolves,
     // stripFor returns null and the previous line stays on screen.
@@ -436,6 +452,7 @@ fun MapScreen(
         playing = playing,
         builder = builderMode,
         setupReady = setupStatus?.readyToMock != false,
+        movingStop = movingWaypoint?.let { stopName(it, state.waypoints.size) },
     )
     var lastStrip by remember { mutableStateOf(nextStrip ?: StripModel("", StripTone.Neutral)) }
     val strip = nextStrip ?: lastStrip
@@ -506,6 +523,7 @@ fun MapScreen(
                             PeekMode.RECORD -> RecordPeek(
                                 state = state,
                                 holdActive = holding != null,
+                                choice = startChoice,
                                 onPickMode = { showModePicker = true },
                                 onStart = ::playOrAskStart,
                                 onEditRoute = { viewModel.setBuilderMode(true) },
@@ -531,10 +549,11 @@ fun MapScreen(
                         BuilderDetails(
                             state = state,
                             selectedWaypoint = selectedWaypoint,
-                            onSelectWaypoint = viewModel::selectWaypoint,
+                            onSelectWaypoint = viewModel.interaction::select,
                             onSetWait = { waitEditIndex = it },
                             onClearWait = { viewModel.setWaypointWait(it, 0) },
                             onRemoveStop = viewModel::removeWaypoint,
+                            onMoveStop = viewModel.interaction::beginMove,
                         )
                     } else {
                         OptionsList(
@@ -621,10 +640,9 @@ fun MapScreen(
             // strip-only there; at rest with nothing loaded it is strip-only too.
             val speedText = formatMultiplier(speedMultiplier)
             val speedDescription = stringResource(R.string.sheet_speed_cd, speedText)
-            // Strava's card carries an expand glyph top-right (hud-030); while
-            // driving that slot is the speed chip, which also opens the sheet.
-            val expandSheet: () -> Unit = { scope.launch { sheetState.expand() } }
-            val speedPill: @Composable () -> Unit = if (playing) {
+            // While driving the strip's trailing slot is the speed chip, which
+            // also opens the sheet; otherwise the strip is copy alone.
+            val speedPill: (@Composable () -> Unit)? = if (playing) {
                 {
                     FilterChip(
                         selected = expanded,
@@ -636,14 +654,7 @@ fun MapScreen(
                     )
                 }
             } else {
-                {
-                    IconButton(onClick = expandSheet) {
-                        Icon(
-                            painter = painterResource(R.drawable.ic_expand),
-                            contentDescription = stringResource(R.string.sheet_expand_cd),
-                        )
-                    }
-                }
+                null
             }
             val recordCells = if (builderMode) null else recordCells(state, units)
             val stats: (@Composable () -> Unit)? = when {
@@ -661,6 +672,7 @@ fun MapScreen(
                 onStripAction = when (strip.action) {
                     StripAction.FIX -> onOpenSetup
                     StripAction.RELEASE -> sessionViewModel::release
+                    StripAction.CANCEL_MOVE -> viewModel.interaction::cancelMove
                     null -> null
                 },
                 trailing = speedPill,
@@ -670,13 +682,39 @@ fun MapScreen(
                     .padding(bottom = peekHeight + Tokens.mapEdge)
                     .onSizeChanged { cardHeightPx = it.height },
             )
+            // Strava's tap-a-point callout rides the selected marker; a pending
+            // Move hides it so the strip's instruction is what the user reads.
+            val popoverIndex = selectedWaypoint
+            val popoverAnchor = markerScreen
+            val popoverStop = popoverIndex?.let { state.waypoints.getOrNull(it) }
+            val popover = popoverIndex?.let { index ->
+                popoverStop?.let { waypoint ->
+                    popoverAnchor?.let { anchor -> Triple(index, waypoint, anchor) }
+                }
+            }
+            if (popover != null && !playing && movingWaypoint == null) {
+                val (index, waypoint, anchor) = popover
+                StopPopover(
+                    index = index,
+                    waypoint = waypoint,
+                    count = state.waypoints.size,
+                    anchor = anchor,
+                    onSetWait = {
+                        waitEditIndex = index
+                        viewModel.interaction.select(null)
+                    },
+                    onMove = { viewModel.interaction.beginMove(index) },
+                    onDelete = { viewModel.removeWaypoint(index) },
+                    onDismiss = { viewModel.interaction.select(null) },
+                )
+            }
             AnimatedVisibility(
                 visible = builderMode && !playing,
                 enter = Motion.floatingEnter,
                 exit = Motion.floatingExit,
                 modifier = Modifier
-                    .align(Alignment.BottomEnd)
-                    .padding(end = Tokens.mapEdge, bottom = peekHeight + cardHeight + Tokens.mapEdge * 2),
+                    .align(Alignment.BottomCenter)
+                    .padding(bottom = peekHeight + cardHeight + Tokens.mapEdge * 2),
             ) {
                 BuilderTools(
                     canUndo = state.waypoints.isNotEmpty(),
@@ -726,6 +764,7 @@ fun MapScreen(
 private fun RecordPeek(
     state: MapViewModel.UiState,
     holdActive: Boolean,
+    choice: StartChoice?,
     onPickMode: () -> Unit,
     onStart: () -> Unit,
     onEditRoute: () -> Unit,
@@ -738,6 +777,7 @@ private fun RecordPeek(
         onPickMode = onPickMode,
         onStart = onStart,
         onEditRoute = onEditRoute,
+        choice = choice,
     )
 }
 
@@ -750,6 +790,7 @@ private fun BuilderDetails(
     onSetWait: (Int) -> Unit,
     onClearWait: (Int) -> Unit,
     onRemoveStop: (Int) -> Unit,
+    onMoveStop: (Int) -> Unit,
 ) {
     if (state.waypoints.isEmpty()) return
     Text(
@@ -768,6 +809,7 @@ private fun BuilderDetails(
             onSetWait = { onSetWait(index) },
             onClearWait = { onClearWait(index) },
             onRemove = { onRemoveStop(index) },
+            onMove = { onMoveStop(index) },
         )
     }
 }
@@ -783,6 +825,7 @@ private fun StopRow(
     onSetWait: () -> Unit,
     onClearWait: () -> Unit,
     onRemove: () -> Unit,
+    onMove: () -> Unit,
 ) {
     // Mirrors the map markers: the first stop is always the start.
     val isStart = index == 0
@@ -799,14 +842,7 @@ private fun StopRow(
             StopDisc(number = index + 1, isStart = isStart, isEnd = isEnd)
             Spacer(Modifier.width(Tokens.space3))
             Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = when {
-                        isStart -> stringResource(R.string.sheet_start)
-                        isEnd -> stringResource(R.string.sheet_destination)
-                        else -> stringResource(R.string.sheet_stop_n, index + 1)
-                    },
-                    style = MaterialTheme.typography.bodyLarge,
-                )
+                Text(text = stopName(index, count), style = MaterialTheme.typography.bodyLarge)
                 if (waypoint.waitSeconds > 0) {
                     Text(
                         text = stringResource(
@@ -822,18 +858,22 @@ private fun StopRow(
                 Icon(Icons.Filled.Delete, contentDescription = stringResource(R.string.sheet_remove_stop))
             }
         }
-        if (selected && !isEnd) {
+        if (selected) {
+            // On-sheet equivalent of the marker popover (TalkBack path).
             Row(horizontalArrangement = Arrangement.spacedBy(Tokens.space2)) {
-                TextButton(onClick = onSetWait) {
-                    Text(
-                        stringResource(
-                            if (waypoint.waitSeconds > 0) R.string.sheet_edit_wait else R.string.sheet_set_wait,
-                        ),
-                    )
+                if (!isEnd) {
+                    TextButton(onClick = onSetWait) {
+                        Text(
+                            stringResource(
+                                if (waypoint.waitSeconds > 0) R.string.sheet_edit_wait else R.string.sheet_set_wait,
+                            ),
+                        )
+                    }
                 }
                 if (waypoint.waitSeconds > 0) {
                     TextButton(onClick = onClearWait) { Text(stringResource(R.string.sheet_remove_wait)) }
                 }
+                TextButton(onClick = onMove) { Text(stringResource(R.string.stop_menu_move)) }
             }
         }
     }
@@ -856,10 +896,9 @@ private fun MapControls(
         modifier = modifier,
     ) {
         AnimatedVisibility(visible = !playing, enter = Motion.floatingEnter, exit = Motion.floatingExit) {
-            val description = stringResource(if (map3d) R.string.map_2d_cd else R.string.map_3d_cd)
-            FilledTonalIconButton(
+            MapPill(
                 onClick = onToggle3d,
-                modifier = Modifier.semantics { contentDescription = description },
+                contentDescription = stringResource(if (map3d) R.string.map_2d_cd else R.string.map_3d_cd),
             ) {
                 Text(
                     text = stringResource(if (map3d) R.string.map_2d else R.string.map_3d),
@@ -869,21 +908,20 @@ private fun MapControls(
         }
         Crossfade(targetState = playing, label = "locateOrFollow") { isPlaying ->
             if (isPlaying) {
-                FilledIconToggleButton(checked = followCamera, onCheckedChange = { onToggleFollow() }) {
-                    Icon(
-                        painter = painterResource(R.drawable.ic_target),
-                        contentDescription = stringResource(
-                            if (followCamera) R.string.map_following_cd else R.string.map_follow_cd,
-                        ),
-                    )
-                }
+                MapIconPill(
+                    painter = painterResource(R.drawable.ic_target),
+                    contentDescription = stringResource(
+                        if (followCamera) R.string.map_following_cd else R.string.map_follow_cd,
+                    ),
+                    onClick = onToggleFollow,
+                    selected = followCamera,
+                )
             } else {
-                FilledTonalIconButton(onClick = onLocate) {
-                    Icon(
-                        painter = painterResource(R.drawable.ic_target),
-                        contentDescription = stringResource(R.string.map_locate_cd),
-                    )
-                }
+                MapIconPill(
+                    painter = painterResource(R.drawable.ic_target),
+                    contentDescription = stringResource(R.string.map_locate_cd),
+                    onClick = onLocate,
+                )
             }
         }
     }

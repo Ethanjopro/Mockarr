@@ -545,3 +545,41 @@ Verified end-to-end like a human: app-drawer swipe → tapped the Mockarr icon �
   2 chars, prefix cache, recents, structured rows, dedupe, search-server setting,
   `Geocoder` interface). PRODUCT.md's stale "three-tab IA" line replaced.
 
+
+### 2026-08-28 — Session 16 (route maker: Strava builder parity)
+
+- **Strava study** from the local Mobbin capture (frames 346–362) + the help centre:
+  white shadowed pills for every floating control, `⋯` menu as a caret popover
+  (label-left / glyph-right, red destructive row), tap-a-point callout with **Move Point /
+  Delete**. Findings in `docs/design/refs/refs.md` (new curated `map-352`, `map-361`).
+- **Map chrome** (`ui/theme/MapChrome.kt`): `MapPill` / `MapIconPill` (48 dp white circle,
+  `Tokens.floatingElevation`), `MapPopover` (Compose `Popup`, custom position provider that
+  centres on a window-pixel anchor, flips below when there is no room, caret stays on the
+  anchor; `modal` = focusable + dismiss-on-outside) and `PopoverRow`. FAB stack, builder
+  tools (now bottom-centre: `⋯` · reverse · undo) and the builder ✕ use them. Markers get
+  a baked shadow (`WaypointMarkers.kt`, bitmap headroom grows with it). The strip's ⤢
+  glyph is gone (`ic_expand.xml` deleted); the trailing slot is the speed chip only.
+- **Stop popover** (`MapStopPopover.kt`): tapping a marker shows disc + name + wait, then
+  *Wait here… / Move stop / Delete stop* (no Wait on the destination). It rides the
+  marker: `MarkerTracker` (`ui/map/MarkerTracker.kt`) republishes the selected marker's
+  window point on every camera frame → `MapInteraction.selectedMarkerScreen`. Non-modal, so
+  a pan keeps it glued and a map tap deselects; Back closes it. The sheet no longer expands
+  on marker tap; the stop list keeps Wait / Move / Delete as the TalkBack path.
+- **Move stop**: `MapInteraction.beginMove` → strip "Tap the map to move Stop 2 · Cancel"
+  → next map tap `MapViewModel.moveWaypoint` (wait kept, route refetched; `movedTo` helper
+  + `MovedWaypointTest`). Every stop edit calls `interaction.reset()`.
+- **Start splits in place** (`ActionRow(choice = StartChoice)`): with a hold away from the
+  route start, Start fade-throughs the row into **Held spot** (primary) · **Route start**
+  (inverse) pills, exactly like Pause → Resume/Finish; picking, Back, a map tap or a pan
+  restores the row. `StartChoiceDialog` and its strings are gone. `ActionPill` moved from
+  MapSheet to MapActionRow and is shared.
+- **detekt**: `MapViewModel` hit the 26-function class cap → the transient state
+  (selection, marker point, move, start choice) lives in `MapInteraction` (`viewModel.
+  interaction`); `OptionsList` & co moved to `MapOptionsList.kt` to keep MapActionRow under
+  the file cap. Reminder: a non-focusable `Popup` is invisible to `uiautomator` — verify
+  the stop popover by screenshot, not `waitfor`.
+- **DESIGN.md**: Soft Lift rule now covers pills, popovers and markers; new Map Pill and
+  Popover sections; Action Row documents the Start choice; "three ways in" → two.
+- Verified on the emulator, light + dark: pills/menu/popover, Wait → badge, Move (strip +
+  relocation + refetch), Delete, popover flips below and rides a pan, map tap dismisses,
+  Start split → Back → Route start → Driving, font scale 1.3 on the split row, logcat clean.

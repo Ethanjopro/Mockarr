@@ -215,6 +215,18 @@ components:
     textColor: "{colors.night-indigo-on}"
     rounded: "{rounded.full}"
     size: "28dp"
+  map-pill:
+    backgroundColor: "{colors.surface-container-lowest}"
+    textColor: "{colors.paper-on}"
+    rounded: "{rounded.full}"
+    size: "48dp"
+    shadow: "6dp"
+  popover:
+    backgroundColor: "{colors.surface-container-lowest}"
+    textColor: "{colors.paper-on}"
+    rounded: "{rounded.card}"
+    shadow: "8dp"
+    padding: "0"
 ---
 
 # Design System: Mockarr
@@ -244,7 +256,8 @@ Cancel/Done headers.
 - Restrained colour: neutral ground, indigo accent, semantic state tints kept separate.
 - Card over sheet: the stat card (strip + trio) floats above the sheet and rides its edge.
 - Value-over-label stat cells in equal-weight trios; bold tabular figures; no hero number.
-- Soft lift: the card and the sheet carry a low shadow; nothing else does.
+- Soft lift: the card, the sheet and every control floating over the map (white pills,
+  popovers, markers) carry a low shadow; nothing inside the sheet does.
 - One radius family: 12 / 16 / 28 dp and full pills.
 - No navigation bar; chrome recedes during playback (search, 3D toggle, action row hide —
   the card stays).
@@ -339,11 +352,13 @@ the sheet (and by pushed screens). There is no navigation bar.
   scrollable options list — *Save route* first when a road route is loaded (reads *Saved*
   once it is), the drive switches, then *Saved routes ›* and *All settings ›*. The peek is
   the screen's resting state. The sheet is always draggable from anywhere on it, the
-  handle is a 48dp tap target that toggles peek ↔ expanded, and the stat card's strip
-  carries Strava's expand glyph (`hud-030`) — three ways in, because a swipe alone is
-  neither discoverable nor accessible.
+  handle is a 48dp tap target that toggles peek ↔ expanded — two ways in, because a
+  swipe alone is neither discoverable nor accessible. The strip carries no expand glyph
+  (Ethan, session 16): its trailing slot is the speed chip while driving and nothing else.
 - **Top overlays** sit `{spacing.map-edge}` from the edges: the search field full-width,
-  then the FAB stack aligned to the right edge (3D toggle, locate / follow), 8dp apart.
+  then the FAB stack aligned to the right edge (3D toggle, locate / follow), 8dp apart —
+  every FAB is a **map pill**. The builder's tools row (`⋯` · reverse · undo) is three map
+  pills bottom-centre, riding the stat card's top edge (Strava `map-352`).
 - **Spacing rhythm** is the 4dp grid: 4 / 8 / 12 / 16 / 24 / 32, with 20dp as the sheet and
   card content inset and 12dp as the map-edge gutter.
 - **Landscape / compact height**: the sheet keeps its peek and scrolls its detail column;
@@ -353,18 +368,20 @@ the sheet (and by pushed screens). There is no navigation bar.
 
 ## Elevation & Depth
 
-Tonal layering plus one soft lift. Surfaces step through the container ramp (card on
-`surface-container-lowest`, sheet on `surface-container-low`, strips on `-high`, selected
-rows on `-high`, tracks on `-highest`); the map itself is the lowest layer. The stat card
-(4dp) and the sheet (8dp) carry a low ambient shadow so they read as objects over the
-basemap — Strava's card is the reference. FABs keep tonal elevation; chips, markers and
-strips never get a shadow. Material's default component elevation (dialog, snackbar) is
-left as is.
+Tonal layering inside the sheet, one soft lift over the map. Surfaces step through the
+container ramp (card on `surface-container-lowest`, sheet on `surface-container-low`,
+strips on `-high`, selected rows on `-high`, tracks on `-highest`); the map itself is the
+lowest layer. Everything that floats over the basemap reads as an object on it: the stat
+card (4dp), the sheet (8dp), the white **map pills** (6dp), **popovers** (8dp) and the
+marker bitmaps (a baked 3dp blur) — Strava's builder is the reference (`map-352`). Chips,
+strips and anything inside the sheet never get a shadow. Material's default component
+elevation (dialog, snackbar) is left as is.
 
 ### Named Rules
-**The Soft Lift Rule.** Only the stat card and the sheet cast a shadow, and only the low
-one in `Tokens` (`cardElevation` / `sheetElevation`). Everything else floating over the map
-is distinguished by container tone and its 28/16/12dp corner.
+**The Soft Lift Rule.** A shadow means "this floats over the map". The stat card, the
+sheet, map pills, popovers and markers cast one — always the low value in `Tokens`
+(`cardElevation` / `sheetElevation` / `floatingElevation` / `popoverElevation`). Inside the
+sheet, hierarchy comes from container tone and the 28/16/12dp corner, never a shadow.
 
 ## Shapes
 
@@ -392,11 +409,30 @@ Direction chevrons on the route are 10dp, 2dp stroke, drawn in the casing colour
 ### The Action Row (signature)
 Strava's Record screen, matched: the sheet's peek is one 96dp row of three equal slots —
 Mode (48dp tonal icon + label) · **Start** (64dp filled indigo FAB + label) · Add / Edit
-route (48dp tonal icon + label). In builder mode the row is ✕ (tonal) · **Save**
-(outlined, enabled once a road route exists) · **Done** (filled) — Strava keeps Save in
-the builder sheet (`map-348`). While driving the row is replaced by the **Pause pill**,
-which splits into **Resume** (primary) + **Finish** (inverse) when paused; the "1×" speed
-chip sits in the card's strip. Never stack actions vertically in the peek.
+route (48dp tonal icon + label). **Start while holding elsewhere** does not raise a dialog:
+the row fade-throughs into two 56dp pills — **From held spot** (primary) · **From route
+start** (inverse) — and returns once one is picked; Back or a map tap cancels. In builder
+mode the row is ✕ (white circle, hairline) · **Save** (outlined, enabled once a road route
+exists) · **Done** (filled) — Strava keeps Save in the builder sheet (`map-348`). While
+driving the row is replaced by the **Pause pill**, which splits into **Resume** (primary) +
+**Finish** (inverse) when paused; the "1×" speed chip sits in the card's strip. Never stack
+actions vertically in the peek.
+
+### Map Pill
+Strava's floating control: a 48dp `surface-container-lowest` circle with the floating
+shadow and an on-surface glyph (`MapPill` / `MapIconPill` in `ui/theme/MapChrome.kt`).
+Disabled = glyph at 38%, never hidden; selected (follow) = indigo fill. Used for the FAB
+stack and the builder tools; never inside the sheet.
+
+### Popover
+Strava's builder menu and its tap-a-point callout: a 16dp `surface-container-lowest` card
+with the popover shadow and a **caret** on its anchor (`MapPopover`), sitting above the
+anchor and flipping below when there is no room. Rows (`PopoverRow`) are label-left,
+glyph-right, 52dp min, hairline dividers; a destructive row uses the error role and comes
+last. The **stop popover** (`StopPopover`) rides the selected marker on every camera frame:
+header = disc + "Stop 2" + its wait, then *Wait here…* (not on the destination) · *Move
+stop* · *Delete stop*. Outside tap and Back dismiss. Move puts the strip in "Tap the map to
+move Stop 2 — Cancel" and the next map tap relocates the stop.
 
 ### Motion (one authored moment)
 Play is the only choreographed transition, built from three reusable pieces in
@@ -447,8 +483,9 @@ are undefined (nothing loaded).
 
 ### Map markers
 - **Stop discs:** 11dp radius, numbered, bold label; start in `map-stop-start`, vias in
-  `map-stop-via`, destination in `map-stop-end` with the ring colour as its text. Wait
-  badge: 4.5dp amber dot at the top-right. Selected: an extra `map-selection` ring.
+  `map-stop-via`, destination in `map-stop-end` with the ring colour as its text, on a
+  baked soft shadow (3dp blur, 1.5dp down). Wait badge: 4.5dp amber dot at the top-right.
+  Selected: an extra `map-selection` ring. Tapping one opens the stop popover.
 - **Position:** 8dp `map-position` circle with a 3dp ground-colour ring. **Hold pin:** 9dp
   `map-hold-pin` circle, same ring. **Wait chip:** rounded pill, 11dp bold text with a
   clock glyph; ground-toned by default, amber while the wait is live.
@@ -468,10 +505,11 @@ are undefined (nothing loaded).
 - **Do** keep every touch target at 48dp and every list scrollable with IME padding.
 
 ### Don't:
-- **Don't** add a second card above the sheet; there is one card and one sheet.
+- **Don't** add a second card above the sheet; there is one card and one sheet (popovers
+  are transient and anchored, not cards).
 - **Don't** enlarge one stat into a hero numeral.
 - **Don't** use Strava orange, or any second saturated accent beside indigo.
-- **Don't** put a shadow on anything but the card and the sheet.
+- **Don't** put a shadow on anything inside the sheet; over the map, only the Soft Lift set.
 - **Don't** add a navigation bar or tabs; everything is reachable from the sheet.
 - **Don't** ever show raw coordinates in the strip or the notification.
 - **Don't** add iOS chrome — wheel pickers, Cancel/Done header pairs, Cupertino switches.

@@ -1,7 +1,9 @@
 package dev.mockarr.app.ui.map
 
 import android.graphics.Bitmap
+import android.graphics.BlurMaskFilter
 import android.graphics.Canvas
+import android.graphics.Color
 import android.graphics.Paint
 import android.graphics.RectF
 import android.graphics.Typeface
@@ -23,6 +25,9 @@ private const val WAIT_BADGE_RADIUS_DP = 4.5f
 private const val WAIT_BADGE_OFFSET_FRACTION = 0.7f
 private const val SELECTION_RING_GAP_DP = 1.5f
 private const val SELECTION_RING_WIDTH_DP = 2.5f
+private const val SHADOW_BLUR_DP = 3f
+private const val SHADOW_DY_DP = 1.5f
+private const val SHADOW_ALPHA = 0x48
 private const val RANK_SELECTED_BOOST = 1_000
 private const val RADIX_HEX = 16
 
@@ -88,12 +93,20 @@ private fun waypointBitmap(
     val stroke = WAYPOINT_STROKE_DP * density
     val ringGap = SELECTION_RING_GAP_DP * density
     val ringWidth = SELECTION_RING_WIDTH_DP * density
-    // Every variant reserves ring headroom: uniform bitmap size keeps the
-    // icon's center anchor fixed, so selecting never shifts the marker.
-    val size = ceil((fillRadius + stroke + ringGap + ringWidth) * 2).toInt()
+    val shadowBlur = SHADOW_BLUR_DP * density
+    val shadowDy = SHADOW_DY_DP * density
+    // Every variant reserves ring + shadow headroom: uniform bitmap size keeps
+    // the icon's center anchor fixed, so selecting never shifts the marker.
+    val size = ceil((fillRadius + stroke + ringGap + ringWidth + shadowBlur + shadowDy) * 2).toInt()
     val center = size / 2f
     val bitmap = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888)
     val canvas = Canvas(bitmap)
+    // Strava's markers sit on a soft shadow, like the pills over the map.
+    val shadow = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = Color.argb(SHADOW_ALPHA, 0, 0, 0)
+        maskFilter = BlurMaskFilter(shadowBlur, BlurMaskFilter.Blur.NORMAL)
+    }
+    canvas.drawCircle(center, center + shadowDy, fillRadius + stroke, shadow)
     val paint = Paint(Paint.ANTI_ALIAS_FLAG)
     paint.color = when (role) {
         "start" -> palette.stopStart

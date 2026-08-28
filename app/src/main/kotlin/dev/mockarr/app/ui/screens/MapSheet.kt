@@ -7,20 +7,15 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.BottomSheetDefaults
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonColors
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
-import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -28,7 +23,6 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.CustomAccessibilityAction
 import androidx.compose.ui.semantics.contentDescription
@@ -80,13 +74,13 @@ fun PlaybackControls(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             if (isPaused) {
-                Pill(
+                ActionPill(
                     label = stringResource(R.string.sheet_resume),
                     iconRes = R.drawable.ic_play,
                     enabled = !stopping,
                     onClick = onResume,
                 )
-                Pill(
+                ActionPill(
                     label = stringResource(R.string.sheet_finish),
                     iconRes = R.drawable.ic_flag,
                     enabled = !stopping,
@@ -97,7 +91,7 @@ fun PlaybackControls(
                     ),
                 )
             } else {
-                Pill(
+                ActionPill(
                     label = stringResource(R.string.sheet_pause),
                     iconRes = R.drawable.ic_pause,
                     enabled = !stopping,
@@ -105,26 +99,6 @@ fun PlaybackControls(
                 )
             }
         }
-    }
-}
-
-@Composable
-private fun RowScope.Pill(
-    label: String,
-    iconRes: Int,
-    enabled: Boolean,
-    onClick: () -> Unit,
-    colors: ButtonColors = ButtonDefaults.buttonColors(),
-) {
-    Button(
-        onClick = onClick,
-        enabled = enabled,
-        colors = colors,
-        modifier = Modifier.weight(1f).height(Tokens.pillHeight),
-    ) {
-        Icon(painterResource(iconRes), contentDescription = null)
-        Spacer(Modifier.width(Tokens.space2))
-        Text(label, style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold))
     }
 }
 
@@ -220,7 +194,7 @@ private const val HALF_SPEED = 0.5
 private const val DOUBLE_SPEED = 2.0
 private val DISC_SIZE = 28.dp
 
-internal enum class StripAction { FIX, RELEASE }
+internal enum class StripAction { FIX, RELEASE, CANCEL_MOVE }
 
 internal data class StripModel(
     val text: String,
@@ -242,8 +216,15 @@ internal fun stripFor(
     playing: Boolean,
     builder: Boolean,
     setupReady: Boolean,
+    movingStop: String? = null,
 ): StripModel? = when {
     playing -> playbackStrip(playbackState)
+    movingStop != null -> StripModel(
+        text = stringResource(R.string.strip_moving_stop, movingStop),
+        tone = StripTone.Neutral,
+        actionLabel = stringResource(R.string.strip_cancel),
+        action = StripAction.CANCEL_MOVE,
+    )
     holding != null -> holdingText(holding)?.let { text ->
         StripModel(
             text = text,

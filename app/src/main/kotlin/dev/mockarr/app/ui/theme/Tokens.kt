@@ -32,6 +32,11 @@ object Tokens {
     val cardElevation = 4.dp
     val sheetElevation = 8.dp
 
+    /** Strava's white map pills and their popovers float too (DESIGN.md → Soft Lift). */
+    val floatingElevation = 6.dp
+    val popoverElevation = 8.dp
+    val pillSize = 48.dp
+
     /** Full-width pill actions (Pause / Resume / Finish). */
     val pillHeight = 56.dp
 }

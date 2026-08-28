@@ -19,18 +19,13 @@
     <string name="strip_holding_destination">Holding at destination</string>
     <string name="strip_holding_pin">Holding at dropped pin</string>
     <string name="strip_stop_hold">Stop</string>
-    <string name="strip_hold_hint">Play to route from your held spot</string>
 
     <!-- Map: sheet content -->
     <string name="sheet_idle_title">Tap the map to add stops</string>
     <string name="sheet_idle_body">Two or more stops make a route. Long-press anywhere to hold your location there instead.</string>
-    <string name="sheet_one_stop">Add another stop to make a route</string>
-    <string name="sheet_play">Play</string>
     <string name="sheet_pause">Pause</string>
     <string name="sheet_resume">Resume</string>
     <string name="sheet_finish">Finish</string>
-    <string name="sheet_undo">Undo</string>
-    <string name="sheet_clear">Clear</string>
     <string name="sheet_stops_header">Stops</string>
     <string name="sheet_stop_n">Stop %1$d</string>
     <string name="sheet_start">Start</string>
@@ -53,7 +48,6 @@
     <string name="stat_distance">Distance</string>
     <string name="stat_duration">Duration</string>
     <string name="stat_stops">Stops</string>
-    <string name="stat_traffic_suffix">with traffic</string>
     <string name="speed_kmh">%1$d km/h</string>
     <string name="speed_mph">%1$d mph</string>
 
@@ -68,8 +62,6 @@
     <string name="map_search_hint">Search for a place</string>
     <string name="map_search_cd">Search</string>
     <string name="map_search_close">Close</string>
-    <string name="map_hold_here">Hold here</string>
-    <string name="map_add_stop_here">Add stop here</string>
     <string name="thumbstick_cd">Move held location</string>
 
     <!-- Map: dialogs -->
@@ -79,10 +71,6 @@
     <string name="dialog_wait_custom">Custom minutes</string>
     <string name="dialog_set">Set</string>
     <string name="dialog_cancel">Cancel</string>
-    <string name="dialog_start_title">Start from held location?</string>
-    <string name="dialog_start_body">Your location is currently held somewhere else. Where should this drive start?</string>
-    <string name="dialog_start_from_hold">Start from held location</string>
-    <string name="dialog_play_as_built">Play route as built</string>
     <string name="dialog_route_from_hold_title">Route from held location?</string>
     <string name="dialog_route_from_hold_body">Build a route from your held location to this stop and play it?</string>
     <string name="dialog_route_and_play">Route and play</string>
@@ -99,6 +87,11 @@
     <string name="row_start_cd">Start the drive</string>
     <string name="row_add_route">Add route</string>
     <string name="row_switch_route">Edit route</string>
+    <string name="row_start_from_hold">Held spot</string>
+    <string name="row_start_from_hold_cd">Start from the held location</string>
+    <string name="row_start_from_route">Route start</string>
+    <string name="row_start_from_route_cd">Start from the beginning of the route</string>
+    <string name="row_start_choice_cd">Choose where the drive starts</string>
     <string name="mode_picker_title">Travel mode</string>
     <string name="mode_locked">Needs a custom routing server (Settings)</string>
     <string name="builder_done">Done</string>
@@ -113,6 +106,12 @@
     <string name="builder_discard_body">The stops you placed will be removed.</string>
     <string name="builder_discard">Discard</string>
     <string name="builder_keep">Keep editing</string>
+    <string name="stop_menu_wait">Wait here…</string>
+    <string name="stop_menu_edit_wait">Edit wait…</string>
+    <string name="stop_menu_move">Move stop</string>
+    <string name="stop_menu_delete">Delete stop</string>
+    <string name="strip_moving_stop">Tap the map to move %1$s</string>
+    <string name="strip_cancel">Cancel</string>
     <string name="strip_building">Building a route</string>
     <string name="strip_route_loaded">Route ready</string>
     <string name="stat_placeholder">—</string>

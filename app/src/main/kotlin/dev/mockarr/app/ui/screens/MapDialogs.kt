@@ -18,7 +18,6 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.KeyboardType
@@ -90,27 +89,6 @@ internal fun WaypointWaitDialog(
         },
         dismissButton = {
             TextButton(onClick = onDismiss) { Text(stringResource(R.string.dialog_cancel)) }
-        },
-    )
-}
-
-/** Play pressed while holding elsewhere: pick where the drive starts. */
-@Composable
-internal fun StartChoiceDialog(
-    onStartFromHold: () -> Unit,
-    onPlayAsBuilt: () -> Unit,
-    onDismiss: () -> Unit,
-) {
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text(stringResource(R.string.dialog_start_title)) },
-        text = { Text(stringResource(R.string.dialog_start_body)) },
-        confirmButton = {
-            Column(horizontalAlignment = Alignment.End) {
-                TextButton(onClick = onStartFromHold) { Text(stringResource(R.string.dialog_start_from_hold)) }
-                TextButton(onClick = onPlayAsBuilt) { Text(stringResource(R.string.dialog_play_as_built)) }
-                TextButton(onClick = onDismiss) { Text(stringResource(R.string.dialog_cancel)) }
-            }
         },
     )
 }

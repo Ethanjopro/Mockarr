@@ -43,6 +43,8 @@ Material switches; heatmap/segment/3D-flyover features; photo thumbnails on rout
 | map-348 | Route builder with route | Pill tools (⋯ / reverse / undo) on the map edge; stats + Save in the sheet. → **route planned** state. |
 | map-349 | Save route sheet | Stats, name field with edit glyph, visibility segmented, two toggles, Cancel/Confirm. → Save dialog → sheet. |
 | map-361 | "We can't route to this point" toast | Dark toast at top over the map; sheet unchanged. → routing error state. |
+| map-352 | Route builder `⋯` menu | White 16dp card with a **caret** on the pill, label-left/glyph-right rows, hairline dividers, red "Delete all"; white shadowed tool pills `⋯ · sketch · undo · redo` bottom-centre. → `MapPopover` + `MapPill` (session 16). |
+| map-361 (raw 361) | Manual-mode tools | Same pill family over a route with vias as small ringed discs; ✕ top-left, FAB stack top-right all white with shadow. → floating-control family. |
 | map-363 | Route detail | Map top half, sheet with title, chip, stat line, icon-action row (Save / Offline / Edit / Start). → opening a saved route. |
 | map-392 / map-656 | Maps tab (light / dark) | Search bar with sport chip, filter chips, FAB stack, Create Route FAB, peek card. → chrome layout for the Map tab. |
 | map-278 | Maps tab with route card + counter | Floating route card + "147 Routes" sheet handle. → peek sheet showing the current route. |
@@ -63,6 +65,10 @@ Material switches; heatmap/segment/3D-flyover features; photo thumbnails on rout
 | state-353 | "Route reversed" toast | Dark success toast top-left with green check. → Saved confirmation. |
 | state-391 | Delete confirmation sheet | Destructive action isolated in its own sheet row. → delete saved route. |
 | numeral-044 | Time-of-day stats screen | One giant numeral, small label. → the expanded HUD's "big number" register. |
+
+**Tap a point (Strava help centre, no Mobbin frame):** a callout over the marker with
+**Move Point** and **Delete**; Move = the next map tap relocates the point. → `StopPopover`
+(Wait · Move stop · Delete) riding the marker.
 
 ## Decisions these refs settle (proposed — confirmed in brief.md)
 - **Sheet, not cards.** One draggable bottom sheet (peek / half / full) replaces the card

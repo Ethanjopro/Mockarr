@@ -13,6 +13,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.viewinterop.AndroidView
@@ -84,6 +85,7 @@ fun MockarrMap(
     onMapTap: (LatLng) -> Unit,
     onWaypointTap: (Int) -> Unit,
     onMapLongPress: (LatLng) -> Unit,
+    onSelectedWaypointScreen: (Offset?) -> Unit,
     styleUrl: String,
     palette: MapPalette,
     visible: Boolean,
@@ -106,6 +108,7 @@ fun MockarrMap(
     val currentOnLongPress by rememberUpdatedState(onMapLongPress)
     val currentOnCameraIdle by rememberUpdatedState(onCameraIdle)
     val currentOnUserGesture by rememberUpdatedState(onUserGesture)
+    val currentOnSelectedWaypointScreen by rememberUpdatedState(onSelectedWaypointScreen)
     val currentVisible by rememberUpdatedState(visible)
     val currentLoadInitialCamera by rememberUpdatedState(loadInitialCamera)
     var map by remember { mutableStateOf<MapLibreMap?>(null) }
@@ -239,6 +242,12 @@ fun MockarrMap(
     LaunchedEffect(style, waypoints, selectedWaypoint, markerStyle) {
         val loadedStyle = style ?: return@LaunchedEffect
         updateWaypoints(loadedStyle, waypoints, selectedWaypoint, markerStyle)
+    }
+    // The selected marker's window position rides every camera frame so the
+    // stop popover stays glued to it.
+    val tracker = remember(map) { map?.let { MarkerTracker(it, mapView) { p -> currentOnSelectedWaypointScreen(p) } } }
+    LaunchedEffect(tracker, waypoints, selectedWaypoint) {
+        tracker?.track(selectedWaypoint?.let { waypoints.getOrNull(it)?.position })
     }
 
     // Keyed on style: a style reload drops its images, so the tracker restarts.
