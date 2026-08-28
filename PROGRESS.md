@@ -359,3 +359,8 @@ Verified end-to-end like a human: app-drawer swipe → tapped the Mockarr icon �
   unattended rounds. Suggested commands: `/claude-md-review`, `/progress-audit`,
   `/impeccable document` (DESIGN.md from the new tokens), `/impeccable init` re-run.
 - **Next**: wait for Ethan's Strava layout brief → `/impeccable shape <surface>` per screen.
+- **CLAUDE.md reviewed and tightened** (`/claude-md-review`): fixed the stale detekt rule
+  (file cap of 11 top-level functions is what bites, not the class cap), the commit-footer
+  rule (Claude-Session line is required), the positioning contradiction with PRODUCT.md;
+  added the ktlint-hook-only-on-Edit gotcha, the one-Gradle-at-a-time rule, the concrete
+  `gh run watch` invocation; Modules trimmed to non-obvious facts (+ `core:mocklocation`).
