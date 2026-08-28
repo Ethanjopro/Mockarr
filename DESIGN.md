@@ -356,6 +356,16 @@ equal-height actions — primary filled and weighted to fill, secondary outlined
 compact pill (the "1×" speed chip) at the end. 8dp gaps. Never stack actions vertically in
 the peek.
 
+### Motion (one authored moment)
+Play is the only choreographed transition, built from four reusable pieces in
+`ui/Motion.kt`: top chrome (search bar) slides up and fades (200ms out / 300ms in), bottom
+chrome (navigation bar) slides down the same way, floating controls (3D toggle, builder
+pills, thumbstick) scale from 80% with a fade, and the sheet peek swaps content with a
+Material fade-through (90ms out, 300ms in from 96%). The strip's colour crossfade and the
+camera ease complete it; Stop reverses everything. Compose animations follow the system
+"Remove animations" setting on their own; MapLibre camera moves are gated by
+`rememberSystemAnimationsEnabled()` and cut instead of easing when it is off.
+
 ### Status Strip (signature)
 The sheet's top band: 8dp above a 32×4dp drag handle (foreground at 40% alpha), then a
 40dp-min row of Title copy with an optional trailing text action. Container and content
@@ -406,7 +416,7 @@ a `surface-container-highest` track and no stop indicator.
 - **Do** present numbers as Label-over-Headline cells in equal trios with tabular figures.
 - **Do** measure the sheet's peek at runtime and fall back to 200dp until measured.
 - **Do** hide non-essential chrome (search, 3D, navigation bar, thumbstick) during playback
-  or when its state does not apply.
+  or when its state does not apply — through the `Motion` transitions, never a hard cut.
 - **Do** keep every touch target at 48dp and every list scrollable with IME padding.
 
 ### Don't:

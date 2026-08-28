@@ -97,6 +97,7 @@ fun MockarrMap(
     pinPosition: LatLng? = null,
     playbackPosition: LatLng? = null,
     cameraFollow: Boolean = false,
+    animateCamera: Boolean = true,
     modifier: Modifier = Modifier,
 ) {
     val context = LocalContext.current
@@ -269,10 +270,7 @@ fun MockarrMap(
         val outside = screen.x < marginX || screen.x > libreMap.width - marginX ||
             screen.y < marginY || screen.y > libreMap.height - marginY
         if (outside) {
-            libreMap.easeCamera(
-                CameraUpdateFactory.newLatLng(pin.toMapLibre()),
-                KEEP_IN_VIEW_EASE_MILLIS,
-            )
+            libreMap.move(CameraUpdateFactory.newLatLng(pin.toMapLibre()), animateCamera, KEEP_IN_VIEW_EASE_MILLIS)
         }
     }
 
@@ -285,7 +283,7 @@ fun MockarrMap(
     LaunchedEffect(map, cameraCommand) {
         val libreMap = map ?: return@LaunchedEffect
         val command = cameraCommand ?: return@LaunchedEffect
-        applyCameraCommand(libreMap, command, density)
+        applyCameraCommand(libreMap, command, density, animateCamera)
     }
 
     // Follow eases the camera to each fix. The zoom floor applies only when
@@ -308,7 +306,7 @@ fun MockarrMap(
                 maxOf(libreMap.cameraPosition.zoom, FOLLOW_MIN_ZOOM),
             )
         }
-        libreMap.easeCamera(update, FOLLOW_EASE_MILLIS)
+        libreMap.move(update, animateCamera, FOLLOW_EASE_MILLIS)
     }
 }
 

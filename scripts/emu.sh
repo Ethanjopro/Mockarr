@@ -34,6 +34,13 @@ case "${1:-help}" in
     "$ADB" shell wm dismiss-keyguard 2>/dev/null || true
     echo "booted"
     ;;
+  # Screen recording for motion verification: scripts/emu.sh record <seconds> [out.mp4]
+  # Pair with: ffmpeg -i out.mp4 -vf fps=10,scale=270:-1,tile=8x3 sheet.png
+  record)
+    secs="${2:-4}"; out="${3:-rec.mp4}"
+    "$ADB" shell screenrecord --time-limit "$secs" --bit-rate 4000000 /sdcard/rec.mp4
+    "$ADB" pull -q /sdcard/rec.mp4 "$out" && echo "saved $out (${secs}s)"
+    ;;
   # Raw adb shell passthrough for one-offs (dumpsys location, settings, …).
   shell)     shift; "$ADB" shell "$@" ;;
   # Wait until the app has drawn and the accessibility tree is readable — the
@@ -183,6 +190,7 @@ usage: scripts/emu.sh <command> [args]
   settle [timeout=20]        wait until the app has drawn (do this before the first tap)
   tab Map|Routes|Settings    switch bottom-nav tab by content-desc
   shell <adb shell args…>    raw adb shell passthrough
+  record <secs> [out.mp4]    screen recording (blocks for <secs>) for motion checks
   kill                       shut the emulator down
   launch                     start the Mockarr main activity
   install                    :app:installDebug via scripts/gradle (refuses while Gradle is busy)

@@ -468,3 +468,19 @@ Verified end-to-end like a human: app-drawer swipe → tapped the Mockarr icon �
   crossfade already in), adapt pass (expanded widths / landscape side panel), notification
   layout, then the a11y follow-ups from the audit (map-gesture equivalents exist; TalkBack
   sweep pending).
+
+### 2026-08-28 — Session 15g (motion pass)
+
+- **One authored moment — Play** (`ui/Motion.kt`): search bar slides up + fades, 3D toggle
+  scales out while the Follow toggle crossfades in, the sheet peek fade-throughs from the
+  action row to the stat trio, the bottom navigation bar slides down (the sheet follows
+  its edge), strip crossfade and camera ease as before; Stop reverses. Builder pills and
+  the thumbstick now scale in/out instead of popping.
+- **Navigation**: `NavigationSuiteScaffold` replaced by a hand-rolled `AdaptiveNavigation`
+  (bar on compact width, rail otherwise) because the suite can only switch layout types
+  with no motion. Behaviour otherwise unchanged.
+- **Reduce motion** (audit P3): MapLibre camera eases (`CameraCommands`, follow, keep-in-
+  view) now cut instead of easing when the system animator scale is 0
+  (`rememberSystemAnimationsEnabled`); Compose animations already honour it.
+- **emu.sh `record <secs> [out.mp4]`** + an ffmpeg tile recipe in the usage text: motion is
+  verified from frame sheets, not guesses. DESIGN.md gained a Motion section.

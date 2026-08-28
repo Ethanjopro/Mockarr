@@ -3,6 +3,9 @@ package dev.mockarr.app.ui.screens
 import android.Manifest
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.Crossfade
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.isSystemInDarkTheme
@@ -73,6 +76,8 @@ import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dev.mockarr.app.R
 import dev.mockarr.app.playback.MockSessionState
+import dev.mockarr.app.ui.Motion
+import dev.mockarr.app.ui.Motion.fadeThrough
 import dev.mockarr.app.ui.formatDistance
 import dev.mockarr.app.ui.formatDurationShort
 import dev.mockarr.app.ui.map.ActiveDwell
@@ -81,6 +86,7 @@ import dev.mockarr.app.ui.map.NUDGE_TICK_MILLIS
 import dev.mockarr.app.ui.map.ThumbstickOverlay
 import dev.mockarr.app.ui.map.effectiveStyleUrl
 import dev.mockarr.app.ui.map.nudgeMeters
+import dev.mockarr.app.ui.rememberSystemAnimationsEnabled
 import dev.mockarr.app.ui.theme.MockarrTheme
 import dev.mockarr.app.ui.theme.Tokens
 import dev.mockarr.core.model.DistanceUnits
@@ -187,6 +193,7 @@ fun MapLayer(
         pinPosition = (session as? MockSessionState.Holding)?.position,
         playbackPosition = if (playing) latestFix?.position else null,
         cameraFollow = followCamera && playing,
+        animateCamera = rememberSystemAnimationsEnabled(),
         modifier = modifier,
     )
 }
@@ -446,43 +453,61 @@ fun MapScreen(
                             null -> null
                         },
                     )
-                    if (playing) {
-                        PlaybackPeek(
-                            playbackState = playbackState,
-                            route = state.route,
-                            units = units,
-                            speedMultiplier = speedMultiplier,
-                            speedExpanded = expanded,
-                            sessionViewModel = sessionViewModel,
-                            onToggleSpeed = {
-                                scope.launch { if (expanded) sheetState.partialExpand() else sheetState.expand() }
-                            },
-                        )
-                    } else if (builderMode) {
-                        BuilderPeek(
-                            state = state,
-                            units = units,
-                            onDone = { viewModel.setBuilderMode(false) },
-                            onClose = {
-                                if (state.waypoints.isEmpty()) viewModel.setBuilderMode(false) else showDiscard = true
-                            },
-                        )
-                    } else {
-                        RecordPeek(
-                            state = state,
-                            units = units,
-                            holdActive = holding != null,
-                            onPickMode = { showModePicker = true },
-                            onStart = ::playOrAskStart,
-                            onEditRoute = { viewModel.setBuilderMode(true) },
-                        )
+                    val peekMode = when {
+                        playing -> PeekMode.PLAYING
+                        builderMode -> PeekMode.BUILDER
+                        else -> PeekMode.RECORD
+                    }
+                    AnimatedContent(
+                        targetState = peekMode,
+                        transitionSpec = { fadeThrough() },
+                        label = "peek",
+                    ) { mode ->
+                        when (mode) {
+                            PeekMode.PLAYING -> PlaybackPeek(
+                                playbackState = playbackState,
+                                route = state.route,
+                                units = units,
+                                speedMultiplier = speedMultiplier,
+                                speedExpanded = expanded,
+                                sessionViewModel = sessionViewModel,
+                                onToggleSpeed = {
+                                    scope.launch { if (expanded) sheetState.partialExpand() else sheetState.expand() }
+                                },
+                            )
+                            PeekMode.BUILDER -> BuilderPeek(
+                                state = state,
+                                units = units,
+                                onDone = { viewModel.setBuilderMode(false) },
+                                onClose = {
+                                    if (state.waypoints.isEmpty()) {
+                                        viewModel.setBuilderMode(false)
+                                    } else {
+                                        showDiscard = true
+                                    }
+                                },
+                            )
+                            PeekMode.RECORD -> RecordPeek(
+                                state = state,
+                                units = units,
+                                holdActive = holding != null,
+                                onPickMode = { showModePicker = true },
+                                onStart = ::playOrAskStart,
+                                onEditRoute = { viewModel.setBuilderMode(true) },
+                            )
+                        }
                     }
                 }
+                // Only compose the detail column once the sheet is heading to
+                // Expanded: while the peek re-anchors after a mode change, the
+                // detail rows would otherwise show through the gap.
+                val showDetails = expanded || sheetState.targetValue == SheetValue.Expanded
                 Column(
                     modifier = Modifier
                         .verticalScroll(rememberScrollState())
                         .padding(bottom = Tokens.space4),
                 ) {
+                    if (!showDetails) return@Column
                     if (playing) {
                         SpeedChips(
                             speedMultiplier = speedMultiplier,
@@ -525,7 +550,11 @@ fun MapScreen(
                     .padding(Tokens.mapEdge)
                     .imePadding(),
             ) {
-                if (!playing) {
+                AnimatedVisibility(
+                    visible = !playing,
+                    enter = Motion.topChromeEnter,
+                    exit = Motion.topChromeExit,
+                ) {
                     MapSearchBar(
                         state = searchState,
                         units = units,
@@ -541,8 +570,8 @@ fun MapScreen(
                             searchViewModel.clearResults()
                         },
                     )
-                    Spacer(Modifier.height(Tokens.space2))
                 }
+                Spacer(Modifier.height(Tokens.space2))
                 MapControls(
                     playing = playing,
                     map3d = map3d,
@@ -568,7 +597,14 @@ fun MapScreen(
                 )
             }
 
-            if (builderMode && !playing) {
+            AnimatedVisibility(
+                visible = builderMode && !playing,
+                enter = Motion.floatingEnter,
+                exit = Motion.floatingExit,
+                modifier = Modifier
+                    .align(Alignment.BottomEnd)
+                    .padding(end = Tokens.mapEdge, bottom = peekHeight + Tokens.mapEdge),
+            ) {
                 BuilderTools(
                     canUndo = state.waypoints.isNotEmpty(),
                     canReverse = state.waypoints.size >= 2,
@@ -576,14 +612,18 @@ fun MapScreen(
                     onReverse = viewModel::reverseWaypoints,
                     onAddAtCenter = viewModel::addWaypointAtCamera,
                     onClearAll = viewModel::clearWaypoints,
-                    modifier = Modifier
-                        .align(Alignment.BottomEnd)
-                        .padding(end = Tokens.mapEdge, bottom = peekHeight + Tokens.mapEdge),
                 )
             }
             // Only while holding: the nudge control is chrome that must recede
             // (design brief) rather than sit dimmed on every map state.
-            if (holding != null && !playing) {
+            AnimatedVisibility(
+                visible = holding != null && !playing,
+                enter = Motion.floatingEnter,
+                exit = Motion.floatingExit,
+                modifier = Modifier
+                    .align(Alignment.CenterEnd)
+                    .padding(Tokens.mapEdge),
+            ) {
                 ThumbstickOverlay(
                     enabled = true,
                     onNudge = { bearingDegrees, deflection ->
@@ -602,9 +642,6 @@ fun MapScreen(
                             )
                         }
                     },
-                    modifier = Modifier
-                        .align(Alignment.CenterEnd)
-                        .padding(Tokens.mapEdge),
                 )
             }
         }
@@ -777,7 +814,7 @@ private fun MapControls(
         horizontalAlignment = Alignment.End,
         modifier = modifier,
     ) {
-        if (!playing) {
+        AnimatedVisibility(visible = !playing, enter = Motion.floatingEnter, exit = Motion.floatingExit) {
             val description = stringResource(if (map3d) R.string.map_2d_cd else R.string.map_3d_cd)
             FilledTonalIconButton(
                 onClick = onToggle3d,
@@ -789,21 +826,23 @@ private fun MapControls(
                 )
             }
         }
-        if (playing) {
-            FilledIconToggleButton(checked = followCamera, onCheckedChange = { onToggleFollow() }) {
-                Icon(
-                    painter = painterResource(R.drawable.ic_target),
-                    contentDescription = stringResource(
-                        if (followCamera) R.string.map_following_cd else R.string.map_follow_cd,
-                    ),
-                )
-            }
-        } else {
-            FilledTonalIconButton(onClick = onLocate) {
-                Icon(
-                    painter = painterResource(R.drawable.ic_target),
-                    contentDescription = stringResource(R.string.map_locate_cd),
-                )
+        Crossfade(targetState = playing, label = "locateOrFollow") { isPlaying ->
+            if (isPlaying) {
+                FilledIconToggleButton(checked = followCamera, onCheckedChange = { onToggleFollow() }) {
+                    Icon(
+                        painter = painterResource(R.drawable.ic_target),
+                        contentDescription = stringResource(
+                            if (followCamera) R.string.map_following_cd else R.string.map_follow_cd,
+                        ),
+                    )
+                }
+            } else {
+                FilledTonalIconButton(onClick = onLocate) {
+                    Icon(
+                        painter = painterResource(R.drawable.ic_target),
+                        contentDescription = stringResource(R.string.map_locate_cd),
+                    )
+                }
             }
         }
     }
@@ -900,6 +939,8 @@ private fun SearchResultRow(
         }
     }
 }
+
+private enum class PeekMode { RECORD, BUILDER, PLAYING }
 
 private const val START_FROM_HOLD_METERS = 30.0
 private const val DEFAULT_NUDGE_ZOOM = 15.0

@@ -1,6 +1,11 @@
 package dev.mockarr.app.ui
 
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.WindowInsetsSides
 import androidx.compose.foundation.layout.fillMaxSize
@@ -12,12 +17,13 @@ import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material.icons.filled.Place
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Icon
+import androidx.compose.material3.NavigationBar
+import androidx.compose.material3.NavigationBarItem
+import androidx.compose.material3.NavigationRail
+import androidx.compose.material3.NavigationRailItem
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.adaptive.currentWindowAdaptiveInfo
-import androidx.compose.material3.adaptive.navigationsuite.NavigationSuiteScaffold
-import androidx.compose.material3.adaptive.navigationsuite.NavigationSuiteScaffoldDefaults
-import androidx.compose.material3.adaptive.navigationsuite.NavigationSuiteType
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -36,6 +42,7 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
+import androidx.window.core.layout.WindowWidthSizeClass
 import dev.mockarr.app.R
 import dev.mockarr.app.playback.MockSessionState
 import dev.mockarr.app.ui.navigation.MapDestination
@@ -113,32 +120,41 @@ fun MockarrApp(setupViewModel: SetupViewModel = hiltViewModel()) {
     // While a drive plays on the Map tab the sheet owns the bottom edge; the
     // navigation bar returns with Stop (design brief: chrome recedes in playback).
     val hideNavigation = onMapTab && session is MockSessionState.Playing
-    // navigationSuiteItems is not a composable scope — resolve labels here.
-    val labels = topLevelDestinations.map { stringResource(it.labelRes) }
 
     // Bottom bar on phones, navigation rail on wide screens (landscape/tablet).
-    NavigationSuiteScaffold(
-        layoutType = if (hideNavigation) {
-            NavigationSuiteType.None
-        } else {
-            NavigationSuiteScaffoldDefaults.calculateFromAdaptiveInfo(currentWindowAdaptiveInfo())
-        },
-        navigationSuiteItems = {
-            topLevelDestinations.forEachIndexed { index, destination ->
-                val selected = currentDestination?.hasRoute(destination.route::class) == true
-                val label = labels[index]
-                item(
-                    selected = selected,
-                    onClick = { navController.navigateTopLevel(destination.route) },
-                    icon = { Icon(destination.icon, contentDescription = label) },
-                    label = { Text(label) },
-                )
-            }
-        },
+    // Hand-rolled instead of NavigationSuiteScaffold so the bar can slide away
+    // during playback (the suite only switches layout types, with no motion).
+    val compactWidth = currentWindowAdaptiveInfo().windowSizeClass.windowWidthSizeClass == WindowWidthSizeClass.COMPACT
+    val labels = topLevelDestinations.map { stringResource(it.labelRes) }
+    val barItems: @Composable RowScope.() -> Unit = {
+        topLevelDestinations.forEachIndexed { index, destination ->
+            NavigationBarItem(
+                selected = currentDestination?.hasRoute(destination.route::class) == true,
+                onClick = { navController.navigateTopLevel(destination.route) },
+                icon = { Icon(destination.icon, contentDescription = labels[index]) },
+                label = { Text(labels[index]) },
+            )
+        }
+    }
+    val railItems: @Composable ColumnScope.() -> Unit = {
+        topLevelDestinations.forEachIndexed { index, destination ->
+            NavigationRailItem(
+                selected = currentDestination?.hasRoute(destination.route::class) == true,
+                onClick = { navController.navigateTopLevel(destination.route) },
+                icon = { Icon(destination.icon, contentDescription = labels[index]) },
+                label = { Text(labels[index]) },
+            )
+        }
+    }
+    AdaptiveNavigation(
+        compactWidth = compactWidth,
+        hidden = hideNavigation,
+        barItems = barItems,
+        railItems = railItems,
     ) {
-        // NavigationSuiteScaffold insets only its own bar/rail; the content
-        // must keep itself out from under the status bar (the bottom/side
-        // insets are consumed by the suite's bar placement).
+        // The bar/rail inset themselves; the content keeps itself out from
+        // under the status bar. When the bar is hidden, the Map sheet takes the
+        // navigation-bar inset instead.
         val topInset = WindowInsets.safeDrawing.only(WindowInsetsSides.Top)
         Box(modifier = Modifier.fillMaxSize().windowInsetsPadding(topInset)) {
             // The map lives BEHIND the NavHost for the whole app lifetime —
@@ -194,5 +210,38 @@ fun MockarrApp(setupViewModel: SetupViewModel = hiltViewModel()) {
 private fun OpaqueScreen(content: @Composable () -> Unit) {
     Surface(modifier = Modifier.fillMaxSize()) {
         content()
+    }
+}
+
+/**
+ * Bottom navigation bar on compact widths, rail otherwise. [hidden] slides the
+ * bar down (or the rail out) — the Map tab's sheet takes the bottom edge then.
+ */
+@Composable
+private fun AdaptiveNavigation(
+    compactWidth: Boolean,
+    hidden: Boolean,
+    barItems: @Composable RowScope.() -> Unit,
+    railItems: @Composable ColumnScope.() -> Unit,
+    content: @Composable () -> Unit,
+) {
+    if (compactWidth) {
+        Column(modifier = Modifier.fillMaxSize()) {
+            Box(modifier = Modifier.weight(1f)) { content() }
+            AnimatedVisibility(
+                visible = !hidden,
+                enter = Motion.bottomChromeEnter,
+                exit = Motion.bottomChromeExit,
+            ) {
+                NavigationBar { barItems() }
+            }
+        }
+    } else {
+        Row(modifier = Modifier.fillMaxSize()) {
+            AnimatedVisibility(visible = !hidden, enter = Motion.floatingEnter, exit = Motion.floatingExit) {
+                NavigationRail { railItems() }
+            }
+            Box(modifier = Modifier.weight(1f)) { content() }
+        }
     }
 }
