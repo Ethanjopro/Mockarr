@@ -130,6 +130,33 @@
     <string name="option_wobble_desc">Add position noise like a real receiver</string>
     <string name="option_settings">All settings</string>
 
+    <!-- Routes tab (brief 2) -->
+    <string name="routes_title">Saved routes</string>
+    <string name="routes_sort_cd">Sort routes</string>
+    <string name="routes_sort_recent">Most recent</string>
+    <string name="routes_sort_longest">Longest first</string>
+    <string name="routes_sort_name">A to Z</string>
+    <string name="routes_search_hint">Search by keyword</string>
+    <string name="routes_filter_all">All</string>
+    <string name="routes_filter_mode_cd">Filter by travel mode</string>
+    <string name="routes_card_meta">%1$s · %2$s</string>
+    <string name="routes_created_today">Created today</string>
+    <string name="routes_created_yesterday">Created yesterday</string>
+    <string name="routes_created_on">Created %1$s</string>
+    <string name="routes_more_cd">More actions for %1$s</string>
+    <string name="routes_rename">Rename</string>
+    <string name="routes_delete">Delete</string>
+    <string name="routes_deleted">Deleted “%1$s”</string>
+    <string name="routes_undo">Undo</string>
+    <string name="routes_rename_title">Rename route</string>
+    <string name="routes_rename_name">Name</string>
+    <string name="routes_empty_title">No saved routes yet</string>
+    <string name="routes_empty_body">Build a drive on the Map tab and save it here. Saved routes replay offline.</string>
+    <string name="routes_empty_cta">Plan a drive</string>
+    <string name="routes_no_match_title">No routes match</string>
+    <string name="routes_no_match_body">Try another keyword or clear the filter.</string>
+    <string name="routes_thumbnail_cd">Map of %1$s</string>
+
     <!-- Map: transient feedback -->
     <string name="snack_dismiss">Dismiss</string>
 </resources>

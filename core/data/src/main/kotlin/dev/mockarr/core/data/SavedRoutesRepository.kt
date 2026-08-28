@@ -35,6 +35,8 @@ class SavedRoutesRepository(
             ),
         )
 
+    suspend fun rename(entity: SavedRouteEntity, name: String) = dao.update(entity.copy(name = name.trim()))
+
     suspend fun delete(entity: SavedRouteEntity) = dao.delete(entity)
 
     /** Re-insert after an undone delete (a fresh id is fine). */

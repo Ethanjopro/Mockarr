@@ -417,3 +417,32 @@ Verified end-to-end like a human: app-drawer swipe → tapped the Mockarr icon �
   in the skill): map taps during the sheet's re-anchor animation are swallowed — wait ~1 s
   after any mode change; two quick taps on one spot are a MapLibre double-tap zoom.
 - **Next**: Routes tab (Saved Routes layout) per brief 2.
+
+### 2026-08-28 — Session 15e (Brief 2, Routes tab as Strava's Saved Routes)
+
+- **Routes tab rebuilt** (`SavedRoutesScreen.kt` + new `SavedRoutesComponents.kt`,
+  `SavedRoutesFormatting.kt`): centred "Saved routes" top bar with a sort menu (Most recent /
+  Longest first / A to Z), keyword field, filter chips (All ▾ travel mode · Most recent ·
+  Longest first), 16 dp cards: thumbnail, two-line title, mode pill · distance · duration,
+  place, "Created today / yesterday / Aug 18", ⋯ overflow → Rename dialog / Delete with
+  undo. Empty state with a **Plan a drive** CTA that opens the Map tab in builder mode;
+  "No routes match" when a filter/search hides everything.
+- Names split on the last comma (`splitRouteName`) so titles stop wrapping to three lines
+  and the city becomes the place line; `createdWhen` buckets dates. Both unit-tested
+  (`SavedRoutesFormattingTest`, 4 tests). `filterAndSort` is a file-level pure function.
+- `SavedRouteDao.update` + `SavedRoutesRepository.rename` added (no schema change).
+- Verified on emulator light + dark: list, sort menu, overflow, rename dialog, no-match.
+  Fixed during verification: the mode tag was a disabled chip (read as broken) → outlined
+  read-only pill.
+- **Brief 2 complete.** Next candidates: Settings + Setup screens (top app bars, icon grid),
+  motion pass (Play transition), adapt pass (expanded widths).
+- **Watch item — ANR seen once** on the Routes tab during verification (trace
+  `anr_2026-08-28-03-41-05`, unreadable on the AVD), coinciding with a `night on` theme flip
+  while every thumbnail was regenerating for the new palette key on a freshly booted
+  emulator. Not reproduced in two further attempts (sort change + theme flip; theme flip
+  alone). Hypothesis: two `MapSnapshotter` instances created on Main during a configuration
+  change on a cold GL context. If it recurs: move snapshotter creation off the first frame
+  after recreation, or drop `MAX_CONCURRENT_SNAPSHOTS` to 1.
+- **emu.sh fix**: `find`'s exact-match-first rewrite aborted under `pipefail` whenever the
+  exact grep missed, so substring matches ("More actions…") silently returned nothing since
+  session 15c. `|| true` on both greps; verified `find 'More actions'` → coords.

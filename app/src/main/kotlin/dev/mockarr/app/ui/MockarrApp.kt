@@ -167,6 +167,10 @@ fun MockarrApp(setupViewModel: SetupViewModel = hiltViewModel()) {
                     OpaqueScreen {
                         SavedRoutesScreen(
                             onRouteLoaded = { navController.navigateTopLevel(MapDestination) },
+                            onPlanDrive = {
+                                mapViewModel.setBuilderMode(true)
+                                navController.navigateTopLevel(MapDestination)
+                            },
                         )
                     }
                 }

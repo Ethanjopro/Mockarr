@@ -1,128 +1,142 @@
 package dev.mockarr.app.ui.screens
 
-import androidx.compose.foundation.Canvas
-import androidx.compose.foundation.Image
-import androidx.compose.foundation.background
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.Search
-import androidx.compose.material3.Card
+import androidx.compose.material3.CenterAlignedTopAppBar
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
+import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.SnackbarResult
 import androidx.compose.material3.Text
+import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.produceState
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.ui.Alignment
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.ImageBitmap
-import androidx.compose.ui.graphics.Path
-import androidx.compose.ui.graphics.StrokeCap
-import androidx.compose.ui.graphics.StrokeJoin
-import androidx.compose.ui.graphics.drawscope.Stroke
-import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.unit.dp
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.stringResource
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import dev.mockarr.app.ui.formatRouteTimestamp
-import dev.mockarr.app.ui.label
+import dev.mockarr.app.R
 import dev.mockarr.app.ui.map.effectiveStyleUrl
-import dev.mockarr.app.ui.routeSummaryText
-import dev.mockarr.app.ui.theme.MapPalette
 import dev.mockarr.app.ui.theme.MockarrTheme
+import dev.mockarr.app.ui.theme.Tokens
 import dev.mockarr.core.data.SavedRouteEntity
-import dev.mockarr.core.model.DistanceUnits
-import dev.mockarr.core.model.LatLng
 import dev.mockarr.core.model.RoutingProfile
-import dev.mockarr.core.routing.Polyline6
 import kotlinx.coroutines.launch
-import kotlin.math.cos
-import kotlin.math.max
 
+/**
+ * The Routes tab, after Strava's Saved Routes: centred title with a sort
+ * action, a keyword field, a filter-chip row, and thumbnail cards. Tapping a
+ * card hands the route to the Map tab; ⋯ renames or deletes (with undo).
+ */
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SavedRoutesScreen(
     onRouteLoaded: () -> Unit,
+    onPlanDrive: () -> Unit,
     viewModel: SavedRoutesViewModel = hiltViewModel(),
 ) {
     val routes by viewModel.routes.collectAsStateWithLifecycle()
+    val hasAnyRoutes by viewModel.hasAnyRoutes.collectAsStateWithLifecycle()
     val query by viewModel.query.collectAsStateWithLifecycle()
+    val sort by viewModel.sort.collectAsStateWithLifecycle()
+    val profileFilter by viewModel.profileFilter.collectAsStateWithLifecycle()
     val units by viewModel.units.collectAsStateWithLifecycle()
     val mapStyleUrl by viewModel.mapStyleUrl.collectAsStateWithLifecycle()
     val thumbStyleUrl = effectiveStyleUrl(mapStyleUrl, isSystemInDarkTheme())
     val palette = MockarrTheme.colors.map
     val snackbarHost = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
+    // One "now" per composition of the list keeps every card's "Created today" consistent.
+    val now = remember(routes) { System.currentTimeMillis() }
+    var renaming by remember { mutableStateOf<SavedRouteEntity?>(null) }
+    val deletedTemplate = stringResource(R.string.routes_deleted)
+    val undoLabel = stringResource(R.string.routes_undo)
 
-    Box(modifier = Modifier.fillMaxSize()) {
-        Column(modifier = Modifier.fillMaxSize()) {
-            if (routes.isNotEmpty() || query.isNotEmpty()) {
+    renaming?.let { entity ->
+        RenameRouteDialog(
+            initialName = entity.name,
+            onConfirm = { name ->
+                viewModel.rename(entity, name)
+                renaming = null
+            },
+            onDismiss = { renaming = null },
+        )
+    }
+
+    Scaffold(
+        topBar = {
+            CenterAlignedTopAppBar(
+                title = { Text(stringResource(R.string.routes_title)) },
+                actions = { SortAction(sort = sort, onSort = viewModel::setSort) },
+                colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
+                    containerColor = MaterialTheme.colorScheme.surface,
+                ),
+            )
+        },
+        snackbarHost = { SnackbarHost(snackbarHost) },
+        containerColor = MaterialTheme.colorScheme.surface,
+    ) { padding ->
+        Column(modifier = Modifier.fillMaxSize().padding(padding)) {
+            if (hasAnyRoutes) {
                 OutlinedTextField(
                     value = query,
                     onValueChange = viewModel::setQuery,
-                    placeholder = { Text("Search saved routes") },
+                    placeholder = { Text(stringResource(R.string.routes_search_hint)) },
                     singleLine = true,
-                    trailingIcon = { Icon(Icons.Filled.Search, contentDescription = null) },
+                    shape = Tokens.controlShape,
+                    leadingIcon = { Icon(Icons.Filled.Search, contentDescription = null) },
+                    colors = OutlinedTextFieldDefaults.colors(
+                        unfocusedContainerColor = MaterialTheme.colorScheme.surfaceContainerLowest,
+                        focusedContainerColor = MaterialTheme.colorScheme.surfaceContainerLowest,
+                        unfocusedBorderColor = Color.Transparent,
+                    ),
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 12.dp, vertical = 8.dp),
+                        .padding(horizontal = Tokens.space3, vertical = Tokens.space2),
+                )
+                FilterRow(
+                    sort = sort,
+                    profileFilter = profileFilter,
+                    onSort = viewModel::setSort,
+                    onProfileFilter = viewModel::setProfileFilter,
                 )
             }
             if (routes.isEmpty()) {
-                Column(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(24.dp),
-                    verticalArrangement = Arrangement.Center,
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                ) {
-                    Text(
-                        text = if (query.isBlank()) "No saved routes yet" else "No routes match \"$query\"",
-                        style = MaterialTheme.typography.headlineSmall,
-                        textAlign = TextAlign.Center,
-                    )
-                    if (query.isBlank()) {
-                        Spacer(Modifier.height(8.dp))
-                        Text(
-                            text = "Build a route on the Map tab and tap Save. " +
-                                "Saved routes replay offline.",
-                            style = MaterialTheme.typography.bodyMedium,
-                            textAlign = TextAlign.Center,
-                        )
-                    }
-                }
+                RoutesEmptyState(hasAnyRoutes = hasAnyRoutes, onPlanDrive = onPlanDrive)
             } else {
                 LazyColumn(
                     modifier = Modifier.fillMaxSize(),
-                    contentPadding = PaddingValues(12.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                    contentPadding = PaddingValues(horizontal = Tokens.space3, vertical = Tokens.space2),
+                    verticalArrangement = Arrangement.spacedBy(Tokens.space2),
                 ) {
                     items(routes, key = { it.id }) { entity ->
                         SavedRouteCard(
@@ -130,21 +144,21 @@ fun SavedRoutesScreen(
                             units = units,
                             thumbStyleUrl = thumbStyleUrl,
                             palette = palette,
+                            nowEpochMillis = now,
                             loadThumbnail = viewModel::thumbnail,
                             onClick = {
                                 viewModel.load(entity)
                                 onRouteLoaded()
                             },
+                            onRename = { renaming = entity },
                             onDelete = {
                                 viewModel.delete(entity)
                                 scope.launch {
                                     val result = snackbarHost.showSnackbar(
-                                        message = "Deleted \"${entity.name}\"",
-                                        actionLabel = "Undo",
+                                        message = deletedTemplate.format(splitRouteName(entity.name).title),
+                                        actionLabel = undoLabel,
                                     )
-                                    if (result == SnackbarResult.ActionPerformed) {
-                                        viewModel.restore(entity)
-                                    }
+                                    if (result == SnackbarResult.ActionPerformed) viewModel.restore(entity)
                                 }
                             },
                         )
@@ -152,140 +166,104 @@ fun SavedRoutesScreen(
                 }
             }
         }
-        SnackbarHost(
-            hostState = snackbarHost,
-            modifier = Modifier.align(Alignment.BottomCenter),
-        )
     }
 }
 
+/** Sort icon in the app bar (Strava's pencil slot) with a menu of orderings. */
 @Composable
-private fun SavedRouteCard(
-    entity: SavedRouteEntity,
-    units: DistanceUnits,
-    thumbStyleUrl: String,
-    palette: MapPalette,
-    loadThumbnail: suspend (SavedRouteEntity, String, Int, Float, MapPalette) -> ImageBitmap?,
-    onClick: () -> Unit,
-    onDelete: () -> Unit,
-) {
-    Card(onClick = onClick, modifier = Modifier.fillMaxWidth()) {
-        Row(
-            modifier = Modifier.padding(start = 12.dp, top = 12.dp, bottom = 12.dp, end = 4.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            MapThumbnail(
-                entity = entity,
-                styleUrl = thumbStyleUrl,
-                palette = palette,
-                loadThumbnail = loadThumbnail,
+private fun SortAction(sort: SavedRoutesViewModel.Sort, onSort: (SavedRoutesViewModel.Sort) -> Unit) {
+    var open by remember { mutableStateOf(false) }
+    IconButton(onClick = { open = true }) {
+        Icon(painterResource(R.drawable.ic_sort), contentDescription = stringResource(R.string.routes_sort_cd))
+    }
+    DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
+        SavedRoutesViewModel.Sort.entries.forEach { option ->
+            DropdownMenuItem(
+                text = { Text(stringResource(option.labelRes())) },
+                trailingIcon = if (option == sort) {
+                    { Icon(painterResource(R.drawable.ic_check), contentDescription = null) }
+                } else {
+                    null
+                },
+                onClick = {
+                    open = false
+                    onSort(option)
+                },
             )
-            Spacer(Modifier.width(12.dp))
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = entity.name,
-                    style = MaterialTheme.typography.titleMedium,
-                )
-                Spacer(Modifier.height(2.dp))
-                Text(
-                    text = "%s · %s · %s".format(
-                        routeSummaryText(entity.distanceMeters, entity.durationSeconds, units),
-                        RoutingProfile.fromNameOrDefault(entity.profile).label(),
-                        formatRouteTimestamp(entity.createdAtEpochMillis),
-                    ),
-                    style = MaterialTheme.typography.bodySmall,
-                )
-            }
-            IconButton(onClick = onDelete) {
-                Icon(Icons.Filled.Delete, contentDescription = "Delete ${entity.name}")
-            }
         }
     }
 }
 
-/**
- * Real-basemap snapshot of the route when available; the offline glyph fills in
- * while the snapshot loads and stays whenever it can't be generated.
- */
+/** "All ▾" mode filter, then the two orderings as chips — Strava's filter strip. */
 @Composable
-private fun MapThumbnail(
-    entity: SavedRouteEntity,
-    styleUrl: String,
-    palette: MapPalette,
-    loadThumbnail: suspend (SavedRouteEntity, String, Int, Float, MapPalette) -> ImageBitmap?,
+private fun FilterRow(
+    sort: SavedRoutesViewModel.Sort,
+    profileFilter: RoutingProfile?,
+    onSort: (SavedRoutesViewModel.Sort) -> Unit,
+    onProfileFilter: (RoutingProfile?) -> Unit,
 ) {
-    val density = LocalDensity.current
-    val sizePx = with(density) { THUMB_SIZE_DP.dp.roundToPx() }
-    val thumb by produceState<ImageBitmap?>(null, entity.id, styleUrl, palette) {
-        value = loadThumbnail(entity, styleUrl, sizePx, density.density, palette)
-    }
-    val snapshot = thumb
-    if (snapshot != null) {
-        Image(
-            bitmap = snapshot,
-            contentDescription = null,
-            contentScale = ContentScale.Crop,
-            modifier = Modifier
-                .size(THUMB_SIZE_DP.dp)
-                .clip(RoundedCornerShape(8.dp)),
-        )
-    } else {
-        RouteThumbnail(encodedPolyline6 = entity.encodedPolyline6)
-    }
-}
-
-/** The route's shape drawn as a small glyph — instant, offline identification. */
-@Composable
-private fun RouteThumbnail(encodedPolyline6: String, modifier: Modifier = Modifier) {
-    val points = remember(encodedPolyline6) { thumbnailPoints(encodedPolyline6) }
-    val pathColor = MaterialTheme.colorScheme.primary
-    val startColor = Color(MockarrTheme.colors.map.stopStart)
-    val endColor = Color(MockarrTheme.colors.map.stopEnd)
-    Canvas(
-        modifier = modifier
-            .size(THUMB_SIZE_DP.dp)
-            .clip(RoundedCornerShape(8.dp))
-            .background(MaterialTheme.colorScheme.surfaceVariant),
+    var modeMenu by remember { mutableStateOf(false) }
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .horizontalScroll(rememberScrollState())
+            .padding(horizontal = Tokens.space3, vertical = Tokens.space1),
+        horizontalArrangement = Arrangement.spacedBy(Tokens.space2),
     ) {
-        if (points.size < 2) return@Canvas
-        val minLat = points.minOf { it.latitude }
-        val maxLat = points.maxOf { it.latitude }
-        val minLng = points.minOf { it.longitude }
-        val maxLng = points.maxOf { it.longitude }
-        // Longitude degrees shrink with latitude — scale so shapes keep aspect.
-        val cosLat = cos(Math.toRadians((minLat + maxLat) / 2))
-        val width = (maxLng - minLng) * cosLat
-        val height = maxLat - minLat
-        val span = max(max(width, height), 1e-9)
-        val pad = THUMB_PADDING_DP.dp.toPx()
-        val box = size.minDimension - 2 * pad
-
-        fun toOffset(p: LatLng) = Offset(
-            x = (pad + ((p.longitude - minLng) * cosLat + (span - width) / 2) / span * box).toFloat(),
-            y = (pad + ((maxLat - p.latitude) + (span - height) / 2) / span * box).toFloat(),
-        )
-
-        val path = Path()
-        points.forEachIndexed { index, p ->
-            val offset = toOffset(p)
-            if (index == 0) path.moveTo(offset.x, offset.y) else path.lineTo(offset.x, offset.y)
+        Box {
+            FilterChip(
+                selected = profileFilter != null,
+                onClick = { modeMenu = true },
+                label = {
+                    Text(
+                        profileFilter?.let { stringResource(it.shortLabelRes()) }
+                            ?: stringResource(R.string.routes_filter_all),
+                    )
+                },
+                leadingIcon = profileFilter?.let { filter ->
+                    {
+                        Icon(painterResource(filter.iconRes()), contentDescription = null)
+                    }
+                },
+                trailingIcon = {
+                    Icon(
+                        Icons.Filled.ArrowDropDown,
+                        contentDescription = stringResource(R.string.routes_filter_mode_cd),
+                    )
+                },
+            )
+            DropdownMenu(expanded = modeMenu, onDismissRequest = { modeMenu = false }) {
+                DropdownMenuItem(
+                    text = { Text(stringResource(R.string.routes_filter_all)) },
+                    onClick = {
+                        modeMenu = false
+                        onProfileFilter(null)
+                    },
+                )
+                RoutingProfile.entries.forEach { profile ->
+                    DropdownMenuItem(
+                        text = { Text(stringResource(profile.shortLabelRes())) },
+                        leadingIcon = { Icon(painterResource(profile.iconRes()), contentDescription = null) },
+                        onClick = {
+                            modeMenu = false
+                            onProfileFilter(profile)
+                        },
+                    )
+                }
+            }
         }
-        drawPath(
-            path = path,
-            color = pathColor,
-            style = Stroke(width = 3.dp.toPx(), cap = StrokeCap.Round, join = StrokeJoin.Round),
-        )
-        drawCircle(startColor, radius = 3.5.dp.toPx(), center = toOffset(points.first()))
-        drawCircle(endColor, radius = 3.5.dp.toPx(), center = toOffset(points.last()))
+        listOf(SavedRoutesViewModel.Sort.RECENT, SavedRoutesViewModel.Sort.LONGEST).forEach { option ->
+            FilterChip(
+                selected = sort == option,
+                onClick = { onSort(option) },
+                label = { Text(stringResource(option.labelRes())) },
+            )
+        }
     }
 }
 
-private fun thumbnailPoints(encodedPolyline6: String): List<LatLng> {
-    val decoded = runCatching { Polyline6.decode(encodedPolyline6) }.getOrDefault(emptyList())
-    if (decoded.size <= MAX_THUMB_POINTS) return decoded
-    return List(MAX_THUMB_POINTS) { decoded[it * (decoded.size - 1) / (MAX_THUMB_POINTS - 1)] }
+private fun SavedRoutesViewModel.Sort.labelRes(): Int = when (this) {
+    SavedRoutesViewModel.Sort.RECENT -> R.string.routes_sort_recent
+    SavedRoutesViewModel.Sort.LONGEST -> R.string.routes_sort_longest
+    SavedRoutesViewModel.Sort.NAME -> R.string.routes_sort_name
 }
-
-private const val THUMB_SIZE_DP = 88
-private const val THUMB_PADDING_DP = 8
-private const val MAX_THUMB_POINTS = 64

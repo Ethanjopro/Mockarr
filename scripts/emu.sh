@@ -72,8 +72,9 @@ case "${1:-help}" in
     dump=$("$ADB" shell "uiautomator dump /sdcard/ui.xml >/dev/null && cat /sdcard/ui.xml" | tr '>' '\n')
     # Exact attribute match first (text="Play"), substring second — so "Play"
     # hits the button before hint copy that merely contains the word.
-    node=$(printf '%s\n' "$dump" | grep -iE "text=\"($2)\"|content-desc=\"($2)\"" | head -1)
-    [ -n "$node" ] || node=$(printf '%s\n' "$dump" | grep -iE "text=\"[^\"]*($2)|content-desc=\"[^\"]*($2)" | head -1)
+    # `|| true`: under pipefail a no-match grep would abort the script before the fallback.
+    node=$(printf '%s\n' "$dump" | grep -iE "text=\"($2)\"|content-desc=\"($2)\"" | head -1 || true)
+    [ -n "$node" ] || node=$(printf '%s\n' "$dump" | grep -iE "text=\"[^\"]*($2)|content-desc=\"[^\"]*($2)" | head -1 || true)
     printf '%s\n' "$node" \
       | grep -o 'bounds="\[[0-9]*,[0-9]*\]\[[0-9]*,[0-9]*\]"' \
       | head -1 \

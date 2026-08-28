@@ -13,6 +13,7 @@ import dev.mockarr.core.data.SavedRouteEntity
 import dev.mockarr.core.data.SavedRoutesRepository
 import dev.mockarr.core.data.SettingsRepository
 import dev.mockarr.core.model.DistanceUnits
+import dev.mockarr.core.model.RoutingProfile
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -39,17 +40,43 @@ class SavedRoutesViewModel @Inject constructor(
         }
     }
 
+    enum class Sort { RECENT, LONGEST, NAME }
+
     private val _query = MutableStateFlow("")
     val query: StateFlow<String> = _query.asStateFlow()
 
+    private val _sort = MutableStateFlow(Sort.RECENT)
+    val sort: StateFlow<Sort> = _sort.asStateFlow()
+
+    /** null = every travel mode. */
+    private val _profileFilter = MutableStateFlow<RoutingProfile?>(null)
+    val profileFilter: StateFlow<RoutingProfile?> = _profileFilter.asStateFlow()
+
+    /** True once any route exists at all — separates "empty" from "nothing matches". */
+    val hasAnyRoutes: StateFlow<Boolean> = repository.observeAll()
+        .map { it.isNotEmpty() }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(STOP_TIMEOUT_MILLIS), false)
+
     val routes: StateFlow<List<SavedRouteEntity>> =
-        combine(repository.observeAll(), _query) { all, query ->
-            val trimmed = query.trim()
-            if (trimmed.isEmpty()) all else all.filter { it.name.contains(trimmed, ignoreCase = true) }
+        combine(repository.observeAll(), _query, _sort, _profileFilter) { all, query, sort, profile ->
+            filterAndSort(all, query, sort, profile)
         }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(STOP_TIMEOUT_MILLIS), emptyList())
 
     fun setQuery(value: String) {
         _query.value = value
+    }
+
+    fun setSort(value: Sort) {
+        _sort.value = value
+    }
+
+    fun setProfileFilter(value: RoutingProfile?) {
+        _profileFilter.value = value
+    }
+
+    fun rename(entity: SavedRouteEntity, name: String) {
+        if (name.isBlank()) return
+        viewModelScope.launch { repository.rename(entity, name) }
     }
 
     val units: StateFlow<DistanceUnits> = settingsRepository.settings
@@ -102,5 +129,23 @@ class SavedRoutesViewModel @Inject constructor(
 
     private companion object {
         const val STOP_TIMEOUT_MILLIS = 5_000L
+    }
+}
+
+internal fun filterAndSort(
+    all: List<SavedRouteEntity>,
+    query: String,
+    sort: SavedRoutesViewModel.Sort,
+    profile: RoutingProfile?,
+): List<SavedRouteEntity> {
+    val trimmed = query.trim()
+    val filtered = all.filter { entity ->
+        (trimmed.isEmpty() || entity.name.contains(trimmed, ignoreCase = true)) &&
+            (profile == null || RoutingProfile.fromNameOrDefault(entity.profile) == profile)
+    }
+    return when (sort) {
+        SavedRoutesViewModel.Sort.RECENT -> filtered.sortedByDescending { it.createdAtEpochMillis }
+        SavedRoutesViewModel.Sort.LONGEST -> filtered.sortedByDescending { it.distanceMeters }
+        SavedRoutesViewModel.Sort.NAME -> filtered.sortedBy { it.name.lowercase() }
     }
 }
