@@ -1,13 +1,9 @@
 package dev.mockarr.app.ui.screens
 
 import android.Manifest
-import android.content.Context
-import android.content.pm.PackageManager
-import android.os.Build
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
@@ -18,60 +14,68 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.KeyboardArrowDown
-import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Search
-import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.BottomSheetScaffold
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilledIconToggleButton
 import androidx.compose.material3.FilledTonalIconButton
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
-import androidx.compose.material3.Slider
+import androidx.compose.material3.SheetValue
+import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.rememberBottomSheetScaffoldState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.rotate
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dev.mockarr.app.R
-import dev.mockarr.app.playback.HoldSource
 import dev.mockarr.app.playback.MockSessionState
 import dev.mockarr.app.ui.formatDistance
-import dev.mockarr.app.ui.formatDistanceProgress
 import dev.mockarr.app.ui.formatDurationShort
-import dev.mockarr.app.ui.formatRouteTimestamp
 import dev.mockarr.app.ui.label
 import dev.mockarr.app.ui.map.ActiveDwell
 import dev.mockarr.app.ui.map.MockarrMap
@@ -79,17 +83,17 @@ import dev.mockarr.app.ui.map.NUDGE_TICK_MILLIS
 import dev.mockarr.app.ui.map.ThumbstickOverlay
 import dev.mockarr.app.ui.map.effectiveStyleUrl
 import dev.mockarr.app.ui.map.nudgeMeters
-import dev.mockarr.app.ui.summaryText
+import dev.mockarr.app.ui.theme.MockarrTheme
+import dev.mockarr.app.ui.theme.Tokens
 import dev.mockarr.core.model.DistanceUnits
 import dev.mockarr.core.model.GeoMath
 import dev.mockarr.core.model.LatLng
-import dev.mockarr.core.model.PlaybackState
 import dev.mockarr.core.model.Route
 import dev.mockarr.core.model.RoutingProfile
-import dev.mockarr.core.model.progressOrZero
-import dev.mockarr.core.model.remainingSecondsOrNull
+import dev.mockarr.core.model.Waypoint
 import dev.mockarr.core.routing.GeocodingResult
-import dev.mockarr.core.simulation.SimulationEngine
+import kotlinx.coroutines.launch
+import kotlin.math.roundToInt
 
 /**
  * The persistent map itself — hosted by MockarrApp BEHIND the NavHost so it
@@ -137,13 +141,16 @@ fun MapLayer(
         }
     }
 
+    val displayed = remember(state.waypoints, state.route, state.routeIsFallback) {
+        displayWaypoints(state.waypoints, state.route, state.routeIsFallback)
+    }
     MockarrMap(
-        waypoints = displayWaypoints(state.waypoints, state.route, state.routeIsFallback),
+        waypoints = displayed,
         routePoints = state.route?.points.orEmpty(),
         routeIsFallback = state.routeIsFallback,
         onMapTap = {
             focusManager.clearFocus()
-            // Dismiss-first: with a stop menu open, a map tap closes it rather
+            // Dismiss-first: with a stop selected, a map tap deselects it rather
             // than dropping a new stop. Read .value at click time (repo rule).
             if (!playing) {
                 if (viewModel.selectedWaypoint.value != null) {
@@ -165,6 +172,7 @@ fun MapLayer(
             if (!playing) requestHold(it)
         },
         styleUrl = effectiveStyleUrl(tileStyleUrl, isSystemInDarkTheme()),
+        palette = MockarrTheme.colors.map,
         visible = visible,
         loadInitialCamera = viewModel::initialCamera,
         onCameraIdle = viewModel::saveCamera,
@@ -185,7 +193,12 @@ fun MapLayer(
     )
 }
 
-/** The Map tab's controls — a transparent overlay above the persistent map. */
+/**
+ * The Map tab's controls — a transparent overlay above the persistent map.
+ * One bottom sheet owns the bottom edge (status strip + peek content, expanding
+ * to route options and stops); the search field and FAB stack float at the top.
+ */
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MapScreen(
     onOpenSetup: () -> Unit,
@@ -210,9 +223,11 @@ fun MapScreen(
     val playbackState by sessionViewModel.playbackState.collectAsStateWithLifecycle()
     val playbackError by sessionViewModel.error.collectAsStateWithLifecycle()
     val speedMultiplier by sessionViewModel.speedMultiplier.collectAsStateWithLifecycle()
+    val selectedWaypoint by viewModel.selectedWaypoint.collectAsStateWithLifecycle()
 
     val context = LocalContext.current
     val focusManager = LocalFocusManager.current
+    val scope = rememberCoroutineScope()
     var routeAwaitingPermission by remember { mutableStateOf<Route?>(null) }
     val permissionLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions(),
@@ -298,32 +313,21 @@ fun MapScreen(
     }
 
     if (showRouteFromHoldPrompt) {
-        AlertDialog(
-            onDismissRequest = { showRouteFromHoldPrompt = false },
-            title = { Text("Route from held location?") },
-            text = { Text("Build a route from your held location to this stop and play it?") },
-            confirmButton = {
-                TextButton(
-                    onClick = {
-                        showRouteFromHoldPrompt = false
-                        currentHold()?.position?.let { hold ->
-                            viewModel.prependWaypoint(hold)
-                            playWhenRouteReady = true
-                        }
-                    },
-                ) { Text("Route and play") }
+        RouteFromHoldDialog(
+            onConfirm = {
+                showRouteFromHoldPrompt = false
+                currentHold()?.position?.let { hold ->
+                    viewModel.prependWaypoint(hold)
+                    playWhenRouteReady = true
+                }
             },
-            dismissButton = {
-                TextButton(onClick = { showRouteFromHoldPrompt = false }) { Text("Cancel") }
-            },
+            onDismiss = { showRouteFromHoldPrompt = false },
         )
     }
 
-    val selectedWaypoint by viewModel.selectedWaypoint.collectAsStateWithLifecycle()
     var waitEditIndex by remember { mutableStateOf<Int?>(null) }
-
     if (selectedWaypoint != null && state.waypoints.getOrNull(selectedWaypoint!!) == null) {
-        // The list changed under the open menu (undo/clear) — drop it.
+        // The list changed under the selection (undo/clear) — drop it.
         viewModel.selectWaypoint(null)
     }
     waitEditIndex?.let { index ->
@@ -336,444 +340,459 @@ fun MapScreen(
             onDismiss = { waitEditIndex = null },
         )
     }
+    if (showSaveDialog) {
+        SaveRouteDialog(
+            suggestedName = suggestedName,
+            onConfirm = { name ->
+                viewModel.saveRoute(name)
+                showSaveDialog = false
+            },
+            onDismiss = { showSaveDialog = false },
+        )
+    }
 
-    Box(modifier = Modifier.fillMaxSize()) {
-        Column(
-            modifier = Modifier
-                .align(Alignment.TopCenter)
-                .fillMaxWidth()
-                .padding(12.dp),
-        ) {
-            if (!playing) {
-                MapSearchBar(
-                    state = searchState,
-                    units = units,
-                    onQueryChange = viewModel::setSearchQuery,
-                    onSearch = viewModel::submitSearch,
-                    onResultSelected = {
-                        focusManager.clearFocus()
-                        viewModel.selectSearchResult(it)
-                    },
-                    onDismiss = {
-                        focusManager.clearFocus()
-                        viewModel.clearSearchResults()
-                    },
-                )
-                Spacer(Modifier.height(8.dp))
-            }
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.End,
-            ) {
-                Column(
-                    verticalArrangement = Arrangement.spacedBy(8.dp),
-                    horizontalAlignment = Alignment.End,
-                ) {
-                    if (!playing) {
-                        FilledTonalIconButton(onClick = viewModel::toggleMap3d) {
-                            Text(
-                                text = if (map3d) "2D" else "3D",
-                                style = MaterialTheme.typography.labelLarge,
-                            )
-                        }
-                    }
-                    val fineLocation = Manifest.permission.ACCESS_FINE_LOCATION
-                    FilledTonalIconButton(
-                        onClick = {
-                            // Read at click time; collecting latestFix in composition
-                            // would recompose the whole overlay on every fix.
-                            val mockedPosition = when (val current = sessionViewModel.session.value) {
-                                is MockSessionState.Holding -> current.position
-                                is MockSessionState.Playing -> sessionViewModel.latestFix.value?.position
-                                else -> null
-                            }
-                            when {
-                                mockedPosition != null -> viewModel.panTo(mockedPosition)
-                                context.hasPermission(fineLocation) -> viewModel.locateReal()
-                                else -> locatePermissionLauncher.launch(fineLocation)
-                            }
+    val scaffoldState = rememberBottomSheetScaffoldState()
+    val sheetState = scaffoldState.bottomSheetState
+    val snackbarHostState = scaffoldState.snackbarHostState
+    val dismissLabel = stringResource(R.string.snack_dismiss)
+    // Transient feedback is a snackbar, never a card in the stack.
+    LaunchedEffect(playbackError) {
+        val message = playbackError ?: return@LaunchedEffect
+        snackbarHostState.showSnackbar(message, actionLabel = dismissLabel)
+        sessionViewModel.consumeError()
+    }
+    LaunchedEffect(state.savedConfirmation) {
+        val message = state.savedConfirmation ?: return@LaunchedEffect
+        viewModel.consumeSavedConfirmation()
+        snackbarHostState.showSnackbar(message)
+    }
+    val expanded = sheetState.currentValue == SheetValue.Expanded
+    var peekHeightPx by remember { mutableIntStateOf(0) }
+    // Until the peek block has been measured (first frame, and again after a
+    // configuration change) fall back to a plausible height: snapping to a
+    // zero-height anchor parks the sheet off-screen for good.
+    val peekMeasured = peekHeightPx > 0
+    val peekHeight = if (peekMeasured) {
+        with(LocalDensity.current) { peekHeightPx.toDp() }
+    } else {
+        PEEK_FALLBACK_HEIGHT
+    }
+    // Focal moment: Play drops the sheet to its peek so the map leads.
+    LaunchedEffect(playing, peekMeasured) {
+        if (playing && peekMeasured) sheetState.partialExpand()
+    }
+    // Tapping a marker opens its options inside the sheet.
+    LaunchedEffect(selectedWaypoint) {
+        if (selectedWaypoint != null) sheetState.expand()
+    }
+
+    BottomSheetScaffold(
+        scaffoldState = scaffoldState,
+        sheetPeekHeight = peekHeight,
+        sheetShape = Tokens.sheetShape,
+        sheetContainerColor = MaterialTheme.colorScheme.surfaceContainerLow,
+        sheetDragHandle = null,
+        containerColor = Color.Transparent,
+        snackbarHost = { SnackbarHost(snackbarHostState) },
+        sheetContent = {
+            // The bar hides during playback, so the sheet owns the system
+            // navigation inset then; otherwise the bar already covers it.
+            val insetModifier = if (playing) Modifier.navigationBarsPadding() else Modifier
+            Column(modifier = insetModifier.fillMaxWidth()) {
+                Column(modifier = Modifier.onSizeChanged { peekHeightPx = it.height }) {
+                    val strip = stripFor(
+                        state = state,
+                        playbackState = playbackState,
+                        holding = holding,
+                        playing = playing,
+                        setupReady = setupStatus?.readyToMock != false,
+                    )
+                    StatusStrip(
+                        text = strip.text,
+                        tone = strip.tone,
+                        actionLabel = strip.actionLabel,
+                        onAction = when (strip.action) {
+                            StripAction.FIX -> onOpenSetup
+                            StripAction.RELEASE -> sessionViewModel::release
+                            null -> null
                         },
-                    ) {
-                        Icon(
-                            painter = painterResource(R.drawable.ic_target),
-                            contentDescription = "Go to my location",
+                    )
+                    if (playing) {
+                        PlaybackPeek(
+                            playbackState = playbackState,
+                            route = state.route,
+                            units = units,
+                            speedMultiplier = speedMultiplier,
+                            speedExpanded = expanded,
+                            sessionViewModel = sessionViewModel,
+                            onToggleSpeed = {
+                                scope.launch { if (expanded) sheetState.partialExpand() else sheetState.expand() }
+                            },
+                        )
+                    } else {
+                        PlanningPeek(
+                            state = state,
+                            units = units,
+                            holdActive = holding != null,
+                            onPlay = ::playOrAskStart,
+                        )
+                    }
+                }
+                Column(
+                    modifier = Modifier
+                        .verticalScroll(rememberScrollState())
+                        .padding(bottom = Tokens.space4),
+                ) {
+                    if (playing) {
+                        SpeedChips(
+                            speedMultiplier = speedMultiplier,
+                            onSpeedChange = sessionViewModel::setSpeedMultiplier,
+                            modifier = Modifier.padding(horizontal = Tokens.inset),
+                        )
+                    } else {
+                        PlanningDetails(
+                            state = state,
+                            selectedWaypoint = selectedWaypoint,
+                            customServerConfigured = customServerConfigured,
+                            onSelectWaypoint = viewModel::selectWaypoint,
+                            onSetWait = { waitEditIndex = it },
+                            onClearWait = { viewModel.setWaypointWait(it, 0) },
+                            onRemoveStop = viewModel::removeWaypoint,
+                            onProfileSelected = viewModel::setProfile,
+                            onUndo = viewModel::undoWaypoint,
+                            onClear = viewModel::clearWaypoints,
+                            onSave = {
+                                viewModel.requestNameSuggestion()
+                                showSaveDialog = true
+                            },
                         )
                     }
                 }
             }
-        }
-
-        if (showSaveDialog) {
-            SaveRouteDialog(
-                suggestedName = suggestedName,
-                onConfirm = { name ->
-                    viewModel.saveRoute(name)
-                    showSaveDialog = false
-                },
-                onDismiss = { showSaveDialog = false },
-            )
-        }
-
-        ThumbstickOverlay(
-            enabled = holding != null && !playing,
-            onNudge = { bearingDegrees, deflection ->
-                // Read the live hold at nudge time — the composition capture
-                // would go stale as the dot moves.
-                val hold = sessionViewModel.session.value as? MockSessionState.Holding
-                if (hold != null) {
-                    val meters = nudgeMeters(
-                        deflection = deflection,
-                        zoom = viewModel.camera.value?.zoom ?: DEFAULT_NUDGE_ZOOM,
-                        latitudeDegrees = hold.position.latitude,
-                        dtSeconds = NUDGE_TICK_MILLIS / MILLIS_PER_SECOND,
-                    )
-                    sessionViewModel.nudgeHold(
-                        GeoMath.destination(hold.position, bearingDegrees, meters),
-                    )
-                }
-            },
-            modifier = Modifier
-                .align(Alignment.CenterEnd)
-                .padding(12.dp),
-        )
-
-        // Status banners live at the bottom, stacked directly above the card.
-        Column(
-            modifier = Modifier
-                .align(Alignment.BottomCenter)
-                .fillMaxWidth()
-                .padding(12.dp),
-        ) {
-            if (setupStatus?.readyToMock == false && !playing) {
-                StatusCard(
-                    text = "Mocking isn't set up yet — routes will draw, but playback won't move your location.",
-                    actionLabel = "Fix",
-                    onAction = onOpenSetup,
-                    isError = true,
-                )
-                Spacer(Modifier.height(8.dp))
-            }
-            if (holding != null) {
-                val coords = "%.4f, %.4f".format(holding.position.latitude, holding.position.longitude)
-                StatusCard(
-                    text = holding.placeName?.let { "Holding at $it" }
-                        ?: when (holding.source) {
-                            HoldSource.DESTINATION -> "Holding at destination"
-                            HoldSource.PIN -> "Holding your location at $coords"
+        },
+    ) { _ ->
+        Box(modifier = Modifier.fillMaxSize()) {
+            Column(
+                modifier = Modifier
+                    .align(Alignment.TopCenter)
+                    .fillMaxWidth()
+                    .padding(Tokens.mapEdge)
+                    .imePadding(),
+            ) {
+                if (!playing) {
+                    MapSearchBar(
+                        state = searchState,
+                        units = units,
+                        onQueryChange = viewModel::setSearchQuery,
+                        onSearch = viewModel::submitSearch,
+                        onResultSelected = {
+                            focusManager.clearFocus()
+                            viewModel.selectSearchResult(it)
                         },
-                    actionLabel = "Stop",
-                    onAction = sessionViewModel::release,
-                )
-                Spacer(Modifier.height(8.dp))
-            }
-            playbackError?.let { message ->
-                StatusCard(
-                    text = message,
-                    actionLabel = "Dismiss",
-                    onAction = sessionViewModel::consumeError,
-                    isError = true,
-                )
-                Spacer(Modifier.height(8.dp))
-            }
-            state.errorMessage?.let { message ->
-                StatusCard(text = message, isError = true)
-                Spacer(Modifier.height(8.dp))
-            }
-            state.savedConfirmation?.let { message ->
-                StatusCard(
-                    text = message,
-                    actionLabel = "OK",
-                    onAction = viewModel::consumeSavedConfirmation,
-                )
-                Spacer(Modifier.height(8.dp))
-            }
-            val selectedStop = selectedWaypoint?.let { state.waypoints.getOrNull(it) }
-            if (!playing && selectedWaypoint != null && selectedStop != null) {
-                val index = selectedWaypoint!!
-                WaypointOptionsCard(
-                    stopNumber = index + 1,
-                    isDestination = index == state.waypoints.lastIndex && state.waypoints.size >= 2,
-                    currentWaitSeconds = selectedStop.waitSeconds,
-                    onSetWait = {
-                        waitEditIndex = index
-                        viewModel.selectWaypoint(null)
-                    },
-                    onClearWait = { viewModel.setWaypointWait(index, 0) },
-                    onDelete = { viewModel.removeWaypoint(index) },
-                    onDismiss = { viewModel.selectWaypoint(null) },
-                    modifier = Modifier.fillMaxWidth(),
-                )
-                Spacer(Modifier.height(8.dp))
-            }
-            if (playing) {
-                PlaybackCard(
-                    playbackState = playbackState,
-                    route = state.route,
-                    units = units,
-                    speedMultiplier = speedMultiplier,
+                        onDismiss = {
+                            focusManager.clearFocus()
+                            viewModel.clearSearchResults()
+                        },
+                    )
+                    Spacer(Modifier.height(Tokens.space2))
+                }
+                MapControls(
+                    playing = playing,
+                    map3d = map3d,
                     followCamera = followCamera,
+                    onToggle3d = viewModel::toggleMap3d,
                     onToggleFollow = { viewModel.setFollowCamera(!followCamera) },
-                    onSpeedChange = sessionViewModel::setSpeedMultiplier,
-                    onPause = sessionViewModel::pause,
-                    onResume = sessionViewModel::resume,
-                    onStop = sessionViewModel::stopPlayback,
-                    modifier = Modifier.fillMaxWidth(),
-                )
-            } else {
-                RouteCreatorCard(
-                    state = state,
-                    units = units,
-                    holdActive = holding != null,
-                    customServerConfigured = customServerConfigured,
-                    onProfileSelected = viewModel::setProfile,
-                    onUndo = viewModel::undoWaypoint,
-                    onClear = viewModel::clearWaypoints,
-                    onPlay = ::playOrAskStart,
-                    onSave = {
-                        viewModel.requestNameSuggestion()
-                        showSaveDialog = true
+                    onLocate = {
+                        // Read at click time; collecting latestFix in composition
+                        // would recompose the whole overlay on every fix.
+                        val fineLocation = Manifest.permission.ACCESS_FINE_LOCATION
+                        val mockedPosition = when (val current = sessionViewModel.session.value) {
+                            is MockSessionState.Holding -> current.position
+                            is MockSessionState.Playing -> sessionViewModel.latestFix.value?.position
+                            else -> null
+                        }
+                        when {
+                            mockedPosition != null -> viewModel.panTo(mockedPosition)
+                            context.hasPermission(fineLocation) -> viewModel.locateReal()
+                            else -> locatePermissionLauncher.launch(fineLocation)
+                        }
                     },
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier = Modifier.align(Alignment.End),
                 )
             }
-        }
-    }
-}
 
-private val SPEED_MULTIPLIER_RANGE =
-    SimulationEngine.MIN_MULTIPLIER.toFloat()..SimulationEngine.MAX_MULTIPLIER.toFloat()
-
-private const val WAYPOINT_HINT = "Tap the map to add stops (2 or more make a route). " +
-    "Long-press to hold your location at one spot."
-
-private const val HALF_TURN = 180f
-private const val START_FROM_HOLD_METERS = 30.0
-private const val DEFAULT_NUDGE_ZOOM = 15.0
-private const val MILLIS_PER_SECOND = 1_000.0
-
-private fun Context.hasPermission(permission: String): Boolean =
-    ContextCompat.checkSelfPermission(this, permission) == PackageManager.PERMISSION_GRANTED
-
-/** Permissions the mock session service needs before it can start. */
-private fun Context.missingMockPermissions(): List<String> = buildList {
-    if (!hasPermission(Manifest.permission.ACCESS_FINE_LOCATION)) {
-        add(Manifest.permission.ACCESS_FINE_LOCATION)
-    }
-    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
-        !hasPermission(Manifest.permission.POST_NOTIFICATIONS)
-    ) {
-        add(Manifest.permission.POST_NOTIFICATIONS)
-    }
-}
-
-@Composable
-private fun StatusCard(
-    text: String,
-    actionLabel: String? = null,
-    onAction: (() -> Unit)? = null,
-    isError: Boolean = false,
-) {
-    Card(
-        colors = CardDefaults.cardColors(
-            containerColor = if (isError) {
-                MaterialTheme.colorScheme.errorContainer
-            } else {
-                MaterialTheme.colorScheme.primaryContainer
-            },
-        ),
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 8.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Text(
-                text = text,
-                style = MaterialTheme.typography.bodyMedium,
-                modifier = Modifier.weight(1f),
-            )
-            if (actionLabel != null && onAction != null) {
-                Spacer(Modifier.width(8.dp))
-                TextButton(onClick = onAction) {
-                    Text(actionLabel)
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun PlaybackCard(
-    playbackState: PlaybackState?,
-    route: Route?,
-    units: DistanceUnits,
-    speedMultiplier: Double,
-    followCamera: Boolean,
-    onToggleFollow: () -> Unit,
-    onSpeedChange: (Double) -> Unit,
-    onPause: () -> Unit,
-    onResume: () -> Unit,
-    onStop: () -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    val progress = playbackState.progressOrZero
-    val paused = playbackState is PlaybackState.Paused
-    val stopping = playbackState is PlaybackState.Stopping
-    val dwelling = playbackState as? PlaybackState.Dwelling
-    val total = route?.distanceMeters ?: 0.0
-    val progressText = formatDistanceProgress(total * progress, total, units)
-    val etaSuffix = playbackState.remainingSecondsOrNull
-        ?.let { " · ${formatDurationShort(it)} left" }
-        .orEmpty()
-
-    Card(modifier = modifier) {
-        Column(modifier = Modifier.padding(16.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(
-                    text = when {
-                        stopping -> "Stopping…"
-                        paused -> "Paused · $progressText$etaSuffix"
-                        dwelling != null ->
-                            "Waiting ${formatDurationShort(dwelling.waitSecondsLeft)} · " +
-                                "$progressText$etaSuffix"
-                        else -> "Driving · $progressText$etaSuffix"
+            // Only while holding: the nudge control is chrome that must recede
+            // (design brief) rather than sit dimmed on every map state.
+            if (holding != null && !playing) {
+                ThumbstickOverlay(
+                    enabled = true,
+                    onNudge = { bearingDegrees, deflection ->
+                        // Read the live hold at nudge time — the composition capture
+                        // would go stale as the dot moves.
+                        val hold = sessionViewModel.session.value as? MockSessionState.Holding
+                        if (hold != null) {
+                            val meters = nudgeMeters(
+                                deflection = deflection,
+                                zoom = viewModel.camera.value?.zoom ?: DEFAULT_NUDGE_ZOOM,
+                                latitudeDegrees = hold.position.latitude,
+                                dtSeconds = NUDGE_TICK_MILLIS / MILLIS_PER_SECOND,
+                            )
+                            sessionViewModel.nudgeHold(
+                                GeoMath.destination(hold.position, bearingDegrees, meters),
+                            )
+                        }
                     },
-                    style = MaterialTheme.typography.titleSmall,
-                    modifier = Modifier.weight(1f),
+                    modifier = Modifier
+                        .align(Alignment.CenterEnd)
+                        .padding(Tokens.mapEdge),
                 )
-                TextButton(onClick = onToggleFollow) {
-                    Text(if (followCamera) "Following" else "Follow")
-                }
-            }
-            Spacer(Modifier.height(4.dp))
-            LinearProgressIndicator(
-                progress = { progress.toFloat() },
-                modifier = Modifier.fillMaxWidth(),
-            )
-            Spacer(Modifier.height(8.dp))
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text("Speed ×%.2g".format(speedMultiplier), style = MaterialTheme.typography.bodySmall)
-                Spacer(Modifier.width(12.dp))
-                Slider(
-                    value = speedMultiplier.toFloat(),
-                    onValueChange = { onSpeedChange(it.toDouble()) },
-                    valueRange = SPEED_MULTIPLIER_RANGE,
-                    modifier = Modifier.weight(1f),
-                )
-            }
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                if (paused) {
-                    Button(onClick = onResume, enabled = !stopping) { Text("Resume") }
-                } else {
-                    Button(onClick = onPause, enabled = !stopping) { Text("Pause") }
-                }
-                OutlinedButton(onClick = onStop, enabled = !stopping) { Text("Stop") }
             }
         }
     }
 }
 
-/**
- * Compact route bar: summary + Play + a chevron. Expanding reveals the
- * profile chips and route actions — the expanded column is where future
- * per-route options land without crowding the collapsed bar.
- */
+/** Peek while planning: the route summary trio and Play, or the idle hint. */
 @Composable
-private fun RouteCreatorCard(
+private fun PlanningPeek(
     state: MapViewModel.UiState,
     units: DistanceUnits,
     holdActive: Boolean,
+    onPlay: () -> Unit,
+) {
+    val route = state.route
+    Row(
+        modifier = Modifier.padding(horizontal = Tokens.inset, vertical = Tokens.space3),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        if (route != null) {
+            val seconds = route.durationSeconds * state.trafficFactor + route.waypointWaitsSeconds.sum()
+            val minutes = (seconds / SECONDS_PER_MINUTE).roundToInt().coerceAtLeast(1)
+            StatTrio(
+                cells = listOf(
+                    StatCell(stringResource(R.string.stat_distance), formatDistance(route.distanceMeters, units)),
+                    StatCell(
+                        stringResource(R.string.stat_duration),
+                        formatDurationShort(minutes * SECONDS_PER_MINUTE.toDouble()),
+                    ),
+                    StatCell(stringResource(R.string.stat_stops), state.waypoints.size.toString()),
+                ),
+                modifier = Modifier.weight(1f),
+            )
+        } else {
+            Icon(
+                painter = painterResource(R.drawable.ic_route),
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.size(Tokens.space6),
+            )
+            Spacer(Modifier.width(Tokens.space3))
+            Text(
+                text = when {
+                    state.isRouting -> stringResource(R.string.strip_routing)
+                    state.waypoints.size == 1 && holdActive -> stringResource(R.string.strip_hold_hint)
+                    state.waypoints.size == 1 -> stringResource(R.string.sheet_one_stop)
+                    else -> stringResource(R.string.sheet_idle_title)
+                },
+                style = MaterialTheme.typography.bodyLarge,
+                modifier = Modifier.weight(1f),
+            )
+        }
+        val playable = route != null || (state.waypoints.size == 1 && holdActive)
+        if (playable) {
+            Spacer(Modifier.width(Tokens.space3))
+            Button(onClick = onPlay) {
+                Icon(painterResource(R.drawable.ic_play), contentDescription = null)
+                Spacer(Modifier.width(Tokens.space1))
+                Text(stringResource(R.string.sheet_play))
+            }
+        } else if (state.isRouting) {
+            Spacer(Modifier.width(Tokens.space3))
+            CircularProgressIndicator(modifier = Modifier.size(Tokens.space6), strokeWidth = 2.dp)
+        }
+    }
+}
+
+/** Expanded planning content: the stops, then the route actions. */
+@Composable
+private fun PlanningDetails(
+    state: MapViewModel.UiState,
+    selectedWaypoint: Int?,
     customServerConfigured: Boolean,
+    onSelectWaypoint: (Int?) -> Unit,
+    onSetWait: (Int) -> Unit,
+    onClearWait: (Int) -> Unit,
+    onRemoveStop: (Int) -> Unit,
     onProfileSelected: (RoutingProfile) -> Unit,
     onUndo: () -> Unit,
     onClear: () -> Unit,
-    onPlay: () -> Unit,
     onSave: () -> Unit,
-    modifier: Modifier = Modifier,
 ) {
-    var expanded by rememberSaveable { mutableStateOf(false) }
-    var lastCount by remember { mutableIntStateOf(state.waypoints.size) }
-    // Auto-expand when route building starts; collapse again on Clear.
-    LaunchedEffect(state.waypoints.size) {
-        val count = state.waypoints.size
-        if (lastCount == 0 && count > 0) expanded = true
-        if (count == 0) expanded = false
-        lastCount = count
+    if (state.waypoints.isEmpty()) {
+        Text(
+            text = stringResource(R.string.sheet_idle_body),
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(horizontal = Tokens.inset),
+        )
+        return
     }
+    Text(
+        text = stringResource(R.string.sheet_stops_header).uppercase(),
+        style = MaterialTheme.typography.labelSmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        modifier = Modifier.padding(horizontal = Tokens.inset, vertical = Tokens.space1),
+    )
+    state.waypoints.forEachIndexed { index, waypoint ->
+        StopRow(
+            index = index,
+            waypoint = waypoint,
+            count = state.waypoints.size,
+            selected = index == selectedWaypoint,
+            onClick = { onSelectWaypoint(if (index == selectedWaypoint) null else index) },
+            onSetWait = { onSetWait(index) },
+            onClearWait = { onClearWait(index) },
+            onRemove = { onRemoveStop(index) },
+        )
+    }
+    Spacer(Modifier.height(Tokens.space2))
+    // The public routing server only supports driving; the profile picker
+    // appears once a custom server is configured.
+    if (customServerConfigured) {
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(Tokens.space2),
+            modifier = Modifier.padding(horizontal = Tokens.inset),
+        ) {
+            RoutingProfile.entries.forEach { profile ->
+                FilterChip(
+                    selected = state.profile == profile,
+                    onClick = { onProfileSelected(profile) },
+                    label = { Text(profile.label()) },
+                )
+            }
+        }
+    }
+    Row(
+        horizontalArrangement = Arrangement.spacedBy(Tokens.space2),
+        modifier = Modifier.padding(horizontal = Tokens.space3),
+    ) {
+        TextButton(onClick = onSave, enabled = state.route != null && !state.routeIsFallback) {
+            Text(stringResource(R.string.sheet_save))
+        }
+        TextButton(onClick = onUndo) { Text(stringResource(R.string.sheet_undo)) }
+        TextButton(onClick = onClear) { Text(stringResource(R.string.sheet_clear)) }
+    }
+}
 
-    Card(modifier = modifier) {
-        Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                if (state.isRouting) {
-                    CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
-                    Spacer(Modifier.width(8.dp))
-                }
-                val route = state.route
+/** One stop: numbered disc, role, wait, and its actions when selected. */
+@Composable
+private fun StopRow(
+    index: Int,
+    waypoint: Waypoint,
+    count: Int,
+    selected: Boolean,
+    onClick: () -> Unit,
+    onSetWait: () -> Unit,
+    onClearWait: () -> Unit,
+    onRemove: () -> Unit,
+) {
+    // Mirrors the map markers: the first stop is always the start.
+    val isStart = index == 0
+    val isEnd = index == count - 1 && count >= 2
+    val background = if (selected) MaterialTheme.colorScheme.surfaceContainerHigh else Color.Transparent
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(background)
+            .clickable(onClick = onClick)
+            .padding(horizontal = Tokens.inset, vertical = Tokens.space2),
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.heightIn(min = Tokens.space8)) {
+            StopDisc(number = index + 1, isStart = isStart, isEnd = isEnd)
+            Spacer(Modifier.width(Tokens.space3))
+            Column(modifier = Modifier.weight(1f)) {
                 Text(
                     text = when {
-                        state.isRouting -> "Fetching route…"
-                        route != null -> route.summaryText(units, state.trafficFactor)
-                        state.waypoints.size == 1 && holdActive -> "Play to route from your held spot"
-                        state.waypoints.isNotEmpty() -> "Add another stop to make a route"
-                        else -> "Tap the map to add stops"
+                        isStart -> stringResource(R.string.sheet_start)
+                        isEnd -> stringResource(R.string.sheet_destination)
+                        else -> stringResource(R.string.sheet_stop_n, index + 1)
                     },
-                    style = MaterialTheme.typography.bodyMedium,
-                    maxLines = if (route != null) 2 else 1,
-                    overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.weight(1f),
+                    style = MaterialTheme.typography.bodyLarge,
                 )
-                Spacer(Modifier.width(8.dp))
-                Button(
-                    onClick = onPlay,
-                    enabled = route != null || (state.waypoints.size == 1 && holdActive),
-                ) {
-                    Icon(Icons.Filled.PlayArrow, contentDescription = "Play")
-                }
-                val rotation by animateFloatAsState(if (expanded) HALF_TURN else 0f, label = "chevron")
-                IconButton(onClick = { expanded = !expanded }) {
-                    Icon(
-                        imageVector = Icons.Filled.KeyboardArrowDown,
-                        contentDescription = if (expanded) "Hide route options" else "Show route options",
-                        modifier = Modifier.rotate(rotation),
+                if (waypoint.waitSeconds > 0) {
+                    Text(
+                        text = stringResource(
+                            R.string.sheet_waits,
+                            formatDurationShort(waypoint.waitSeconds.toDouble()),
+                        ),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MockarrTheme.colors.hold,
                     )
                 }
             }
-            AnimatedVisibility(visible = expanded) {
-                Column {
-                    if (state.route == null) {
-                        Text(
-                            text = WAYPOINT_HINT,
-                            style = MaterialTheme.typography.bodySmall,
-                        )
-                        Spacer(Modifier.height(4.dp))
-                    }
-                    // The public routing server only supports driving; the profile
-                    // picker appears once a custom server is configured.
-                    if (customServerConfigured) {
-                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            RoutingProfile.entries.forEach { profile ->
-                                FilterChip(
-                                    selected = state.profile == profile,
-                                    onClick = { onProfileSelected(profile) },
-                                    label = { Text(profile.label()) },
-                                )
-                            }
-                        }
-                    }
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        TextButton(
-                            onClick = onSave,
-                            enabled = state.route != null && !state.routeIsFallback,
-                        ) { Text("Save") }
-                        TextButton(onClick = onUndo, enabled = state.waypoints.isNotEmpty()) {
-                            Text("Undo")
-                        }
-                        TextButton(onClick = onClear, enabled = state.waypoints.isNotEmpty()) {
-                            Text("Clear")
-                        }
-                    }
+            IconButton(onClick = onRemove) {
+                Icon(Icons.Filled.Delete, contentDescription = stringResource(R.string.sheet_remove_stop))
+            }
+        }
+        if (selected && !isEnd) {
+            Row(horizontalArrangement = Arrangement.spacedBy(Tokens.space2)) {
+                TextButton(onClick = onSetWait) {
+                    Text(
+                        stringResource(
+                            if (waypoint.waitSeconds > 0) R.string.sheet_edit_wait else R.string.sheet_set_wait,
+                        ),
+                    )
                 }
+                if (waypoint.waitSeconds > 0) {
+                    TextButton(onClick = onClearWait) { Text(stringResource(R.string.sheet_remove_wait)) }
+                }
+            }
+        }
+    }
+}
+
+/** The FAB stack on the map's right edge: 3D toggle, then locate / follow. */
+@Composable
+private fun MapControls(
+    playing: Boolean,
+    map3d: Boolean,
+    followCamera: Boolean,
+    onToggle3d: () -> Unit,
+    onToggleFollow: () -> Unit,
+    onLocate: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Column(
+        verticalArrangement = Arrangement.spacedBy(Tokens.space2),
+        horizontalAlignment = Alignment.End,
+        modifier = modifier,
+    ) {
+        if (!playing) {
+            val description = stringResource(if (map3d) R.string.map_2d_cd else R.string.map_3d_cd)
+            FilledTonalIconButton(
+                onClick = onToggle3d,
+                modifier = Modifier.semantics { contentDescription = description },
+            ) {
+                Text(
+                    text = stringResource(if (map3d) R.string.map_2d else R.string.map_3d),
+                    style = MaterialTheme.typography.labelLarge,
+                )
+            }
+        }
+        if (playing) {
+            FilledIconToggleButton(checked = followCamera, onCheckedChange = { onToggleFollow() }) {
+                Icon(
+                    painter = painterResource(R.drawable.ic_target),
+                    contentDescription = stringResource(
+                        if (followCamera) R.string.map_following_cd else R.string.map_follow_cd,
+                    ),
+                )
+            }
+        } else {
+            FilledTonalIconButton(onClick = onLocate) {
+                Icon(
+                    painter = painterResource(R.drawable.ic_target),
+                    contentDescription = stringResource(R.string.map_locate_cd),
+                )
             }
         }
     }
@@ -792,62 +811,46 @@ private fun MapSearchBar(
         OutlinedTextField(
             value = state.query,
             onValueChange = onQueryChange,
-            placeholder = { Text("Search for a place") },
+            placeholder = { Text(stringResource(R.string.map_search_hint)) },
             singleLine = true,
+            shape = Tokens.controlShape,
             trailingIcon = {
                 if (state.searching) {
-                    CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
+                    CircularProgressIndicator(modifier = Modifier.size(Tokens.space6), strokeWidth = 2.dp)
                 } else {
                     IconButton(onClick = onSearch) {
-                        Icon(Icons.Filled.Search, contentDescription = "Search")
+                        Icon(Icons.Filled.Search, contentDescription = stringResource(R.string.map_search_cd))
                     }
                 }
             },
             keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
             keyboardActions = KeyboardActions(onSearch = { onSearch() }),
             colors = OutlinedTextFieldDefaults.colors(
-                unfocusedContainerColor = MaterialTheme.colorScheme.surface,
-                focusedContainerColor = MaterialTheme.colorScheme.surface,
+                unfocusedContainerColor = MaterialTheme.colorScheme.surfaceContainerLowest,
+                focusedContainerColor = MaterialTheme.colorScheme.surfaceContainerLowest,
+                unfocusedBorderColor = Color.Transparent,
             ),
             modifier = Modifier.fillMaxWidth(),
         )
         if (state.results.isNotEmpty() || state.errorMessage != null) {
-            Spacer(Modifier.height(4.dp))
-            Card {
+            Spacer(Modifier.height(Tokens.space1))
+            Card(shape = Tokens.cardShape) {
                 Column {
                     state.errorMessage?.let { message ->
                         Text(
                             text = message,
                             style = MaterialTheme.typography.bodyMedium,
-                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
+                            modifier = Modifier.padding(horizontal = Tokens.inset, vertical = Tokens.space3),
                         )
                     }
-                    state.results.forEachIndexed { index, suggestion ->
-                        if (index > 0) HorizontalDivider()
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clickable { onResultSelected(suggestion.result) }
-                                .padding(horizontal = 16.dp, vertical = 12.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                        ) {
-                            Text(
-                                text = suggestion.result.name,
-                                style = MaterialTheme.typography.bodyMedium,
-                                maxLines = 2,
-                                modifier = Modifier.weight(1f),
-                            )
-                            suggestion.distanceMeters?.let { meters ->
-                                Spacer(Modifier.width(8.dp))
-                                Text(
-                                    text = formatDistance(meters, units),
-                                    style = MaterialTheme.typography.bodySmall,
-                                )
-                            }
+                    LazyColumn(modifier = Modifier.heightIn(max = RESULTS_MAX_HEIGHT)) {
+                        items(state.results) { suggestion ->
+                            SearchResultRow(suggestion, units) { onResultSelected(suggestion.result) }
+                            HorizontalDivider()
                         }
                     }
                     Row(modifier = Modifier.align(Alignment.End)) {
-                        TextButton(onClick = onDismiss) { Text("Close") }
+                        TextButton(onClick = onDismiss) { Text(stringResource(R.string.map_search_close)) }
                     }
                 }
             }
@@ -856,38 +859,51 @@ private fun MapSearchBar(
 }
 
 @Composable
-private fun SaveRouteDialog(
-    suggestedName: String?,
-    onConfirm: (String) -> Unit,
-    onDismiss: () -> Unit,
+private fun SearchResultRow(
+    suggestion: MapViewModel.SearchSuggestion,
+    units: DistanceUnits,
+    onClick: () -> Unit,
 ) {
-    val defaultName = remember { "Route " + formatRouteTimestamp(System.currentTimeMillis()) }
-    var name by remember { mutableStateOf(suggestedName ?: defaultName) }
-    var edited by remember { mutableStateOf(false) }
-    // The reverse-geocoded suggestion may arrive after the dialog opens; adopt
-    // it only while the user hasn't typed anything.
-    LaunchedEffect(suggestedName) {
-        if (!edited && suggestedName != null) name = suggestedName
-    }
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text("Save route") },
-        text = {
-            OutlinedTextField(
-                value = name,
-                onValueChange = {
-                    name = it
-                    edited = true
-                },
-                label = { Text("Name") },
-                singleLine = true,
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick)
+            .heightIn(min = Tokens.touchTarget)
+            .padding(horizontal = Tokens.inset, vertical = Tokens.space2),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(
+            text = suggestion.result.name,
+            style = MaterialTheme.typography.bodyMedium,
+            maxLines = 2,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.weight(1f),
+        )
+        suggestion.distanceMeters?.let { meters ->
+            Spacer(Modifier.width(Tokens.space2))
+            Text(
+                text = formatDistance(meters, units),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
-        },
-        confirmButton = {
-            TextButton(onClick = { onConfirm(name) }) { Text("Save") }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) { Text("Cancel") }
-        },
-    )
+        }
+    }
 }
+
+private const val START_FROM_HOLD_METERS = 30.0
+private const val DEFAULT_NUDGE_ZOOM = 15.0
+private const val MILLIS_PER_SECOND = 1_000.0
+private const val SECONDS_PER_MINUTE = 60
+private val RESULTS_MAX_HEIGHT = 280.dp
+private val PEEK_FALLBACK_HEIGHT = 200.dp
+
+@Composable
+internal fun formatSpeed(metersPerSecond: Double, units: DistanceUnits): String = when (units) {
+    DistanceUnits.KILOMETERS ->
+        stringResource(R.string.speed_kmh, (metersPerSecond * KMH_PER_MPS).roundToInt())
+    DistanceUnits.MILES ->
+        stringResource(R.string.speed_mph, (metersPerSecond * MPH_PER_MPS).roundToInt())
+}
+
+private const val KMH_PER_MPS = 3.6
+private const val MPH_PER_MPS = 2.236936

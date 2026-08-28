@@ -1,5 +1,9 @@
 package dev.mockarr.app.ui.map
 
+import android.graphics.Bitmap
+import android.graphics.Canvas
+import android.graphics.Paint
+import android.graphics.Path
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -15,6 +19,7 @@ import androidx.compose.ui.viewinterop.AndroidView
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
+import dev.mockarr.app.ui.theme.MapPalette
 import dev.mockarr.core.model.LatLng
 import dev.mockarr.core.model.MapCamera
 import dev.mockarr.core.model.Waypoint
@@ -40,6 +45,12 @@ import org.maplibre.android.geometry.LatLng as MapLibreLatLng
 
 private const val ROUTE_SOURCE = "route-source"
 private const val ROUTE_LAYER = "route-layer"
+private const val ROUTE_CASING_LAYER = "route-casing-layer"
+private const val ROUTE_ARROW_LAYER = "route-arrow-layer"
+private const val ROUTE_ARROW_ICON = "route-chevron"
+private const val ROUTE_ARROW_SPACING_DP = 72f
+private const val CHEVRON_SIZE_DP = 10f
+private const val CHEVRON_STROKE_DP = 2f
 private const val FALLBACK_SOURCE = "fallback-source"
 private const val FALLBACK_LAYER = "fallback-layer"
 internal const val WAYPOINT_SOURCE = "waypoint-source"
@@ -74,6 +85,7 @@ fun MockarrMap(
     onWaypointTap: (Int) -> Unit,
     onMapLongPress: (LatLng) -> Unit,
     styleUrl: String,
+    palette: MapPalette,
     visible: Boolean,
     loadInitialCamera: suspend () -> MapCamera?,
     onCameraIdle: (MapCamera) -> Unit,
@@ -203,7 +215,7 @@ fun MockarrMap(
             // Each style defines its own building maxZoom — re-capture after reload.
             flatBuildingMaxZoom = null
             libreMap.setStyle(Style.Builder().fromUri(styleUrl)) { loadedStyle ->
-                setUpLayers(loadedStyle, density)
+                setUpLayers(loadedStyle, density, palette)
                 style = loadedStyle
             }
         }
@@ -216,16 +228,23 @@ fun MockarrMap(
         applyMapMode(loadedStyle, map, threeDimensional, flatBuildingMaxZoom)
     }
 
-    LaunchedEffect(style, waypoints, selectedWaypoint, density) {
+    // Theme switches re-tint the live layers in place; a style reload rebuilds them.
+    LaunchedEffect(style, palette) {
         val loadedStyle = style ?: return@LaunchedEffect
-        updateWaypoints(loadedStyle, waypoints, selectedWaypoint, density)
+        applyPalette(loadedStyle, palette, density)
+    }
+
+    val markerStyle = remember(density, palette) { MarkerStyle(density, palette) }
+    LaunchedEffect(style, waypoints, selectedWaypoint, markerStyle) {
+        val loadedStyle = style ?: return@LaunchedEffect
+        updateWaypoints(loadedStyle, waypoints, selectedWaypoint, markerStyle)
     }
 
     // Keyed on style: a style reload drops its images, so the tracker restarts.
     val chipIcons = remember(style) { mutableSetOf<String>() }
-    LaunchedEffect(style, waypoints, activeDwell, density) {
+    LaunchedEffect(style, waypoints, activeDwell, markerStyle) {
         val loadedStyle = style ?: return@LaunchedEffect
-        updateWaitChips(loadedStyle, waypoints, activeDwell, density, chipIcons)
+        updateWaitChips(loadedStyle, waypoints, activeDwell, markerStyle, chipIcons)
     }
 
     LaunchedEffect(style, routePoints, routeIsFallback) {
@@ -293,6 +312,7 @@ fun MockarrMap(
     }
 }
 
+private const val CASING_OPACITY = 0.9f
 private const val FOLLOW_MIN_ZOOM = 15.0
 private const val FOLLOW_EASE_MILLIS = 900
 private const val KEEP_IN_VIEW_MARGIN = 0.2f
@@ -343,7 +363,7 @@ private fun applyMapMode(
     }
 }
 
-private fun setUpLayers(style: Style, density: Float) {
+private fun setUpLayers(style: Style, density: Float, palette: MapPalette) {
     // Line sources keep full geometry: the default geojson-vt options (tolerance
     // 0.375, maxZoom 18) re-simplify the route client-side, visibly cutting
     // corners off the road when overzoomed past z18.
@@ -352,46 +372,110 @@ private fun setUpLayers(style: Style, density: Float) {
         .forEach { style.addSource(GeoJsonSource(it, lineSourceOptions)) }
     listOf(WAYPOINT_SOURCE, WAIT_CHIP_SOURCE, PIN_SOURCE, PLAYBACK_SOURCE)
         .forEach { style.addSource(GeoJsonSource(it)) }
+    val routeWidth = Expression.interpolate(
+        Expression.exponential(1.5f),
+        Expression.zoom(),
+        Expression.stop(10, 3f),
+        Expression.stop(15, 5f),
+        Expression.stop(19, 11f),
+    )
+    val casingWidth = Expression.interpolate(
+        Expression.exponential(1.5f),
+        Expression.zoom(),
+        Expression.stop(10, 5f),
+        Expression.stop(15, 8f),
+        Expression.stop(19, 15f),
+    )
+    // Casing under the line: the route stays legible on any basemap tone.
+    style.addLayer(
+        LineLayer(ROUTE_CASING_LAYER, ROUTE_SOURCE).withProperties(
+            PropertyFactory.lineWidth(casingWidth),
+            PropertyFactory.lineCap(Property.LINE_CAP_ROUND),
+            PropertyFactory.lineJoin(Property.LINE_JOIN_ROUND),
+            PropertyFactory.lineOpacity(CASING_OPACITY),
+        ),
+    )
     style.addLayer(
         LineLayer(ROUTE_LAYER, ROUTE_SOURCE).withProperties(
-            PropertyFactory.lineColor("#1A73E8"),
-            PropertyFactory.lineWidth(
-                Expression.interpolate(
-                    Expression.exponential(1.5f),
-                    Expression.zoom(),
-                    Expression.stop(10, 3f),
-                    Expression.stop(15, 5f),
-                    Expression.stop(19, 11f),
-                ),
-            ),
+            PropertyFactory.lineWidth(routeWidth),
             PropertyFactory.lineCap(Property.LINE_CAP_ROUND),
             PropertyFactory.lineJoin(Property.LINE_JOIN_ROUND),
         ),
     )
     style.addLayer(
         LineLayer(FALLBACK_LAYER, FALLBACK_SOURCE).withProperties(
-            PropertyFactory.lineColor("#EA8600"),
             PropertyFactory.lineWidth(4f),
             PropertyFactory.lineDasharray(arrayOf(1.5f, 1.5f)),
         ),
     )
+    // Direction chevrons ride the line so a glance tells which way the drive goes.
+    style.addLayer(
+        SymbolLayer(ROUTE_ARROW_LAYER, ROUTE_SOURCE).withProperties(
+            PropertyFactory.symbolPlacement(Property.SYMBOL_PLACEMENT_LINE),
+            PropertyFactory.symbolSpacing(ROUTE_ARROW_SPACING_DP * density),
+            PropertyFactory.iconImage(ROUTE_ARROW_ICON),
+            PropertyFactory.iconAllowOverlap(true),
+            PropertyFactory.iconIgnorePlacement(true),
+            PropertyFactory.iconRotationAlignment(Property.ICON_ROTATION_ALIGNMENT_MAP),
+            PropertyFactory.iconPitchAlignment(Property.ICON_PITCH_ALIGNMENT_MAP),
+        ),
+    )
     addPointLayers(style, density)
+    applyPalette(style, palette, density)
+}
+
+/** Colour every custom layer from [palette]; safe to call again on a theme change. */
+private fun applyPalette(style: Style, palette: MapPalette, density: Float) {
+    style.getLayer(ROUTE_CASING_LAYER)?.setProperties(
+        PropertyFactory.lineColor(MapPalette.css(palette.routeCasing)),
+    )
+    style.getLayer(ROUTE_LAYER)?.setProperties(PropertyFactory.lineColor(MapPalette.css(palette.route)))
+    style.getLayer(FALLBACK_LAYER)?.setProperties(
+        PropertyFactory.lineColor(MapPalette.css(palette.fallbackRoute)),
+    )
+    style.getLayer(PLAYBACK_LAYER)?.setProperties(
+        PropertyFactory.circleColor(MapPalette.css(palette.position)),
+        PropertyFactory.circleStrokeColor(MapPalette.css(palette.positionRing)),
+    )
+    style.getLayer(PIN_LAYER)?.setProperties(
+        PropertyFactory.circleColor(MapPalette.css(palette.holdPin)),
+        PropertyFactory.circleStrokeColor(MapPalette.css(palette.positionRing)),
+    )
+    style.addImage(ROUTE_ARROW_ICON, chevronBitmap(palette.routeCasing, density))
+}
+
+/** A ">" pointing along +x; MapLibre rotates it to the line's bearing. */
+private fun chevronBitmap(color: Int, density: Float): Bitmap {
+    val size = (CHEVRON_SIZE_DP * density).toInt().coerceAtLeast(1)
+    val bitmap = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888)
+    val stroke = CHEVRON_STROKE_DP * density
+    val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        this.color = color
+        style = Paint.Style.STROKE
+        strokeWidth = stroke
+        strokeCap = Paint.Cap.ROUND
+        strokeJoin = Paint.Join.ROUND
+    }
+    val inset = stroke
+    val path = Path().apply {
+        moveTo(inset, inset)
+        lineTo(size - inset, size / 2f)
+        lineTo(inset, size - inset)
+    }
+    Canvas(bitmap).drawPath(path, paint)
+    return bitmap
 }
 
 private fun addPointLayers(style: Style, density: Float) {
     style.addLayer(
         CircleLayer(PLAYBACK_LAYER, PLAYBACK_SOURCE).withProperties(
             PropertyFactory.circleRadius(8f),
-            PropertyFactory.circleColor("#1A73E8"),
-            PropertyFactory.circleStrokeColor("#FFFFFF"),
             PropertyFactory.circleStrokeWidth(3f),
         ),
     )
     style.addLayer(
         CircleLayer(PIN_LAYER, PIN_SOURCE).withProperties(
             PropertyFactory.circleRadius(9f),
-            PropertyFactory.circleColor("#8E24AA"),
-            PropertyFactory.circleStrokeColor("#FFFFFF"),
             PropertyFactory.circleStrokeWidth(3f),
         ),
     )

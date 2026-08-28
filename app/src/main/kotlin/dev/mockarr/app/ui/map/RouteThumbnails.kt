@@ -7,6 +7,7 @@ import android.graphics.Canvas
 import android.graphics.Paint
 import android.graphics.Path
 import android.util.LruCache
+import dev.mockarr.app.ui.theme.MapPalette
 import dev.mockarr.core.model.LatLng
 import dev.mockarr.core.routing.Polyline6
 import kotlinx.coroutines.CoroutineScope
@@ -37,6 +38,7 @@ data class ThumbSpec(
     val styleUrl: String,
     val sizePx: Int,
     val density: Float,
+    val palette: MapPalette,
 )
 
 /**
@@ -106,7 +108,9 @@ class RouteThumbnails(
                 withContext(Dispatchers.Main) { takeSnapshot(spec, bounds) }
             }
         }
-        return snapshot?.let { withContext(Dispatchers.Default) { drawRouteOverlay(it, points, spec.density) } }
+        return snapshot?.let {
+            withContext(Dispatchers.Default) { drawRouteOverlay(it, points, spec.density, spec.palette) }
+        }
     }
 
     // MapSnapshotter must be created on a Looper thread.
@@ -184,8 +188,11 @@ internal fun paddedBounds(points: List<LatLng>): BoundsBox {
 }
 
 internal fun cacheFileName(spec: ThumbSpec): String {
-    val styleHash = spec.styleUrl.hashCode().toUInt().toString(16)
-    return "r${spec.routeId}_${spec.createdAtEpochMillis}_${styleHash}_${spec.sizePx}.png"
+    // Style AND palette: the overlay colours are baked into the PNG, so a theme
+    // switch must miss the cache rather than serve the other theme's route line.
+    val styleHash = spec.styleUrl.hashCode().toUInt().toString(RADIX_HEX)
+    val paletteHash = spec.palette.hashCode().toUInt().toString(RADIX_HEX)
+    return "r${spec.routeId}_${spec.createdAtEpochMillis}_${styleHash}_${paletteHash}_${spec.sizePx}.png"
 }
 
 /** Route id encoded in a cache filename by [cacheFileName], or null. */
@@ -198,7 +205,12 @@ private fun overlayPoints(encodedPolyline6: String): List<LatLng> {
     return List(MAX_OVERLAY_POINTS) { decoded[it * (decoded.size - 1) / (MAX_OVERLAY_POINTS - 1)] }
 }
 
-private fun drawRouteOverlay(snapshot: MapSnapshot, points: List<LatLng>, density: Float): Bitmap {
+private fun drawRouteOverlay(
+    snapshot: MapSnapshot,
+    points: List<LatLng>,
+    density: Float,
+    palette: MapPalette,
+): Bitmap {
     val bitmap = snapshot.bitmap.copy(Bitmap.Config.ARGB_8888, true)
     val canvas = Canvas(bitmap)
     val path = Path()
@@ -211,17 +223,17 @@ private fun drawRouteOverlay(snapshot: MapSnapshot, points: List<LatLng>, densit
         strokeCap = Paint.Cap.ROUND
         strokeJoin = Paint.Join.ROUND
     }
-    // White halo first so the line reads over any basemap color.
-    stroke.color = HALO_COLOR
+    // Casing first so the line reads over any basemap color.
+    stroke.color = palette.routeCasing
     stroke.strokeWidth = HALO_WIDTH_DP * density
     canvas.drawPath(path, stroke)
-    stroke.color = ROUTE_COLOR
+    stroke.color = palette.route
     stroke.strokeWidth = ROUTE_WIDTH_DP * density
     canvas.drawPath(path, stroke)
     val dot = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.FILL }
-    listOf(points.first() to START_COLOR, points.last() to END_COLOR).forEach { (point, color) ->
+    listOf(points.first() to palette.stopStart, points.last() to palette.stopEnd).forEach { (point, color) ->
         val px = snapshot.pixelForLatLng(MapLibreLatLng(point.latitude, point.longitude))
-        dot.color = HALO_COLOR
+        dot.color = palette.routeCasing
         canvas.drawCircle(px.x, px.y, (DOT_RADIUS_DP + DOT_STROKE_DP) * density, dot)
         dot.color = color
         canvas.drawCircle(px.x, px.y, DOT_RADIUS_DP * density, dot)
@@ -234,11 +246,7 @@ private const val MIN_SPAN_DEGREES = 0.004
 private const val MAX_ABS_LATITUDE = 85.0
 private const val MAX_OVERLAY_POINTS = 200
 
-// Match the live map's route line and start/end marker colors.
-private const val ROUTE_COLOR = 0xFF1A73E8.toInt()
-private const val HALO_COLOR = 0xFFFFFFFF.toInt()
-private const val START_COLOR = 0xFF2E7D32.toInt()
-private const val END_COLOR = 0xFFC62828.toInt()
+private const val RADIX_HEX = 16
 private const val ROUTE_WIDTH_DP = 3f
 private const val HALO_WIDTH_DP = 4.5f
 private const val DOT_RADIUS_DP = 3.5f

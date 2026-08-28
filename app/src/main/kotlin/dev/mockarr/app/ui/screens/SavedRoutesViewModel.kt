@@ -8,6 +8,7 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import dev.mockarr.app.ui.RouteHandoff
 import dev.mockarr.app.ui.map.RouteThumbnails
 import dev.mockarr.app.ui.map.ThumbSpec
+import dev.mockarr.app.ui.theme.MapPalette
 import dev.mockarr.core.data.SavedRouteEntity
 import dev.mockarr.core.data.SavedRoutesRepository
 import dev.mockarr.core.data.SettingsRepository
@@ -73,6 +74,7 @@ class SavedRoutesViewModel @Inject constructor(
         styleUrl: String,
         sizePx: Int,
         density: Float,
+        palette: MapPalette,
     ): ImageBitmap? = thumbnails.bitmapFor(
         ThumbSpec(
             routeId = entity.id,
@@ -81,6 +83,7 @@ class SavedRoutesViewModel @Inject constructor(
             styleUrl = styleUrl,
             sizePx = sizePx,
             density = density,
+            palette = palette,
         ),
     )?.asImageBitmap()
 

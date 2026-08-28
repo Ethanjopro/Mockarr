@@ -1,5 +1,6 @@
 package dev.mockarr.app.ui.map
 
+import dev.mockarr.app.ui.theme.MapPalette
 import dev.mockarr.core.model.LatLng
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -15,6 +16,7 @@ class RouteThumbnailsHelpersTest {
         styleUrl = "https://tiles.openfreemap.org/styles/liberty",
         sizePx = 264,
         density = 3f,
+        palette = testPalette(route = 0xFF3949AB.toInt()),
     )
 
     @Test
@@ -45,8 +47,35 @@ class RouteThumbnailsHelpersTest {
     }
 
     @Test
+    fun `cache file name changes with the palette so a theme switch re-renders`() {
+        val other = spec.copy(palette = testPalette(route = 0xFF9FA8FF.toInt()))
+
+        assertTrue(cacheFileName(spec) != cacheFileName(other))
+    }
+
+    @Test
     fun `route id round-trips through the cache file name`() {
         assertEquals(7L, routeIdOf(cacheFileName(spec)))
         assertNull(routeIdOf("garbage.png"))
     }
 }
+
+private fun testPalette(route: Int) = MapPalette(
+    route = route,
+    routeCasing = 0xFFFFFFFF.toInt(),
+    fallbackRoute = 0xFFB8741A.toInt(),
+    position = route,
+    positionRing = 0xFFFFFFFF.toInt(),
+    holdPin = 0xFFE0901E.toInt(),
+    stopStart = 0xFF1E8A5A.toInt(),
+    stopVia = route,
+    stopEnd = 0xFF1A1B21.toInt(),
+    stopText = 0xFFFFFFFF.toInt(),
+    stopRing = 0xFFFFFFFF.toInt(),
+    waitBadge = 0xFFF0A422.toInt(),
+    selection = 0xFF5C6BC0.toInt(),
+    chip = 0xF21A1B21.toInt(),
+    chipText = 0xFFFFFFFF.toInt(),
+    chipActive = 0xFFF0A422.toInt(),
+    chipActiveText = 0xFF2B1A00.toInt(),
+)

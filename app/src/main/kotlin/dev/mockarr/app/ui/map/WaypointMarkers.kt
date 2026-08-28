@@ -2,10 +2,10 @@ package dev.mockarr.app.ui.map
 
 import android.graphics.Bitmap
 import android.graphics.Canvas
-import android.graphics.Color
 import android.graphics.Paint
 import android.graphics.RectF
 import android.graphics.Typeface
+import dev.mockarr.app.ui.theme.MapPalette
 import dev.mockarr.core.model.Waypoint
 import org.maplibre.android.maps.MapLibreMap
 import org.maplibre.android.maps.Style
@@ -24,11 +24,10 @@ private const val WAIT_BADGE_OFFSET_FRACTION = 0.7f
 private const val SELECTION_RING_GAP_DP = 1.5f
 private const val SELECTION_RING_WIDTH_DP = 2.5f
 private const val RANK_SELECTED_BOOST = 1_000
-private val WAYPOINT_START_COLOR = Color.rgb(46, 125, 50)
-private val WAYPOINT_END_COLOR = Color.rgb(198, 40, 40)
-private val WAYPOINT_VIA_COLOR = Color.rgb(69, 90, 100)
-private val WAIT_BADGE_COLOR = Color.rgb(249, 168, 37)
-private val SELECTION_RING_COLOR = Color.rgb(26, 115, 232)
+private const val RADIX_HEX = 16
+
+/** Everything a marker/chip bitmap needs besides its own content. */
+data class MarkerStyle(val density: Float, val palette: MapPalette)
 
 /** Index (SORT_KEY) of the topmost waypoint marker under the tap, or null. */
 internal fun MapLibreMap.waypointIndexAt(point: MapLibreLatLng, density: Float): Int? {
@@ -44,8 +43,11 @@ internal fun updateWaypoints(
     style: Style,
     waypoints: List<Waypoint>,
     selectedIndex: Int?,
-    density: Float,
+    markerStyle: MarkerStyle,
 ) {
+    // The palette is part of the image name: addImage caches by name and a
+    // theme switch must not keep serving the other theme's bitmap.
+    val paletteTag = markerStyle.palette.hashCode().toUInt().toString(RADIX_HEX)
     val features = waypoints.mapIndexed { index, waypoint ->
         val role = when (index) {
             0 -> "start"
@@ -58,8 +60,9 @@ internal fun updateWaypoints(
         // name, so a same-named icon would keep showing the stale bitmap.
         val icon = "waypoint-$role-${index + 1}" +
             (if (hasWait) "-wait" else "") +
-            if (selected) "-sel" else ""
-        style.addImage(icon, waypointBitmap(role, index + 1, density, hasWait, selected))
+            (if (selected) "-sel" else "") +
+            "-$paletteTag"
+        style.addImage(icon, waypointBitmap(role, index + 1, hasWait, selected, markerStyle))
         // RANK_KEY drives draw order (selected wins the overlap); SORT_KEY
         // stays the untouched tap identity read back by waypointIndexAt.
         val rank = if (selected) index + RANK_SELECTED_BOOST else index
@@ -76,10 +79,11 @@ internal fun updateWaypoints(
 private fun waypointBitmap(
     role: String,
     number: Int,
-    density: Float,
     hasWait: Boolean,
     selected: Boolean,
+    markerStyle: MarkerStyle,
 ): Bitmap {
+    val (density, palette) = markerStyle
     val fillRadius = WAYPOINT_RADIUS_DP * density
     val stroke = WAYPOINT_STROKE_DP * density
     val ringGap = SELECTION_RING_GAP_DP * density
@@ -92,17 +96,17 @@ private fun waypointBitmap(
     val canvas = Canvas(bitmap)
     val paint = Paint(Paint.ANTI_ALIAS_FLAG)
     paint.color = when (role) {
-        "start" -> WAYPOINT_START_COLOR
-        "end" -> WAYPOINT_END_COLOR
-        else -> WAYPOINT_VIA_COLOR
+        "start" -> palette.stopStart
+        "end" -> palette.stopEnd
+        else -> palette.stopVia
     }
     canvas.drawCircle(center, center, fillRadius, paint)
-    paint.color = Color.WHITE
+    paint.color = palette.stopRing
     paint.style = Paint.Style.STROKE
     paint.strokeWidth = stroke
     canvas.drawCircle(center, center, fillRadius + stroke / 2f, paint)
     val text = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        color = Color.WHITE
+        color = if (role == "end") palette.stopRing else palette.stopText
         typeface = Typeface.DEFAULT_BOLD
         textSize = WAYPOINT_TEXT_DP * density
         textAlign = Paint.Align.CENTER
@@ -114,16 +118,16 @@ private fun waypointBitmap(
         // so the bitmap size (and the icon's anchor point) stays unchanged.
         val badgeRadius = WAIT_BADGE_RADIUS_DP * density
         val offset = fillRadius * WAIT_BADGE_OFFSET_FRACTION
-        val badge = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = WAIT_BADGE_COLOR }
+        val badge = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = palette.waitBadge }
         canvas.drawCircle(center + offset, center - offset, badgeRadius, badge)
-        badge.color = Color.WHITE
+        badge.color = palette.stopRing
         badge.style = Paint.Style.STROKE
         badge.strokeWidth = stroke / 2f
         canvas.drawCircle(center + offset, center - offset, badgeRadius, badge)
     }
     if (selected) {
         val ring = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-            color = SELECTION_RING_COLOR
+            color = palette.selection
             style = Paint.Style.STROKE
             strokeWidth = ringWidth
         }

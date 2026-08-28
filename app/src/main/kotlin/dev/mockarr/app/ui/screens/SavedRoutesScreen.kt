@@ -56,6 +56,8 @@ import dev.mockarr.app.ui.formatRouteTimestamp
 import dev.mockarr.app.ui.label
 import dev.mockarr.app.ui.map.effectiveStyleUrl
 import dev.mockarr.app.ui.routeSummaryText
+import dev.mockarr.app.ui.theme.MapPalette
+import dev.mockarr.app.ui.theme.MockarrTheme
 import dev.mockarr.core.data.SavedRouteEntity
 import dev.mockarr.core.model.DistanceUnits
 import dev.mockarr.core.model.LatLng
@@ -75,6 +77,7 @@ fun SavedRoutesScreen(
     val units by viewModel.units.collectAsStateWithLifecycle()
     val mapStyleUrl by viewModel.mapStyleUrl.collectAsStateWithLifecycle()
     val thumbStyleUrl = effectiveStyleUrl(mapStyleUrl, isSystemInDarkTheme())
+    val palette = MockarrTheme.colors.map
     val snackbarHost = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
 
@@ -126,6 +129,7 @@ fun SavedRoutesScreen(
                             entity = entity,
                             units = units,
                             thumbStyleUrl = thumbStyleUrl,
+                            palette = palette,
                             loadThumbnail = viewModel::thumbnail,
                             onClick = {
                                 viewModel.load(entity)
@@ -160,7 +164,8 @@ private fun SavedRouteCard(
     entity: SavedRouteEntity,
     units: DistanceUnits,
     thumbStyleUrl: String,
-    loadThumbnail: suspend (SavedRouteEntity, String, Int, Float) -> ImageBitmap?,
+    palette: MapPalette,
+    loadThumbnail: suspend (SavedRouteEntity, String, Int, Float, MapPalette) -> ImageBitmap?,
     onClick: () -> Unit,
     onDelete: () -> Unit,
 ) {
@@ -172,6 +177,7 @@ private fun SavedRouteCard(
             MapThumbnail(
                 entity = entity,
                 styleUrl = thumbStyleUrl,
+                palette = palette,
                 loadThumbnail = loadThumbnail,
             )
             Spacer(Modifier.width(12.dp))
@@ -205,12 +211,13 @@ private fun SavedRouteCard(
 private fun MapThumbnail(
     entity: SavedRouteEntity,
     styleUrl: String,
-    loadThumbnail: suspend (SavedRouteEntity, String, Int, Float) -> ImageBitmap?,
+    palette: MapPalette,
+    loadThumbnail: suspend (SavedRouteEntity, String, Int, Float, MapPalette) -> ImageBitmap?,
 ) {
     val density = LocalDensity.current
     val sizePx = with(density) { THUMB_SIZE_DP.dp.roundToPx() }
-    val thumb by produceState<ImageBitmap?>(null, entity.id, styleUrl) {
-        value = loadThumbnail(entity, styleUrl, sizePx, density.density)
+    val thumb by produceState<ImageBitmap?>(null, entity.id, styleUrl, palette) {
+        value = loadThumbnail(entity, styleUrl, sizePx, density.density, palette)
     }
     val snapshot = thumb
     if (snapshot != null) {
@@ -232,6 +239,8 @@ private fun MapThumbnail(
 private fun RouteThumbnail(encodedPolyline6: String, modifier: Modifier = Modifier) {
     val points = remember(encodedPolyline6) { thumbnailPoints(encodedPolyline6) }
     val pathColor = MaterialTheme.colorScheme.primary
+    val startColor = Color(MockarrTheme.colors.map.stopStart)
+    val endColor = Color(MockarrTheme.colors.map.stopEnd)
     Canvas(
         modifier = modifier
             .size(THUMB_SIZE_DP.dp)
@@ -266,8 +275,8 @@ private fun RouteThumbnail(encodedPolyline6: String, modifier: Modifier = Modifi
             color = pathColor,
             style = Stroke(width = 3.dp.toPx(), cap = StrokeCap.Round, join = StrokeJoin.Round),
         )
-        drawCircle(START_DOT_COLOR, radius = 3.5.dp.toPx(), center = toOffset(points.first()))
-        drawCircle(END_DOT_COLOR, radius = 3.5.dp.toPx(), center = toOffset(points.last()))
+        drawCircle(startColor, radius = 3.5.dp.toPx(), center = toOffset(points.first()))
+        drawCircle(endColor, radius = 3.5.dp.toPx(), center = toOffset(points.last()))
     }
 }
 
@@ -280,7 +289,3 @@ private fun thumbnailPoints(encodedPolyline6: String): List<LatLng> {
 private const val THUMB_SIZE_DP = 88
 private const val THUMB_PADDING_DP = 8
 private const val MAX_THUMB_POINTS = 64
-
-// Match the map's start/end marker colors.
-private val START_DOT_COLOR = Color(0xFF2E7D32)
-private val END_DOT_COLOR = Color(0xFFC62828)

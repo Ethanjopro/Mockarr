@@ -20,10 +20,12 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
+import dev.mockarr.app.R
 import kotlinx.coroutines.delay
 import kotlin.math.atan2
 import kotlin.math.cos
@@ -58,6 +60,7 @@ fun ThumbstickOverlay(
     var dragging by remember { mutableStateOf(false) }
     val maxRadiusPx = with(LocalDensity.current) { (BASE_SIZE_DP - KNOB_SIZE_DP).dp.toPx() / 2f }
 
+    val description = stringResource(R.string.thumbstick_cd)
     LaunchedEffect(enabled) {
         if (!enabled) {
             drag = Offset.Zero
@@ -82,7 +85,7 @@ fun ThumbstickOverlay(
             .alpha(if (enabled) 1f else DISABLED_ALPHA)
             .clip(CircleShape)
             .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = BASE_ALPHA))
-            .semantics { contentDescription = "Move held location" }
+            .semantics { contentDescription = description }
             .pointerInput(enabled) {
                 if (enabled) {
                     detectDragGestures(

@@ -1,4 +1,98 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">Mockarr</string>
+
+    <!-- Top-level navigation -->
+    <string name="tab_map">Map</string>
+    <string name="tab_routes">Routes</string>
+    <string name="tab_settings">Settings</string>
+
+    <!-- Map: status strip -->
+    <string name="strip_not_set_up">Mocking isn\'t set up — playback won\'t move your location</string>
+    <string name="strip_fix">Fix</string>
+    <string name="strip_plan">Plan a drive</string>
+    <string name="strip_ready">Ready to drive</string>
+    <string name="strip_routing">Finding a road route…</string>
+    <string name="strip_driving">Driving</string>
+    <string name="strip_paused">Paused</string>
+    <string name="strip_stopping">Stopping…</string>
+    <string name="strip_waiting">Waiting at stop %1$d · %2$s</string>
+    <string name="strip_holding_at">Holding at %1$s</string>
+    <string name="strip_holding_destination">Holding at destination</string>
+    <string name="strip_holding_coords">Holding at %1$s</string>
+    <string name="strip_stop_hold">Stop</string>
+    <string name="strip_hold_hint">Play to route from your held spot</string>
+
+    <!-- Map: sheet content -->
+    <string name="sheet_idle_title">Tap the map to add stops</string>
+    <string name="sheet_idle_body">Two or more stops make a route. Long-press anywhere to hold your location there instead.</string>
+    <string name="sheet_one_stop">Add another stop to make a route</string>
+    <string name="sheet_play">Play</string>
+    <string name="sheet_pause">Pause</string>
+    <string name="sheet_resume">Resume</string>
+    <string name="sheet_stop">Stop</string>
+    <string name="sheet_save">Save</string>
+    <string name="sheet_undo">Undo</string>
+    <string name="sheet_clear">Clear</string>
+    <string name="sheet_stops_header">Stops</string>
+    <string name="sheet_stop_n">Stop %1$d</string>
+    <string name="sheet_start">Start</string>
+    <string name="sheet_destination">Destination</string>
+    <string name="sheet_waits">Waits %1$s</string>
+    <string name="sheet_set_wait">Set wait</string>
+    <string name="sheet_edit_wait">Edit wait</string>
+    <string name="sheet_remove_wait">Remove wait</string>
+    <string name="sheet_remove_stop">Remove stop</string>
+    <string name="sheet_speed">Speed</string>
+    <string name="sheet_speed_value">%1$s×</string>
+    <string name="sheet_speed_cd">Playback speed, %1$s times</string>
+    <string name="sheet_expand_cd">Show route options</string>
+    <string name="sheet_collapse_cd">Hide route options</string>
+
+    <!-- Map: stat trio -->
+    <string name="stat_time_left">Time left</string>
+    <string name="stat_distance_left">Distance left</string>
+    <string name="stat_speed">Speed</string>
+    <string name="stat_distance">Distance</string>
+    <string name="stat_duration">Duration</string>
+    <string name="stat_stops">Stops</string>
+    <string name="stat_traffic_suffix">with traffic</string>
+    <string name="speed_kmh">%1$d km/h</string>
+    <string name="speed_mph">%1$d mph</string>
+
+    <!-- Map: floating controls -->
+    <string name="map_3d">3D</string>
+    <string name="map_2d">2D</string>
+    <string name="map_3d_cd">Switch to 3D map</string>
+    <string name="map_2d_cd">Switch to 2D map</string>
+    <string name="map_locate_cd">Go to my location</string>
+    <string name="map_follow_cd">Follow the drive</string>
+    <string name="map_following_cd">Following the drive</string>
+    <string name="map_search_hint">Search for a place</string>
+    <string name="map_search_cd">Search</string>
+    <string name="map_search_close">Close</string>
+    <string name="map_hold_here">Hold here</string>
+    <string name="map_add_stop_here">Add stop here</string>
+    <string name="thumbstick_cd">Move held location</string>
+
+    <!-- Map: dialogs -->
+    <string name="dialog_wait_title">Wait at this stop</string>
+    <string name="dialog_wait_body">Playback will pause here before continuing.</string>
+    <string name="dialog_wait_minutes">%1$d min</string>
+    <string name="dialog_wait_custom">Custom minutes</string>
+    <string name="dialog_set">Set</string>
+    <string name="dialog_cancel">Cancel</string>
+    <string name="dialog_start_title">Start from held location?</string>
+    <string name="dialog_start_body">Your location is currently held somewhere else. Where should this drive start?</string>
+    <string name="dialog_start_from_hold">Start from held location</string>
+    <string name="dialog_play_as_built">Play route as built</string>
+    <string name="dialog_route_from_hold_title">Route from held location?</string>
+    <string name="dialog_route_from_hold_body">Build a route from your held location to this stop and play it?</string>
+    <string name="dialog_route_and_play">Route and play</string>
+    <string name="dialog_save_title">Save route</string>
+    <string name="dialog_save_name">Name</string>
+    <string name="dialog_save">Save</string>
+
+    <!-- Map: transient feedback -->
+    <string name="snack_dismiss">Dismiss</string>
 </resources>

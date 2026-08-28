@@ -4,85 +4,30 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Card
 import androidx.compose.material3.FilterChip
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.KeyboardType
-import androidx.compose.ui.unit.dp
-import dev.mockarr.app.ui.formatDurationShort
+import dev.mockarr.app.R
+import dev.mockarr.app.ui.formatRouteTimestamp
+import dev.mockarr.app.ui.theme.Tokens
 
 private val WAIT_PRESET_MINUTES = listOf(1, 5, 15, 30)
 private const val SECONDS_PER_MINUTE = 60
-
-/**
- * Non-blocking action card for a tapped waypoint marker, slotted into the
- * bottom stack so the map stays interactive behind it. Wait-time actions are
- * not offered on the destination — the "Stay at destination" setting covers
- * post-arrival holds.
- */
-@Composable
-internal fun WaypointOptionsCard(
-    stopNumber: Int,
-    isDestination: Boolean,
-    currentWaitSeconds: Int,
-    onSetWait: () -> Unit,
-    onClearWait: () -> Unit,
-    onDelete: () -> Unit,
-    onDismiss: () -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    Card(modifier = modifier) {
-        Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text("Stop $stopNumber", style = MaterialTheme.typography.titleSmall)
-                Spacer(Modifier.width(8.dp))
-                Text(
-                    text = if (currentWaitSeconds > 0) {
-                        "Waits ${formatDurationShort(currentWaitSeconds.toDouble())} here"
-                    } else {
-                        ""
-                    },
-                    style = MaterialTheme.typography.bodySmall,
-                    modifier = Modifier.weight(1f),
-                )
-                IconButton(onClick = onDismiss) {
-                    Icon(Icons.Filled.Close, contentDescription = "Close stop options")
-                }
-            }
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                if (!isDestination) {
-                    val waitLabel = if (currentWaitSeconds > 0) "Edit wait" else "Set wait"
-                    TextButton(onClick = onSetWait) { Text(waitLabel) }
-                    if (currentWaitSeconds > 0) {
-                        TextButton(onClick = onClearWait) { Text("Remove wait") }
-                    }
-                }
-                TextButton(onClick = onDelete) { Text("Remove stop") }
-            }
-        }
-    }
-}
 
 /** Picks a dwell duration: preset chips or a free custom-minutes field. */
 @OptIn(ExperimentalLayoutApi::class)
@@ -105,14 +50,14 @@ internal fun WaypointWaitDialog(
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Wait at this stop") },
+        title = { Text(stringResource(R.string.dialog_wait_title)) },
         text = {
             Column {
-                Text("Playback will pause here before continuing.")
-                Spacer(Modifier.height(8.dp))
+                Text(stringResource(R.string.dialog_wait_body))
+                Spacer(Modifier.height(Tokens.space2))
                 // FlowRow: the dialog is too narrow for four chips — let the
                 // last chip wrap as a whole instead of shredding its label.
-                FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                FlowRow(horizontalArrangement = Arrangement.spacedBy(Tokens.space2)) {
                     WAIT_PRESET_MINUTES.forEach { minutes ->
                         FilterChip(
                             selected = selectedPreset == minutes,
@@ -120,18 +65,18 @@ internal fun WaypointWaitDialog(
                                 selectedPreset = minutes
                                 customText = ""
                             },
-                            label = { Text("$minutes min", softWrap = false) },
+                            label = { Text(stringResource(R.string.dialog_wait_minutes, minutes), softWrap = false) },
                         )
                     }
                 }
-                Spacer(Modifier.height(8.dp))
+                Spacer(Modifier.height(Tokens.space2))
                 OutlinedTextField(
                     value = customText,
                     onValueChange = {
                         customText = it
                         selectedPreset = null
                     },
-                    label = { Text("Custom minutes") },
+                    label = { Text(stringResource(R.string.dialog_wait_custom)) },
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                     singleLine = true,
                 )
@@ -141,10 +86,10 @@ internal fun WaypointWaitDialog(
             TextButton(
                 enabled = chosenMinutes != null,
                 onClick = { chosenMinutes?.let { onConfirm(it * SECONDS_PER_MINUTE) } },
-            ) { Text("Set") }
+            ) { Text(stringResource(R.string.dialog_set)) }
         },
         dismissButton = {
-            TextButton(onClick = onDismiss) { Text("Cancel") }
+            TextButton(onClick = onDismiss) { Text(stringResource(R.string.dialog_cancel)) }
         },
     )
 }
@@ -158,16 +103,74 @@ internal fun StartChoiceDialog(
 ) {
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Start from held location?") },
-        text = {
-            Text("Your location is currently held somewhere else. Where should this drive start?")
-        },
+        title = { Text(stringResource(R.string.dialog_start_title)) },
+        text = { Text(stringResource(R.string.dialog_start_body)) },
         confirmButton = {
             Column(horizontalAlignment = Alignment.End) {
-                TextButton(onClick = onStartFromHold) { Text("Start from held location") }
-                TextButton(onClick = onPlayAsBuilt) { Text("Play route as built") }
-                TextButton(onClick = onDismiss) { Text("Cancel") }
+                TextButton(onClick = onStartFromHold) { Text(stringResource(R.string.dialog_start_from_hold)) }
+                TextButton(onClick = onPlayAsBuilt) { Text(stringResource(R.string.dialog_play_as_built)) }
+                TextButton(onClick = onDismiss) { Text(stringResource(R.string.dialog_cancel)) }
             }
         },
     )
 }
+
+@Composable
+internal fun RouteFromHoldDialog(onConfirm: () -> Unit, onDismiss: () -> Unit) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(R.string.dialog_route_from_hold_title)) },
+        text = { Text(stringResource(R.string.dialog_route_from_hold_body)) },
+        confirmButton = {
+            TextButton(onClick = onConfirm) { Text(stringResource(R.string.dialog_route_and_play)) }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text(stringResource(R.string.dialog_cancel)) }
+        },
+    )
+}
+
+@Composable
+internal fun SaveRouteDialog(
+    suggestedName: String?,
+    onConfirm: (String) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    val defaultName = remember { "Route " + formatRouteTimestamp(System.currentTimeMillis()) }
+    var name by remember { mutableStateOf(suggestedName ?: defaultName) }
+    var edited by remember { mutableStateOf(false) }
+    // The reverse-geocoded suggestion may arrive after the dialog opens; adopt
+    // it only while the user hasn't typed anything.
+    LaunchedEffect(suggestedName) {
+        if (!edited && suggestedName != null) name = suggestedName
+    }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(R.string.dialog_save_title)) },
+        text = {
+            OutlinedTextField(
+                value = name,
+                onValueChange = {
+                    name = it
+                    edited = true
+                },
+                label = { Text(stringResource(R.string.dialog_save_name)) },
+                singleLine = true,
+            )
+        },
+        confirmButton = {
+            TextButton(onClick = { onConfirm(name.trim()) }) { Text(stringResource(R.string.dialog_save)) }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text(stringResource(R.string.dialog_cancel)) }
+        },
+    )
+}
+
+/** "1", "0.5", "0.25", "2" — no trailing zeros, no scientific notation. */
+internal fun formatMultiplier(multiplier: Double): String =
+    if (multiplier == multiplier.toLong().toDouble()) {
+        multiplier.toLong().toString()
+    } else {
+        multiplier.toString().trimEnd('0')
+    }

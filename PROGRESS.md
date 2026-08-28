@@ -279,3 +279,57 @@ Verified end-to-end like a human: app-drawer swipe → tapped the Mockarr icon �
 1. **License decision** (GPL-3.0 vs Apache-2.0 vs other) — swap LICENSE, update README/CONTRIBUTING, then the repo can go public.
 2. **Physical-device spot-check** (recommended before any release/announcement): install via `./gradlew :app:installDebug`, run the in-app setup checklist, play a route, watch Google Maps follow. Emulator can't show OEM battery-killer quirks.
 3. Optional future work (from PLAN.md future ideas): joystick mode, GPX import/export, multi-stop UI polish, favorite places, geocoder search, tag-triggered release workflow with signing.
+
+### 2026-08-26 — Session 14 (UI pass, Phase 0: audit)
+
+- **Decision**: full professional UI pass, consumer nav-app feel, audit → code directly (no
+  mockup step). Ethan researching references on Mobbin before the brief is written.
+- **Phase 0 delivered, no source changes**: `docs/design/audit-2026-08.md` (critique 25/40,
+  code audit 12/20, findings by theme), 40 light/dark state screenshots as webp in
+  `docs/design/audit-2026-08/`, `docs/design/refs/refs.md` stub for the Mobbin collection.
+  Published as an artifact for phone review.
+- **Top findings**: no visual identity (dynamic-color slate + Google-blue map + green/red pins +
+  forest-green launcher); playback HUD lacks hierarchy; landscape playback card covers the map;
+  overlay cards stack with equal weight; map gestures have no TalkBack path; all copy inline.
+- **Bugs spotted along the way** (not fixed): dark-mode thumbnails cached without theme key
+  render route-only; Setup says "All set" beside a red ✗ optional step; Save dialog can produce
+  `" LoopTransverse…"` (prefilled name + typed text). Battery-optimisation step unsatisfiable on
+  the AVD.
+- **emu.sh gaps from the verifier**: no `shell` passthrough; `tapon` substring matching hits
+  attribution/hint text; tab taps drift with IME up.
+- **Next**: Ethan fills refs.md → `docs/design/brief.md` → Theme/Tokens → surface rounds
+  (map HUD → dialogs → saved routes → settings → setup).
+
+### 2026-08-28 — Session 15b (UI pass, Round A+B: tokens + Map HUD)
+
+- **Tokens** (`ui/theme/`): static indigo M3 scheme, light + dark authored as sets, dynamic
+  colour OFF (brief). `MockarrColors` adds *ready* (teal) and *hold* (amber) roles plus a
+  `MapPalette` (ARGB ints) that MockarrMap layers, marker bitmaps, wait chips and route
+  thumbnails all read — zero hard-coded map colours remain. `Tokens` holds spacing/radii.
+  `MarkerStyle(density, palette)` bundles the bitmap inputs (detekt LongParameterList).
+  Thumbnail cache key now includes the palette hash (fixes dark thumbnails showing the
+  light overlay). DayNight window theme + `values-night` (no white flash on dark launch).
+- **Map layers**: route casing under the line, direction chevrons (`SymbolLayer` along the
+  line), palette re-applied in place on theme change.
+- **Map HUD rebuilt** (`MapScreen.kt`, new `MapSheet.kt`, `MapPermissions.kt`): one
+  `BottomSheetScaffold` sheet replaces the card stack. Status strip (tinted band + handle)
+  carries state: Plan a drive / Ready / Driving / Waiting at stop N · m:ss / Holding at X /
+  Paused / Not set up (Fix). Peek: planning → Distance/Duration/Stops trio + Play; playing →
+  Time left / Distance left / Speed trio, progress bar, Pause·Stop·1× pill. Expanded: stop
+  list with numbered discs (start green, destination dark, vias indigo) + per-stop wait
+  actions when selected; speed chips 0.25–4×. Snackbars replace the saved/error cards.
+  Search results: 48 dp rows, scrollable, IME padding. Follow = toggle FAB during playback.
+  Thumbstick only composed while holding.
+- **Chrome**: bottom navigation hides during playback (`NavigationSuiteType.None`), sheet
+  takes the navigation-bar inset then; search + 3D hide too.
+- **Strings**: every Map-surface string in `strings.xml` (tabs, strip, sheet, dialogs).
+  Settings/Setup/Routes screens still inline — their rounds.
+- **Verified on emulator** (API 34 AVD, light + dark, portrait + landscape): idle, one stop,
+  planned, playing, paused, speed chips, holding. Bug found and fixed during verification:
+  after a configuration change while playing, `partialExpand()` ran against a 0-height
+  peek anchor and the sheet vanished → fallback peek height + gate on measured peek.
+- **Known / deferred**: first map tap after a cold launch is sometimes swallowed (pre-
+  existing?); expanded-width side panel (sheet is centred/max-width in landscape for now);
+  end marker is a dark numbered disc, not a chequered flag; notification layout untouched.
+- **Next rounds**: Saved Routes (cards → sheet model, thumbnails), Settings (top app bar,
+  icon grid), Setup (top app bar, optional-step glyph), then motion pass + adapt pass.

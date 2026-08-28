@@ -37,10 +37,6 @@ ktlint 1.5.0 (`~/.local/bin/ktlint`).** ktlint violations fixed at edit time,
 never at build time. The `.editorconfig` pins `intellij_idea` style for parity
 with detekt-formatting (verified: 0 violations on the clean tree).
 
-**Audio pings (macOS `say`) — `.claude/hooks/speak_stop.sh` (turns ≥45 s) and
-`speak_notification.sh`.** Signal "done"/"needs input" during unattended
-stretches; delete the hook entries in settings.json to disable.
-
 ### Tier 3, adopted in the follow-up round (all trialed live before keeping)
 
 **Docs-drift audit workflow — `.claude/workflows/progress-audit.js`, invoked as

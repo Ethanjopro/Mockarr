@@ -2,7 +2,6 @@ package dev.mockarr.app.ui.map
 
 import android.graphics.Bitmap
 import android.graphics.Canvas
-import android.graphics.Color
 import android.graphics.Paint
 import android.graphics.Typeface
 import dev.mockarr.app.ui.formatDurationShort
@@ -26,11 +25,7 @@ private const val MINUTE_HAND_FRACTION = 0.55f
 private const val HOUR_HAND_FRACTION = 0.4f
 private const val SECONDS_PER_MINUTE = 60
 private const val MINUTES_PER_HOUR = 60
-
-// Literal ARGB ints, not Color.argb()/rgb(): the android.jar stubs throw in
-// unit tests, and a file-level Color call would break loading this class there.
-private val CHIP_COLOR = 0xEB263238.toInt()
-private val CHIP_ACTIVE_COLOR = 0xFFF9A825.toInt()
+private const val RADIX_HEX = 16
 
 /** The stop playback is dwelling at right now, driving that chip's countdown. */
 data class ActiveDwell(val waypointIndex: Int, val secondsLeft: Int)
@@ -46,10 +41,11 @@ internal fun updateWaitChips(
     style: Style,
     waypoints: List<Waypoint>,
     activeDwell: ActiveDwell?,
-    density: Float,
+    markerStyle: MarkerStyle,
     liveIcons: MutableSet<String>,
 ) {
     val used = mutableSetOf<String>()
+    val paletteTag = markerStyle.palette.hashCode().toUInt().toString(RADIX_HEX)
     val features = waypoints.mapIndexedNotNull { index, waypoint ->
         if (waypoint.waitSeconds <= 0) {
             null
@@ -60,8 +56,8 @@ internal fun updateWaitChips(
             } else {
                 formatDurationShort(waypoint.waitSeconds.toDouble())
             }
-            val icon = "wait-chip-$text" + if (dwellHere != null) "-live" else ""
-            style.addImage(icon, waitChipBitmap(text, dwellHere != null, density))
+            val icon = "wait-chip-$text" + (if (dwellHere != null) "-live" else "") + "-$paletteTag"
+            style.addImage(icon, waitChipBitmap(text, dwellHere != null, markerStyle))
             used += icon
             Feature.fromGeometry(waypoint.position.toPoint()).apply {
                 addStringProperty(ICON_KEY, icon)
@@ -89,9 +85,10 @@ internal fun formatChipCountdown(seconds: Int): String {
 }
 
 /** Rounded pill with a hand-drawn clock glyph and bold text, baked at [density]. */
-private fun waitChipBitmap(text: String, active: Boolean, density: Float): Bitmap {
+private fun waitChipBitmap(text: String, active: Boolean, markerStyle: MarkerStyle): Bitmap {
+    val (density, palette) = markerStyle
     val textPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        color = if (active) Color.BLACK else Color.WHITE
+        color = if (active) palette.chipActiveText else palette.chipText
         typeface = Typeface.DEFAULT_BOLD
         textSize = CHIP_TEXT_DP * density
     }
@@ -106,7 +103,7 @@ private fun waitChipBitmap(text: String, active: Boolean, density: Float): Bitma
     val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
     val canvas = Canvas(bitmap)
     val pill = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        color = if (active) CHIP_ACTIVE_COLOR else CHIP_COLOR
+        color = if (active) palette.chipActive else palette.chip
     }
     val corner = height / 2f
     canvas.drawRoundRect(0f, 0f, width.toFloat(), height.toFloat(), corner, corner, pill)

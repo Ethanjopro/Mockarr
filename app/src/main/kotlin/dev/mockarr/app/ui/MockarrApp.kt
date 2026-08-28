@@ -14,7 +14,10 @@ import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.adaptive.currentWindowAdaptiveInfo
 import androidx.compose.material3.adaptive.navigationsuite.NavigationSuiteScaffold
+import androidx.compose.material3.adaptive.navigationsuite.NavigationSuiteScaffoldDefaults
+import androidx.compose.material3.adaptive.navigationsuite.NavigationSuiteType
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -23,7 +26,9 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.res.stringResource
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavController
 import androidx.navigation.NavDestination
 import androidx.navigation.NavDestination.Companion.hasRoute
@@ -31,6 +36,8 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
+import dev.mockarr.app.R
+import dev.mockarr.app.playback.MockSessionState
 import dev.mockarr.app.ui.navigation.MapDestination
 import dev.mockarr.app.ui.navigation.SavedRoutesDestination
 import dev.mockarr.app.ui.navigation.SettingsDestination
@@ -46,14 +53,14 @@ import dev.mockarr.app.ui.screens.SetupViewModel
 
 private data class TopLevelDestination(
     val route: Any,
-    val label: String,
+    val labelRes: Int,
     val icon: ImageVector,
 )
 
 private val topLevelDestinations = listOf(
-    TopLevelDestination(MapDestination, "Map", Icons.Filled.Place),
-    TopLevelDestination(SavedRoutesDestination, "Routes", Icons.AutoMirrored.Filled.List),
-    TopLevelDestination(SettingsDestination, "Settings", Icons.Filled.Settings),
+    TopLevelDestination(MapDestination, R.string.tab_map, Icons.Filled.Place),
+    TopLevelDestination(SavedRoutesDestination, R.string.tab_routes, Icons.AutoMirrored.Filled.List),
+    TopLevelDestination(SettingsDestination, R.string.tab_settings, Icons.Filled.Settings),
 )
 
 private fun NavDestination?.isTopLevel(): Boolean =
@@ -102,17 +109,29 @@ fun MockarrApp(setupViewModel: SetupViewModel = hiltViewModel()) {
     }
 
     val onMapTab = currentDestination == null || currentDestination.hasRoute(MapDestination::class)
+    val session by sessionViewModel.session.collectAsStateWithLifecycle()
+    // While a drive plays on the Map tab the sheet owns the bottom edge; the
+    // navigation bar returns with Stop (design brief: chrome recedes in playback).
+    val hideNavigation = onMapTab && session is MockSessionState.Playing
+    // navigationSuiteItems is not a composable scope — resolve labels here.
+    val labels = topLevelDestinations.map { stringResource(it.labelRes) }
 
     // Bottom bar on phones, navigation rail on wide screens (landscape/tablet).
     NavigationSuiteScaffold(
+        layoutType = if (hideNavigation) {
+            NavigationSuiteType.None
+        } else {
+            NavigationSuiteScaffoldDefaults.calculateFromAdaptiveInfo(currentWindowAdaptiveInfo())
+        },
         navigationSuiteItems = {
-            topLevelDestinations.forEach { destination ->
+            topLevelDestinations.forEachIndexed { index, destination ->
                 val selected = currentDestination?.hasRoute(destination.route::class) == true
+                val label = labels[index]
                 item(
                     selected = selected,
                     onClick = { navController.navigateTopLevel(destination.route) },
-                    icon = { Icon(destination.icon, contentDescription = destination.label) },
-                    label = { Text(destination.label) },
+                    icon = { Icon(destination.icon, contentDescription = label) },
+                    label = { Text(label) },
                 )
             }
         },
