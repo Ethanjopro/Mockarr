@@ -20,4 +20,4 @@ captures/
 .claude/skills/impeccable/scripts/
 
 # Third-party (Mobbin) reference captures — 600 MB, never commit; curated webp picks live in docs/design/refs/strava/
-docs/design/refs/Strava*/
+docs/design/refs/Strava\ ios*/
