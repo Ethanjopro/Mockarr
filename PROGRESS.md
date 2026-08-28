@@ -205,7 +205,7 @@ Verified end-to-end like a human: app-drawer swipe → tapped the Mockarr icon �
   - `.claude/settings.json` — allowlist (emu.sh, scripts/gradle, gh run, git read-ops, rg), deny (force-push, rm -rf), five hooks wired.
   - `scripts/gradle` — JDK-pinned gradlew wrapper (verified: Gradle 9.5.1 on the Studio JBR).
   - Skills: `emulator-verify` (full playbook + triaged report format + dark-theme/font-scale passes adapted from Impeccable's android.md), `kotlin-conventions` (paths-gated to `**/*.kt`), `claude-md-review` (audit skill, staleness checks retargeted at gradle/detekt configs).
-  - Hooks: `session_start.sh` (injects branch/CI/PROGRESS tail — verified output incl. live CI status), `format_kt.sh` (standalone ktlint 1.5.0 at `~/.local/bin/ktlint`, ~0.9 s, verified fixing a misformatted file), `turn_stamp.sh` + `speak_stop.sh` (speaks only after ≥45 s turns — both paths verified), `speak_notification.sh`.
+  - Hooks: `session_start.sh` (injects branch/CI/PROGRESS tail — verified output incl. live CI status), `format_kt.sh` (standalone ktlint 1.5.0 at `~/.local/bin/ktlint`, ~0.9 s, verified fixing a misformatted file), `turn_stamp.sh` + `speak_stop.sh` (speaks only after ≥45 s turns — both paths verified), `speak_notification.sh`. *(Removed 2026-08-28: the audio/turn-stamp hooks and their settings.json entries are gone; current hooks are `session_start.sh` and `format_kt.sh` only.)*
   - `.editorconfig` — pins `intellij_idea` style + disables `function-signature`/`condition-wrapping` + Composable naming exemption. Parity verified: standalone ktlint reports 0 violations on the detekt-clean tree (default `ktlint_official` style had reported 500+ — the pin is load-bearing). Full `scripts/gradle build` green after adding it.
 - **Deferred (Tier 3, next tooling round)**: docs-drift audit workflow (refute-by-default), build-fixer/emulator-verifier subagents, `/five`, `emu.sh waitfor/assert`, full Impeccable trial.
 - **Rejected with evidence** (see playbook): SuperClaude/BMAD (ceremony + measured context tax), Agent Teams (3–4× tokens solo), mobile-mcp (open Android bugs; raw adb is the proven path — emu.sh stays), Memory/Seq-Thinking/Playwright MCP, Serena (weak Kotlin LSP).
@@ -300,6 +300,26 @@ Verified end-to-end like a human: app-drawer swipe → tapped the Mockarr icon �
 - **Next**: Ethan fills refs.md → `docs/design/brief.md` → Theme/Tokens → surface rounds
   (map HUD → dialogs → saved routes → settings → setup).
 
+### 2026-08-28 — Session 15 (UI pass, Phase 1a: refs + brief)
+
+- **Housekeeping**: removed the macOS audio hooks (`speak_stop.sh`, `speak_notification.sh`,
+  `turn_stamp.sh` + their settings.json entries; playbook paragraph dropped).
+- **PRODUCT.md** written via `/impeccable init` (enthusiasts first; realism + openness;
+  three-tab IA and API 26 floor preserved; name/icon and distribution left undecided).
+- **Strava refs**: Ethan dropped 709 Mobbin screenshots (Strava iOS Jul 2026, 600 MB) —
+  folder git-ignored. Triaged with 36 indexed contact sheets + 4 agents → 42 curated webps
+  in `docs/design/refs/strava/`, logged with whys in `refs/refs.md`.
+  Binding constraint: **indigo, not orange**.
+- **`/impeccable shape map-hud`** → `docs/design/brief.md` (draft). Ethan's calls: three
+  equal stats (no hero numeral), bottom nav hides during playback, restrained colour
+  (neutral sheets, indigo accent). Direction: one sheet + status strip replaces the card
+  stack; speed as a pill; chrome rules per state; theme-derived map palette.
+- **Open for Ethan**: dynamic colour on/off (recommend off); exact indigo seed; whether
+  Routes tab adopts the sheet model.
+- **Next**: confirm brief → `/impeccable document`-style token pass (Theme.kt + Tokens +
+  MapPalette, static indigo scheme, strings.xml) → Map HUD round with before/after
+  emulator screenshots.
+
 ### 2026-08-28 — Session 15b (UI pass, Round A+B: tokens + Map HUD)
 
 - **Tokens** (`ui/theme/`): static indigo M3 scheme, light + dark authored as sets, dynamic
@@ -364,3 +384,9 @@ Verified end-to-end like a human: app-drawer swipe → tapped the Mockarr icon �
   rule (Claude-Session line is required), the positioning contradiction with PRODUCT.md;
   added the ktlint-hook-only-on-Edit gotcha, the one-Gradle-at-a-time rule, the concrete
   `gh run watch` invocation; Modules trimmed to non-obvious facts (+ `core:mocklocation`).
+- **DESIGN.md written** (`/impeccable document`, scan mode): "The Quiet Dashboard" north star,
+  Night Indigo / Signal Teal / Amber Hold, six named rules, the Action Row and Status Strip
+  as signature components; sidecar `.impeccable/design.json` with rendered primitives.
+  `/progress-audit` fixed three stale claims (Room schema v3, `MockSessionService` in the
+  README, removed hooks noted) and recovered a PROGRESS entry that had been appended in
+  `docs/design/refs/strava/` by mistake.

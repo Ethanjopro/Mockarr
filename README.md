@@ -59,7 +59,7 @@ Then set `http://<your-host>:5000` in Mockarr's Settings. Build with `foot.lua`/
 ## Architecture
 
 ```
-:app                  Compose UI, ViewModels, navigation, PlaybackService, Hilt wiring
+:app                  Compose UI, ViewModels, navigation, MockSessionService, Hilt wiring
 :core:model           Shared data types + geo math (pure Kotlin)
 :core:simulation      Route playback engine (pure Kotlin, deterministic, fully unit-tested)
 :core:routing         RouteProvider abstraction, OSRM client, polyline6 codec, fallback

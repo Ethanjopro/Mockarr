@@ -1,0 +1,252 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-08-28T00:00:00+00:00",
+  "title": "Design System: Mockarr",
+  "extensions": {
+    "colorMeta": {
+      "night-indigo": {
+        "role": "primary",
+        "displayName": "Night Indigo",
+        "canonical": "#3949AB",
+        "tonalRamp": [
+          "#0A1B6B",
+          "#1F2C8A",
+          "#2A3A9F",
+          "#3949AB",
+          "#5C6BC0",
+          "#7A88E6",
+          "#9FA8FF",
+          "#DEE0FF"
+        ]
+      },
+      "signal-teal": {
+        "role": "secondary",
+        "displayName": "Signal Teal",
+        "canonical": "#1E6B4E",
+        "tonalRamp": [
+          "#002114",
+          "#0F4F38",
+          "#1E6B4E",
+          "#1E8A5A",
+          "#4FB98A",
+          "#6FD3A4",
+          "#8BD6B2",
+          "#A6F2CD"
+        ]
+      },
+      "amber-hold": {
+        "role": "tertiary",
+        "displayName": "Amber Hold",
+        "canonical": "#8A5A00",
+        "tonalRamp": [
+          "#2B1A00",
+          "#442B00",
+          "#5F4100",
+          "#8A5A00",
+          "#B8741A",
+          "#E0901E",
+          "#FFBB58",
+          "#FFDEA8"
+        ]
+      },
+      "paper": {
+        "role": "neutral",
+        "displayName": "Paper",
+        "canonical": "#FAF8FF",
+        "tonalRamp": [
+          "#1A1B21",
+          "#45464F",
+          "#767680",
+          "#C6C5D0",
+          "#E2E1E9",
+          "#EEEDF4",
+          "#F4F3FA",
+          "#FAF8FF"
+        ]
+      },
+      "asphalt": {
+        "role": "neutral",
+        "displayName": "Asphalt",
+        "canonical": "#121319",
+        "tonalRamp": [
+          "#0D0E13",
+          "#121319",
+          "#1A1B21",
+          "#1E1F25",
+          "#292A30",
+          "#34343B",
+          "#45464F",
+          "#E3E1E9"
+        ]
+      }
+    },
+    "typographyMeta": {
+      "headline": {
+        "displayName": "Stat value",
+        "purpose": "Numbers in stat trios; tabular figures; always under a Label."
+      },
+      "title": {
+        "displayName": "Strip / title",
+        "purpose": "Status strip copy, dialog and card titles."
+      },
+      "label": {
+        "displayName": "Label",
+        "purpose": "Uppercase tracked word above every value; section headers."
+      }
+    },
+    "shadows": [],
+    "motion": [
+      {
+        "name": "strip-tone",
+        "value": "animateColorAsState default (300ms, FastOutSlowIn)",
+        "purpose": "Status strip container/content crossfade between states."
+      },
+      {
+        "name": "sheet-snap",
+        "value": "Material BottomSheetScaffold spring",
+        "purpose": "Peek ↔ expanded; Play collapses to peek."
+      },
+      {
+        "name": "camera-follow",
+        "value": "easeCamera 900ms",
+        "purpose": "Follow-mode camera per fix; must honour the animator duration scale (planned)."
+      }
+    ],
+    "breakpoints": [
+      {
+        "name": "compact",
+        "value": "<600dp"
+      },
+      {
+        "name": "expanded",
+        "value": ">=600dp (navigation rail; side panel planned)"
+      }
+    ]
+  },
+  "components": [
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "The one filled action per surface (Play, Pause).",
+      "html": "<button class=\"ds-btn-primary\"><svg width=\"20\" height=\"20\" viewBox=\"0 0 24 24\" fill=\"currentColor\"><path d=\"M8 5v14l11-7z\"/></svg>Play</button>",
+      "css": ".ds-btn-primary{display:inline-flex;align-items:center;gap:8px;height:40px;padding:0 24px;border:0;border-radius:9999px;background:#3949AB;color:#fff;font:500 14px/1 Roboto,system-ui,sans-serif;letter-spacing:.1px;cursor:pointer;transition:background .2s}.ds-btn-primary:hover{background:#2A3A9F}.ds-btn-primary:focus-visible{outline:2px solid #3949AB;outline-offset:2px}"
+    },
+    {
+      "name": "Outlined Button",
+      "kind": "button",
+      "refersTo": "button-outlined",
+      "description": "Secondary verb beside a primary (Stop).",
+      "html": "<button class=\"ds-btn-outlined\"><svg width=\"20\" height=\"20\" viewBox=\"0 0 24 24\" fill=\"currentColor\"><path d=\"M6 6h12v12H6z\"/></svg>Stop</button>",
+      "css": ".ds-btn-outlined{display:inline-flex;align-items:center;gap:8px;height:40px;padding:0 24px;border:1px solid #767680;border-radius:9999px;background:transparent;color:#3949AB;font:500 14px/1 Roboto,system-ui,sans-serif;cursor:pointer;transition:background .2s}.ds-btn-outlined:hover{background:rgba(57,73,171,.08)}.ds-btn-outlined:focus-visible{outline:2px solid #3949AB;outline-offset:2px}"
+    },
+    {
+      "name": "Filter Chip",
+      "kind": "chip",
+      "refersTo": "chip-filter",
+      "description": "Speed / wait presets; the 1× speed pill is the selected variant.",
+      "html": "<span class=\"ds-chip\">0.5×</span> <span class=\"ds-chip ds-chip--selected\">1×</span> <span class=\"ds-chip\">2×</span>",
+      "css": ".ds-chip{display:inline-flex;align-items:center;height:32px;padding:0 16px;border:1px solid #767680;border-radius:12px;color:#45464F;font:500 14px/1 Roboto,system-ui,sans-serif;cursor:pointer}.ds-chip--selected{background:#E2E1E9;border-color:transparent;color:#1A1B21}.ds-chip:hover{background:rgba(26,27,33,.06)}"
+    },
+    {
+      "name": "Status Strip",
+      "kind": "custom",
+      "refersTo": "strip-accent",
+      "description": "Sheet top band carrying session state in colour and one line of copy.",
+      "html": "<div class=\"ds-strip ds-strip--accent\"><div class=\"ds-strip__handle\"></div><div class=\"ds-strip__row\"><span>Driving</span></div></div><div class=\"ds-strip ds-strip--hold\"><div class=\"ds-strip__handle\"></div><div class=\"ds-strip__row\"><span>Holding at 28th Avenue</span><button class=\"ds-strip__action\">Stop</button></div></div>",
+      "css": ".ds-strip{padding:0 20px;border-radius:28px 28px 0 0;font:500 14px/1.4 Roboto,system-ui,sans-serif;transition:background .3s,color .3s}.ds-strip__handle{width:32px;height:4px;margin:8px auto 0;border-radius:9999px;background:currentColor;opacity:.4}.ds-strip__row{display:flex;align-items:center;min-height:40px;gap:8px}.ds-strip__row span{flex:1}.ds-strip__action{border:0;background:transparent;color:inherit;font:500 14px Roboto,system-ui,sans-serif;padding:8px 12px;border-radius:9999px;cursor:pointer}.ds-strip--accent{background:#DEE0FF;color:#0A1B6B}.ds-strip--hold{background:#FFDEA8;color:#2B1A00}.ds-strip--ready{background:#A6F2CD;color:#002114}.ds-strip--error{background:#FFDAD6;color:#410002}.ds-strip--neutral{background:#E8E7EF;color:#45464F}"
+    },
+    {
+      "name": "Stat Trio",
+      "kind": "custom",
+      "refersTo": "sheet",
+      "description": "Three equal label-over-value cells with a thin progress track.",
+      "html": "<div class=\"ds-trio\"><div><small>Time left</small><b>2 min</b></div><div><small>Distance left</small><b>0.4 mi</b></div><div><small>Speed</small><b>14 mph</b></div></div><div class=\"ds-progress\"><i style=\"width:22%\"></i></div>",
+      "css": ".ds-trio{display:flex;padding:12px 20px 0;background:#F4F3FA;font-family:Roboto,system-ui,sans-serif}.ds-trio>div{flex:1;display:flex;flex-direction:column;gap:2px}.ds-trio small{font:500 11px/1.45 Roboto,system-ui,sans-serif;letter-spacing:.5px;text-transform:uppercase;color:#45464F}.ds-trio b{font:600 24px/1.33 Roboto,system-ui,sans-serif;font-variant-numeric:tabular-nums;color:#1A1B21}.ds-progress{height:4px;margin:12px 20px;border-radius:2px;background:#E2E1E9;overflow:hidden}.ds-progress i{display:block;height:100%;background:#3949AB}"
+    },
+    {
+      "name": "Search Field",
+      "kind": "input",
+      "refersTo": "search-field",
+      "description": "Floating place search over the map.",
+      "html": "<label class=\"ds-search\"><input placeholder=\"Search for a place\"><svg width=\"24\" height=\"24\" viewBox=\"0 0 24 24\" fill=\"currentColor\"><path d=\"M15.5 14h-.8l-.3-.3A6.5 6.5 0 1 0 9.5 16a6.5 6.5 0 0 0 4.2-1.6l.3.3v.8l5 5 1.5-1.5-5-5zm-6 0A4.5 4.5 0 1 1 14 9.5 4.5 4.5 0 0 1 9.5 14z\"/></svg></label>",
+      "css": ".ds-search{display:flex;align-items:center;height:56px;padding:0 16px;border-radius:12px;background:#fff;color:#45464F;border:1px solid transparent;font-family:Roboto,system-ui,sans-serif}.ds-search input{flex:1;border:0;outline:0;background:transparent;font:400 16px Roboto,system-ui,sans-serif;color:#1A1B21}.ds-search:focus-within{border-color:#3949AB}"
+    },
+    {
+      "name": "Stop Disc",
+      "kind": "custom",
+      "refersTo": "stop-disc",
+      "description": "Numbered marker in the stop list; mirrors the map markers.",
+      "html": "<span class=\"ds-disc ds-disc--start\">1</span> <span class=\"ds-disc\">2</span> <span class=\"ds-disc ds-disc--end\">3</span>",
+      "css": ".ds-disc{display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;border-radius:9999px;background:#3949AB;color:#fff;font:700 12px Roboto,system-ui,sans-serif}.ds-disc--start{background:#1E8A5A}.ds-disc--end{background:#1A1B21}"
+    },
+    {
+      "name": "Navigation Bar",
+      "kind": "nav",
+      "refersTo": "fab-tonal",
+      "description": "Three-destination Material bar; hidden during playback.",
+      "html": "<nav class=\"ds-nav\"><a class=\"ds-nav__item ds-nav__item--active\"><span class=\"ds-nav__pill\">●</span>Map</a><a class=\"ds-nav__item\"><span class=\"ds-nav__pill\">≡</span>Routes</a><a class=\"ds-nav__item\"><span class=\"ds-nav__pill\">⚙</span>Settings</a></nav>",
+      "css": ".ds-nav{display:flex;justify-content:space-around;height:80px;background:#EEEDF4;font:500 12px Roboto,system-ui,sans-serif;color:#45464F}.ds-nav__item{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;flex:1;cursor:pointer}.ds-nav__pill{display:inline-flex;align-items:center;justify-content:center;width:64px;height:32px;border-radius:9999px}.ds-nav__item--active{color:#1A1B21}.ds-nav__item--active .ds-nav__pill{background:#DEE0FF;color:#0A1B6B}"
+    }
+  ],
+  "narrative": {
+    "northStar": "The Quiet Dashboard",
+    "overview": "Mockarr looks like a car's instrument cluster at night: neutral surfaces, one indigo signal, big legible numerals, and state shown as a tinted band rather than a pile of cards. The map is the product; every piece of chrome either serves the drive in progress or recedes. Nothing decorates. Colour appears where it means something — the route, the position, the primary action, the state strip — and nowhere else.\n\nThe system is Material 3 in structure with a hand-authored indigo scheme on every API level; dynamic colour is off so the map palette never fights a wallpaper. Dark is designed as its own set, not an inversion. Strava's Record screen is the reference for how controls sit — a single row of equal-weight actions under a stat readout — translated into Material, never copied as iOS chrome.",
+    "keyCharacteristics": [
+      "Restrained colour: neutral ground, indigo accent, semantic state tints kept separate.",
+      "One sheet owns the bottom edge; a status strip on its top edge carries state.",
+      "Label-over-value stat cells in equal-weight trios; tabular figures; no hero number.",
+      "Tonal layering only — no drop shadows on the map or its sheets.",
+      "One radius family: 12 / 16 / 28 dp and full pills.",
+      "Chrome recedes during playback (search, 3D toggle and the navigation bar hide)."
+    ],
+    "rules": [
+      {
+        "name": "The One Signal Rule",
+        "body": "Indigo is the only colour allowed to mean \"act here\" or \"this is you\". If a second element on the screen also wants attention, it uses a state tint or it waits.",
+        "section": "colors"
+      },
+      {
+        "name": "The State Is a Band Rule",
+        "body": "Session state is communicated by the strip's container colour and one line of copy — never by a new card, never by an icon alone.",
+        "section": "colors"
+      },
+      {
+        "name": "The Palette Travels Rule",
+        "body": "Map colours are never literals: they come from MapPalette, and anything that bakes a colour into a bitmap or cache includes the palette in its key so a theme switch re-renders.",
+        "section": "colors"
+      },
+      {
+        "name": "The Label Over Value Rule",
+        "body": "A number never appears alone: an uppercase label sits directly above it, and the three cells of a trio share one baseline.",
+        "section": "typography"
+      },
+      {
+        "name": "The No Hero Rule",
+        "body": "Stat trios are equal weight. No single numeral is enlarged to dominate the sheet.",
+        "section": "typography"
+      },
+      {
+        "name": "The Flat Over Map Rule",
+        "body": "Anything floating over the map is distinguished by container tone and its 28/16/12dp corner, never by a shadow.",
+        "section": "elevation"
+      }
+    ],
+    "dos": [
+      "Do read every colour from MaterialTheme.colorScheme or MockarrTheme.colors; map code takes a MapPalette.",
+      "Do put session state in the strip's tone and copy; put transient feedback in a snackbar.",
+      "Do present numbers as Label-over-Headline cells in equal trios with tabular figures.",
+      "Do measure the sheet's peek at runtime and fall back to 200dp until measured.",
+      "Do hide non-essential chrome (search, 3D, navigation bar, thumbstick) during playback or when its state does not apply.",
+      "Do keep every touch target at 48dp and every list scrollable with IME padding."
+    ],
+    "donts": [
+      "Don't stack cards above the sheet; there is one sheet.",
+      "Don't enlarge one stat into a hero numeral.",
+      "Don't use Strava orange, or any second saturated accent beside indigo.",
+      "Don't draw drop shadows on anything floating over the map.",
+      "Don't add iOS chrome — wheel pickers, Cancel/Done header pairs, Cupertino switches.",
+      "Don't hard-code a colour, radius or spacing literal in a screen; extend Tokens or the theme instead."
+    ]
+  }
+}

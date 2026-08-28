@@ -43,12 +43,13 @@ to user-facing copy until decided.
   `XSheet.kt` or `XComponents.kt` (pieces) / `XDialogs.kt` / `XViewModel.kt` —
   see the per-file function cap under Lint tripwires.
 - User-facing copy goes in `res/values/strings.xml` from day one.
-- Visual direction: `docs/design/brief.md` + `PRODUCT.md`; references in
+- Visual system: `DESIGN.md` (tokens + rules) — read it before touching UI.
+  Direction: `docs/design/brief.md` + `PRODUCT.md`; references in
   `docs/design/refs/` (raw Mobbin captures are git-ignored — never commit them).
 
 ## Modules (non-obvious facts only; the list is in `settings.gradle.kts`)
 - `app` — Compose + Hilt UI, `MockSessionService`, map in `ui/map/MockarrMap.kt`.
-- `core:data` — Room schema v2 (`SavedRouteEntity`), DataStore settings.
+- `core:data` — Room schema v3 (`SavedRouteEntity`; migrations 1→2→3 in `MockarrDatabase`), DataStore settings.
 - `core:mocklocation` — mock providers + setup-status detection (Android, no Hilt).
 
 ## Lint tripwires (detekt flags AT threshold)
