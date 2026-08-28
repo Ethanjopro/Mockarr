@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Material "add location alt" glyph (Apache 2.0), tinted at usage sites. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <path android:fillColor="#FF000000" android:pathData="M13,3v3h-2V3H8v6h8V3h-3zM13,17.5l3,-3v-3h-2v2.17l-1,1l-1,-1V11.5H10v3l3,3zM12,2C8.13,2 5,5.13 5,9c0,5.25 7,13 7,13s7,-7.75 7,-13C19,5.13 15.87,2 12,2z"/>
+</vector>

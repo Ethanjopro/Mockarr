@@ -7,8 +7,6 @@ import android.os.Build
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
-import dev.mockarr.app.playback.MockSessionRepository
-import dev.mockarr.app.playback.MockSessionState
 import dev.mockarr.app.ui.RouteHandoff
 import dev.mockarr.app.ui.map.CameraCommand
 import dev.mockarr.core.data.SavedRoutesRepository
@@ -53,7 +51,6 @@ class MapViewModel @Inject constructor(
     private val geocoder: PhotonGeocoder,
     private val elevationClient: OpenMeteoElevationClient,
     private val locationManager: LocationManager,
-    private val sessionRepository: MockSessionRepository,
     private val settingsRepository: SettingsRepository,
     private val savedRoutesRepository: SavedRoutesRepository,
     private val routeHandoff: RouteHandoff,
@@ -71,26 +68,11 @@ class MapViewModel @Inject constructor(
         val trafficFactor: Double = 1.0,
     )
 
-    data class SearchSuggestion(
-        val result: GeocodingResult,
-        val distanceMeters: Double?,
-    )
-
-    data class SearchState(
-        val query: String = "",
-        val searching: Boolean = false,
-        val results: List<SearchSuggestion> = emptyList(),
-        val errorMessage: String? = null,
-    )
-
     private val straightLine = StraightLineRouteProvider()
     private val _uiState = MutableStateFlow(
         UiState(profile = settingsRepository.settings.value.defaultProfile),
     )
     val uiState: StateFlow<UiState> = _uiState.asStateFlow()
-
-    private val _search = MutableStateFlow(SearchState())
-    val search: StateFlow<SearchState> = _search.asStateFlow()
 
     private val _cameraCommand = MutableStateFlow<CameraCommand?>(null)
     val cameraCommand: StateFlow<CameraCommand?> = _cameraCommand.asStateFlow()
@@ -98,6 +80,9 @@ class MapViewModel @Inject constructor(
     /** Index of the waypoint whose context menu is open, or null. */
     private val _selectedWaypoint = MutableStateFlow<Int?>(null)
     val selectedWaypoint: StateFlow<Int?> = _selectedWaypoint.asStateFlow()
+
+    private val _builderMode = MutableStateFlow(false)
+    val builderMode: StateFlow<Boolean> = _builderMode.asStateFlow()
 
     /** Suggested name for the Save dialog ("X to Y, City"), null until resolved. */
     private val _suggestedName = MutableStateFlow<String?>(null)
@@ -140,7 +125,6 @@ class MapViewModel @Inject constructor(
     val followCamera: StateFlow<Boolean> = _followCamera.asStateFlow()
 
     private var routeJob: Job? = null
-    private var searchJob: Job? = null
     private var elevationJob: Job? = null
     private var cameraSeq = 0L
     private var profileTouched = false
@@ -180,7 +164,7 @@ class MapViewModel @Inject constructor(
                 settingsRepository.setLastCamera(camera)
             }
         }
-        // Seed the search bias so pre-pan queries still rank nearby places first.
+        // Seed the camera memory so "add stop at camera" works before the first idle.
         viewModelScope.launch {
             val saved = settingsRepository.awaitLoaded().lastCamera
             if (lastKnownCamera == null) lastKnownCamera = saved
@@ -337,72 +321,34 @@ class MapViewModel @Inject constructor(
         }
     }
 
-    /** As-you-type: debounce, cancel the in-flight lookup, bias results toward the camera. */
-    fun setSearchQuery(query: String) {
-        _search.update { it.copy(query = query) }
-        searchJob?.cancel()
-        val trimmed = query.trim()
-        if (trimmed.length < MIN_QUERY_LENGTH) {
-            _search.update { it.copy(searching = false, results = emptyList(), errorMessage = null) }
-            return
-        }
-        searchJob = viewModelScope.launch {
-            delay(SEARCH_DEBOUNCE_MILLIS)
-            runSearch(trimmed)
-        }
-    }
-
-    /** IME search action — skip the debounce. */
-    fun submitSearch() {
-        val query = _search.value.query.trim()
-        if (query.isEmpty()) return
-        searchJob?.cancel()
-        searchJob = viewModelScope.launch { runSearch(query) }
-    }
-
-    private suspend fun runSearch(query: String) {
-        _search.update { it.copy(searching = true, errorMessage = null) }
-        // Ranking anchor: mocked position first, then real location, then the camera.
-        val bias = sessionRepository.mockedPosition()
-            ?: locationManager.quickLastKnown()?.let { LatLng(it.latitude, it.longitude) }
-            ?: lastKnownCamera?.target
-        geocoder.search(query, bias = bias).fold(
-            onSuccess = { results ->
-                val suggestions = results.map { result ->
-                    SearchSuggestion(
-                        result = result,
-                        distanceMeters = bias?.let { GeoMath.distanceMeters(it, result.position) },
-                    )
-                }
-                _search.update {
-                    it.copy(
-                        searching = false,
-                        results = suggestions,
-                        errorMessage = if (suggestions.isEmpty()) "No places found" else null,
-                    )
-                }
-            },
-            onFailure = { error ->
-                _search.update {
-                    it.copy(
-                        searching = false,
-                        errorMessage = "Search failed: ${error.message ?: "network error"}",
-                    )
-                }
-            },
-        )
-    }
-
+    /** A search result: fly there and open the builder so the next tap places a stop. */
     fun selectSearchResult(result: GeocodingResult) {
-        _search.update { it.copy(results = emptyList(), errorMessage = null) }
         _cameraCommand.value = CameraCommand.Center(result.position, SEARCH_ZOOM, seq = cameraSeq++)
+        _builderMode.value = true
     }
 
-    fun clearSearchResults() {
-        _search.update { it.copy(results = emptyList(), errorMessage = null) }
+    /** Builder mode: map taps place stops; the sheet shows the route under construction. */
+    fun setBuilderMode(active: Boolean) {
+        _selectedWaypoint.value = null
+        _builderMode.value = active
+    }
+
+    /** Drive the route the other way round. */
+    fun reverseWaypoints() {
+        if (_uiState.value.waypoints.size < 2) return
+        _selectedWaypoint.value = null
+        _uiState.update { it.copy(waypoints = it.waypoints.asReversed()) }
+        scheduleRouteFetch()
+    }
+
+    /** On-sheet equivalent of tapping the map: a stop at the camera target. */
+    fun addWaypointAtCamera() {
+        val target = lastKnownCamera?.target ?: return
+        addWaypoint(target)
     }
 
     private fun loadSavedRoute(route: Route, profile: RoutingProfile) {
+        _builderMode.value = false
         routeJob?.cancel()
         profileTouched = true
         val anchors = route.snappedWaypoints
@@ -493,8 +439,6 @@ class MapViewModel @Inject constructor(
     private companion object {
         const val DEBOUNCE_MILLIS = 500L
         const val CAMERA_SAVE_DEBOUNCE_MILLIS = 1_000L
-        const val SEARCH_DEBOUNCE_MILLIS = 300L
-        const val MIN_QUERY_LENGTH = 3
         const val SEARCH_ZOOM = 16.0
         const val LOCATE_ZOOM = 15.0
         const val LOCATE_REFINE_METERS = 50.0
@@ -505,7 +449,7 @@ private const val LOCATE_TIMEOUT_MILLIS = 5_000L
 
 // Permission is gated by the UI before callers reach this.
 @SuppressLint("MissingPermission")
-private fun LocationManager.quickLastKnown(): Location? =
+internal fun LocationManager.quickLastKnown(): Location? =
     runCatching { getLastKnownLocation(LocationManager.GPS_PROVIDER) }.getOrNull()
         ?: runCatching { getLastKnownLocation(LocationManager.NETWORK_PROVIDER) }.getOrNull()
 
@@ -529,14 +473,6 @@ private suspend fun LocationManager.currentReal(): Location? {
     }
     return current ?: quickLastKnown()
 }
-
-/** The position the device currently mocks, or null when idle. */
-private fun MockSessionRepository.mockedPosition(): LatLng? =
-    when (val current = session.value) {
-        is MockSessionState.Holding -> current.position
-        is MockSessionState.Playing -> latestFix.value?.position
-        else -> null
-    }
 
 private fun SettingsRepository.currentTrafficFactor(): Double =
     if (settings.value.trafficSimEnabled) {

@@ -390,3 +390,30 @@ Verified end-to-end like a human: app-drawer swipe → tapped the Mockarr icon �
   `/progress-audit` fixed three stale claims (Room schema v3, `MockSessionService` in the
   README, removed hooks noted) and recovered a PROGRESS entry that had been appended in
   `docs/design/refs/strava/` by mistake.
+
+### 2026-08-28 — Session 15d (Brief 2, Map tab as Strava's Record screen)
+
+- **Brief 2** (`docs/design/brief-2-record-and-routes.md`, shape → confirmed): Map tab
+  mirrors Strava's Record screen; Routes tab mirrors Saved Routes (next round). Ethan's
+  calls: left button = travel-mode picker; route building is a **mode on the same tab**;
+  map taps inert outside builder mode; ⋯ overflow on route cards.
+- **Record layout**: search bar stays at top; the sheet peek is the stat card (strip +
+  Time·Distance·Speed placeholders, or the loaded route's Distance·Duration·Stops) and the
+  **Action Row** — Drive (mode picker sheet; Walk/Cycle locked until a custom OSRM server)
+  · 64 dp indigo Start · Add route / Edit route. Drag-up shows the **Options** list
+  (Follow camera, Stay at destination, Rush-hour traffic, GPS wobble, All settings ›)
+  writing the same DataStore settings.
+- **Builder mode**: Add route flips the map in place — taps place stops, floating Undo /
+  Reverse / ⋯ (Add stop at map centre, Clear all) pills above the sheet, builder trio +
+  stop list + Save, ✕ (discard dialog when stops exist) and Done back to Record with the
+  route loaded. Search results fly there and open the builder.
+- **Code**: `MapSearchViewModel` (search moved out of `MapViewModel`, which was at the
+  detekt class cap), `MapOptionsViewModel`, `MapActionRow.kt`, `MapBuilder.kt`;
+  `MapViewModel` gained `builderMode`, `reverseWaypoints`, `addWaypointAtCamera`.
+  9 new Material glyph drawables; 36 new strings.
+- **Verified on emulator** (light + dark): idle Record, mode picker, builder empty/route,
+  Done → Route ready, Start → playing (nav hidden), Stop → Holding at destination. Bug
+  found and fixed: tool pills were composed inside the holding guard. Verifier lesson (now
+  in the skill): map taps during the sheet's re-anchor animation are swallowed — wait ~1 s
+  after any mode change; two quick taps on one spot are a MapLibre double-tap zoom.
+- **Next**: Routes tab (Saved Routes layout) per brief 2.

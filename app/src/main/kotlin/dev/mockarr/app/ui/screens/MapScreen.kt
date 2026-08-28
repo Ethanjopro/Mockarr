@@ -30,13 +30,11 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.BottomSheetScaffold
-import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledIconToggleButton
 import androidx.compose.material3.FilledTonalIconButton
-import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -70,13 +68,13 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dev.mockarr.app.R
 import dev.mockarr.app.playback.MockSessionState
 import dev.mockarr.app.ui.formatDistance
 import dev.mockarr.app.ui.formatDurationShort
-import dev.mockarr.app.ui.label
 import dev.mockarr.app.ui.map.ActiveDwell
 import dev.mockarr.app.ui.map.MockarrMap
 import dev.mockarr.app.ui.map.NUDGE_TICK_MILLIS
@@ -89,7 +87,6 @@ import dev.mockarr.core.model.DistanceUnits
 import dev.mockarr.core.model.GeoMath
 import dev.mockarr.core.model.LatLng
 import dev.mockarr.core.model.Route
-import dev.mockarr.core.model.RoutingProfile
 import dev.mockarr.core.model.Waypoint
 import dev.mockarr.core.routing.GeocodingResult
 import kotlinx.coroutines.launch
@@ -153,10 +150,11 @@ fun MapLayer(
             // Dismiss-first: with a stop selected, a map tap deselects it rather
             // than dropping a new stop. Read .value at click time (repo rule).
             if (!playing) {
-                if (viewModel.selectedWaypoint.value != null) {
-                    viewModel.selectWaypoint(null)
-                } else {
-                    viewModel.addWaypoint(it)
+                when {
+                    viewModel.selectedWaypoint.value != null -> viewModel.selectWaypoint(null)
+                    // Record layout is inert (Strava); only the builder places stops.
+                    viewModel.builderMode.value -> viewModel.addWaypoint(it)
+                    else -> Unit
                 }
             }
         },
@@ -202,11 +200,16 @@ fun MapLayer(
 @Composable
 fun MapScreen(
     onOpenSetup: () -> Unit,
+    onOpenSettings: () -> Unit,
     viewModel: MapViewModel,
     sessionViewModel: MockSessionViewModel,
     setupViewModel: SetupViewModel,
+    searchViewModel: MapSearchViewModel = hiltViewModel(),
+    optionsViewModel: MapOptionsViewModel = hiltViewModel(),
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
+    val builderMode by viewModel.builderMode.collectAsStateWithLifecycle()
+    val options by optionsViewModel.settings.collectAsStateWithLifecycle()
     val customServerConfigured by viewModel.customServerConfigured.collectAsStateWithLifecycle()
     val setupStatus by setupViewModel.status.collectAsStateWithLifecycle()
 
@@ -215,7 +218,9 @@ fun MapScreen(
         onPauseOrDispose { }
     }
     val units by viewModel.units.collectAsStateWithLifecycle()
-    val searchState by viewModel.search.collectAsStateWithLifecycle()
+    val searchState by searchViewModel.state.collectAsStateWithLifecycle()
+    val camera by viewModel.camera.collectAsStateWithLifecycle()
+    LaunchedEffect(camera) { camera?.let { searchViewModel.cameraBias = it.target } }
     val map3d by viewModel.map3dEnabled.collectAsStateWithLifecycle()
     val followCamera by viewModel.followCamera.collectAsStateWithLifecycle()
     val suggestedName by viewModel.suggestedName.collectAsStateWithLifecycle()
@@ -325,6 +330,29 @@ fun MapScreen(
         )
     }
 
+    var showModePicker by remember { mutableStateOf(false) }
+    if (showModePicker) {
+        ModePickerSheet(
+            selected = state.profile,
+            customServerConfigured = customServerConfigured,
+            onSelect = {
+                viewModel.setProfile(it)
+                showModePicker = false
+            },
+            onDismiss = { showModePicker = false },
+        )
+    }
+    var showDiscard by remember { mutableStateOf(false) }
+    if (showDiscard) {
+        DiscardRouteDialog(
+            onDiscard = {
+                showDiscard = false
+                viewModel.clearWaypoints()
+                viewModel.setBuilderMode(false)
+            },
+            onDismiss = { showDiscard = false },
+        )
+    }
     var waitEditIndex by remember { mutableStateOf<Int?>(null) }
     if (selectedWaypoint != null && state.waypoints.getOrNull(selectedWaypoint!!) == null) {
         // The list changed under the selection (undo/clear) — drop it.
@@ -405,6 +433,7 @@ fun MapScreen(
                         playbackState = playbackState,
                         holding = holding,
                         playing = playing,
+                        builder = builderMode,
                         setupReady = setupStatus?.readyToMock != false,
                     )
                     StatusStrip(
@@ -429,12 +458,23 @@ fun MapScreen(
                                 scope.launch { if (expanded) sheetState.partialExpand() else sheetState.expand() }
                             },
                         )
+                    } else if (builderMode) {
+                        BuilderPeek(
+                            state = state,
+                            units = units,
+                            onDone = { viewModel.setBuilderMode(false) },
+                            onClose = {
+                                if (state.waypoints.isEmpty()) viewModel.setBuilderMode(false) else showDiscard = true
+                            },
+                        )
                     } else {
-                        PlanningPeek(
+                        RecordPeek(
                             state = state,
                             units = units,
                             holdActive = holding != null,
-                            onPlay = ::playOrAskStart,
+                            onPickMode = { showModePicker = true },
+                            onStart = ::playOrAskStart,
+                            onEditRoute = { viewModel.setBuilderMode(true) },
                         )
                     }
                 }
@@ -449,22 +489,28 @@ fun MapScreen(
                             onSpeedChange = sessionViewModel::setSpeedMultiplier,
                             modifier = Modifier.padding(horizontal = Tokens.inset),
                         )
-                    } else {
-                        PlanningDetails(
+                    } else if (builderMode) {
+                        BuilderDetails(
                             state = state,
                             selectedWaypoint = selectedWaypoint,
-                            customServerConfigured = customServerConfigured,
                             onSelectWaypoint = viewModel::selectWaypoint,
                             onSetWait = { waitEditIndex = it },
                             onClearWait = { viewModel.setWaypointWait(it, 0) },
                             onRemoveStop = viewModel::removeWaypoint,
-                            onProfileSelected = viewModel::setProfile,
-                            onUndo = viewModel::undoWaypoint,
-                            onClear = viewModel::clearWaypoints,
                             onSave = {
                                 viewModel.requestNameSuggestion()
                                 showSaveDialog = true
                             },
+                        )
+                    } else {
+                        OptionsList(
+                            settings = options,
+                            followCamera = followCamera,
+                            onFollowChange = viewModel::setFollowCamera,
+                            onStayChange = optionsViewModel::setStayAtDestination,
+                            onTrafficChange = optionsViewModel::setTrafficSimEnabled,
+                            onWobbleChange = optionsViewModel::setJitterEnabled,
+                            onOpenSettings = onOpenSettings,
                         )
                     }
                 }
@@ -483,15 +529,16 @@ fun MapScreen(
                     MapSearchBar(
                         state = searchState,
                         units = units,
-                        onQueryChange = viewModel::setSearchQuery,
-                        onSearch = viewModel::submitSearch,
+                        onQueryChange = searchViewModel::setQuery,
+                        onSearch = searchViewModel::submit,
                         onResultSelected = {
                             focusManager.clearFocus()
+                            searchViewModel.clearResults()
                             viewModel.selectSearchResult(it)
                         },
                         onDismiss = {
                             focusManager.clearFocus()
-                            viewModel.clearSearchResults()
+                            searchViewModel.clearResults()
                         },
                     )
                     Spacer(Modifier.height(Tokens.space2))
@@ -521,6 +568,19 @@ fun MapScreen(
                 )
             }
 
+            if (builderMode && !playing) {
+                BuilderTools(
+                    canUndo = state.waypoints.isNotEmpty(),
+                    canReverse = state.waypoints.size >= 2,
+                    onUndo = viewModel::undoWaypoint,
+                    onReverse = viewModel::reverseWaypoints,
+                    onAddAtCenter = viewModel::addWaypointAtCamera,
+                    onClearAll = viewModel::clearWaypoints,
+                    modifier = Modifier
+                        .align(Alignment.BottomEnd)
+                        .padding(end = Tokens.mapEdge, bottom = peekHeight + Tokens.mapEdge),
+                )
+            }
             // Only while holding: the nudge control is chrome that must recede
             // (design brief) rather than sit dimmed on every map state.
             if (holding != null && !playing) {
@@ -551,91 +611,64 @@ fun MapScreen(
     }
 }
 
-/** Peek while planning: the route summary trio and Play, or the idle hint. */
+/** Record layout peek: the stat card (zeros at rest, the loaded route's stats) and the action row. */
 @Composable
-private fun PlanningPeek(
+private fun RecordPeek(
     state: MapViewModel.UiState,
     units: DistanceUnits,
     holdActive: Boolean,
-    onPlay: () -> Unit,
+    onPickMode: () -> Unit,
+    onStart: () -> Unit,
+    onEditRoute: () -> Unit,
 ) {
     val route = state.route
-    Row(
-        modifier = Modifier.padding(horizontal = Tokens.inset, vertical = Tokens.space3),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        if (route != null) {
-            val seconds = route.durationSeconds * state.trafficFactor + route.waypointWaitsSeconds.sum()
-            val minutes = (seconds / SECONDS_PER_MINUTE).roundToInt().coerceAtLeast(1)
-            StatTrio(
-                cells = listOf(
-                    StatCell(stringResource(R.string.stat_distance), formatDistance(route.distanceMeters, units)),
-                    StatCell(
-                        stringResource(R.string.stat_duration),
-                        formatDurationShort(minutes * SECONDS_PER_MINUTE.toDouble()),
-                    ),
-                    StatCell(stringResource(R.string.stat_stops), state.waypoints.size.toString()),
-                ),
-                modifier = Modifier.weight(1f),
-            )
-        } else {
-            Icon(
-                painter = painterResource(R.drawable.ic_route),
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.primary,
-                modifier = Modifier.size(Tokens.space6),
-            )
-            Spacer(Modifier.width(Tokens.space3))
-            Text(
-                text = when {
-                    state.isRouting -> stringResource(R.string.strip_routing)
-                    state.waypoints.size == 1 && holdActive -> stringResource(R.string.strip_hold_hint)
-                    state.waypoints.size == 1 -> stringResource(R.string.sheet_one_stop)
-                    else -> stringResource(R.string.sheet_idle_title)
-                },
-                style = MaterialTheme.typography.bodyLarge,
-                modifier = Modifier.weight(1f),
-            )
-        }
-        val playable = route != null || (state.waypoints.size == 1 && holdActive)
-        if (playable) {
-            Spacer(Modifier.width(Tokens.space3))
-            Button(onClick = onPlay) {
-                Icon(painterResource(R.drawable.ic_play), contentDescription = null)
-                Spacer(Modifier.width(Tokens.space1))
-                Text(stringResource(R.string.sheet_play))
-            }
-        } else if (state.isRouting) {
-            Spacer(Modifier.width(Tokens.space3))
-            CircularProgressIndicator(modifier = Modifier.size(Tokens.space6), strokeWidth = 2.dp)
-        }
+    val placeholder = stringResource(R.string.stat_placeholder)
+    val cells = if (route != null) {
+        val seconds = route.durationSeconds * state.trafficFactor + route.waypointWaitsSeconds.sum()
+        val minutes = (seconds / SECONDS_PER_MINUTE).roundToInt().coerceAtLeast(1)
+        listOf(
+            StatCell(stringResource(R.string.stat_distance), formatDistance(route.distanceMeters, units)),
+            StatCell(
+                stringResource(R.string.stat_duration),
+                formatDurationShort(minutes * SECONDS_PER_MINUTE.toDouble()),
+            ),
+            StatCell(stringResource(R.string.stat_stops), state.waypoints.size.toString()),
+        )
+    } else {
+        listOf(
+            StatCell(stringResource(R.string.stat_time), placeholder),
+            StatCell(stringResource(R.string.stat_distance), placeholder),
+            StatCell(stringResource(R.string.stat_speed), placeholder),
+        )
+    }
+    Column {
+        StatTrio(
+            cells = cells,
+            modifier = Modifier.padding(horizontal = Tokens.inset, vertical = Tokens.space3),
+        )
+        ActionRow(
+            profile = state.profile,
+            canStart = route != null || (state.waypoints.size == 1 && holdActive),
+            routeLoaded = route != null || state.waypoints.isNotEmpty(),
+            onPickMode = onPickMode,
+            onStart = onStart,
+            onEditRoute = onEditRoute,
+        )
     }
 }
 
-/** Expanded planning content: the stops, then the route actions. */
+/** Expanded builder content: the stops, then Save. */
 @Composable
-private fun PlanningDetails(
+private fun BuilderDetails(
     state: MapViewModel.UiState,
     selectedWaypoint: Int?,
-    customServerConfigured: Boolean,
     onSelectWaypoint: (Int?) -> Unit,
     onSetWait: (Int) -> Unit,
     onClearWait: (Int) -> Unit,
     onRemoveStop: (Int) -> Unit,
-    onProfileSelected: (RoutingProfile) -> Unit,
-    onUndo: () -> Unit,
-    onClear: () -> Unit,
     onSave: () -> Unit,
 ) {
-    if (state.waypoints.isEmpty()) {
-        Text(
-            text = stringResource(R.string.sheet_idle_body),
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.padding(horizontal = Tokens.inset),
-        )
-        return
-    }
+    if (state.waypoints.isEmpty()) return
     Text(
         text = stringResource(R.string.sheet_stops_header).uppercase(),
         style = MaterialTheme.typography.labelSmall,
@@ -654,32 +687,10 @@ private fun PlanningDetails(
             onRemove = { onRemoveStop(index) },
         )
     }
-    Spacer(Modifier.height(Tokens.space2))
-    // The public routing server only supports driving; the profile picker
-    // appears once a custom server is configured.
-    if (customServerConfigured) {
-        Row(
-            horizontalArrangement = Arrangement.spacedBy(Tokens.space2),
-            modifier = Modifier.padding(horizontal = Tokens.inset),
-        ) {
-            RoutingProfile.entries.forEach { profile ->
-                FilterChip(
-                    selected = state.profile == profile,
-                    onClick = { onProfileSelected(profile) },
-                    label = { Text(profile.label()) },
-                )
-            }
-        }
-    }
-    Row(
-        horizontalArrangement = Arrangement.spacedBy(Tokens.space2),
-        modifier = Modifier.padding(horizontal = Tokens.space3),
-    ) {
+    Row(modifier = Modifier.padding(horizontal = Tokens.space3)) {
         TextButton(onClick = onSave, enabled = state.route != null && !state.routeIsFallback) {
             Text(stringResource(R.string.sheet_save))
         }
-        TextButton(onClick = onUndo) { Text(stringResource(R.string.sheet_undo)) }
-        TextButton(onClick = onClear) { Text(stringResource(R.string.sheet_clear)) }
     }
 }
 
@@ -800,7 +811,7 @@ private fun MapControls(
 
 @Composable
 private fun MapSearchBar(
-    state: MapViewModel.SearchState,
+    state: MapSearchViewModel.SearchState,
     units: DistanceUnits,
     onQueryChange: (String) -> Unit,
     onSearch: () -> Unit,
@@ -860,7 +871,7 @@ private fun MapSearchBar(
 
 @Composable
 private fun SearchResultRow(
-    suggestion: MapViewModel.SearchSuggestion,
+    suggestion: MapSearchViewModel.SearchSuggestion,
     units: DistanceUnits,
     onClick: () -> Unit,
 ) {

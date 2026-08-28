@@ -287,6 +287,7 @@ internal fun stripFor(
     playbackState: PlaybackState?,
     holding: MockSessionState.Holding?,
     playing: Boolean,
+    builder: Boolean,
     setupReady: Boolean,
 ): StripModel = when {
     playing -> playbackStrip(playbackState)
@@ -304,7 +305,9 @@ internal fun stripFor(
     )
     state.errorMessage != null -> StripModel(state.errorMessage, StripTone.Error)
     state.isRouting -> StripModel(stringResource(R.string.strip_routing), StripTone.Neutral)
-    state.route != null -> StripModel(stringResource(R.string.strip_ready), StripTone.Ready)
+    builder && state.route != null -> StripModel(stringResource(R.string.strip_ready), StripTone.Ready)
+    builder -> StripModel(stringResource(R.string.strip_building), StripTone.Neutral)
+    state.route != null -> StripModel(stringResource(R.string.strip_route_loaded), StripTone.Ready)
     else -> StripModel(stringResource(R.string.strip_plan), StripTone.Neutral)
 }
 

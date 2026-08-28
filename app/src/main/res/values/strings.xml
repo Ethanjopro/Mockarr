@@ -93,6 +93,43 @@
     <string name="dialog_save_name">Name</string>
     <string name="dialog_save">Save</string>
 
+    <!-- Map: action row + builder + options (brief 2) -->
+    <string name="row_mode_drive">Drive</string>
+    <string name="row_mode_walk">Walk</string>
+    <string name="row_mode_cycle">Cycle</string>
+    <string name="row_mode_cd">Travel mode: %1$s</string>
+    <string name="row_start">Start</string>
+    <string name="row_start_cd">Start the drive</string>
+    <string name="row_add_route">Add route</string>
+    <string name="row_switch_route">Edit route</string>
+    <string name="mode_picker_title">Travel mode</string>
+    <string name="mode_locked">Needs a custom routing server (Settings)</string>
+    <string name="builder_done">Done</string>
+    <string name="builder_close_cd">Leave route building</string>
+    <string name="builder_undo_cd">Undo last stop</string>
+    <string name="builder_reverse_cd">Reverse route</string>
+    <string name="builder_more_cd">More route actions</string>
+    <string name="builder_add_at_center">Add stop at map centre</string>
+    <string name="builder_clear_all">Clear all stops</string>
+    <string name="builder_discard_title">Discard this route?</string>
+    <string name="builder_discard_body">The stops you placed will be removed.</string>
+    <string name="builder_discard">Discard</string>
+    <string name="builder_keep">Keep editing</string>
+    <string name="strip_building">Building a route</string>
+    <string name="strip_route_loaded">Route ready</string>
+    <string name="stat_time">Time</string>
+    <string name="stat_placeholder">—</string>
+    <string name="options_header">Options</string>
+    <string name="option_follow">Follow camera</string>
+    <string name="option_follow_desc">Keep the drive centred while playing</string>
+    <string name="option_stay">Stay at destination</string>
+    <string name="option_stay_desc">Hold the final stop after arriving</string>
+    <string name="option_traffic">Rush-hour traffic</string>
+    <string name="option_traffic_desc">Slow the drive at busy hours</string>
+    <string name="option_wobble">Realistic GPS wobble</string>
+    <string name="option_wobble_desc">Add position noise like a real receiver</string>
+    <string name="option_settings">All settings</string>
+
     <!-- Map: transient feedback -->
     <string name="snack_dismiss">Dismiss</string>
 </resources>

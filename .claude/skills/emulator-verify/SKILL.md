@@ -32,6 +32,11 @@ emulator binary yourself.
   hand-roll sleep loops for dialogs.
 - If a dialog needs tapping without waitfor, remember it renders ~1 s after
   the triggering tap: screenshot first, confirm it's up, then tap.
+- Map taps fired while the bottom sheet is re-anchoring (right after entering
+  builder mode, Done, Stop, or a peek-height change) are swallowed. After any
+  sheet/mode change, `scripts/emu.sh shell sleep 1` (or `waitfor` the new
+  strip text, then sleep 1) before tapping the map. Two taps on the same spot
+  within ~1 s are a MapLibre double-tap zoom, not two stops.
 - `find`/`tapon` prefer an exact text/desc match and fall back to substring —
   `tapon "Play"` hits the Play button before hint copy containing the word.
   Still check `waitfor`'s echoed match. Switch tabs with

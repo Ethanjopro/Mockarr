@@ -157,6 +157,7 @@ fun MockarrApp(setupViewModel: SetupViewModel = hiltViewModel()) {
                 composable<MapDestination> {
                     MapScreen(
                         onOpenSetup = { navController.navigate(SetupDestination) },
+                        onOpenSettings = { navController.navigateTopLevel(SettingsDestination) },
                         viewModel = mapViewModel,
                         sessionViewModel = sessionViewModel,
                         setupViewModel = setupViewModel,
