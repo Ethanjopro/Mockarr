@@ -613,3 +613,28 @@ Verified end-to-end like a human: app-drawer swipe → tapped the Mockarr icon �
   moved the pin and re-resolved the strip; Saved routes without chips; logcat clean.
   Gotcha recorded in the skill: `pm clear` wipes runtime permissions — `pm grant`
   location + notifications before holding, or every long-press hits a system dialog.
+
+### 2026-08-29 — Session 18 (route maker, third round)
+
+- **Row higher**: handle block 48 → 36 dp (touch target unchanged), circles top-aligned
+  like Strava, row 100 dp so the Start label fits at font 1.3; Start-choice caption centred.
+- **"Plan a drive" flash after a hold — fixed**: the card animated out *after* its strip had
+  switched to the hidden idle line. `MapScreen` now feeds `StatCard` the last *visible*
+  `StripModel` whenever the current one is hidden/null, so enter/exit fades show the real
+  previous state. Verified with a 20 fps `emu.sh record` frame dump: Holding → fading
+  Holding → gone.
+- **Wait visibility**: the chip above a waited marker already existed (`WaitChips`); it now
+  sits 24 dp up and the popover row reads "Wait · 5 min" (header shows "Waits 5 min").
+- **Drag a stop**: `ui/map/MarkerDragHandler.kt` — a `MapView` touch listener that owns any
+  gesture starting on a marker (`waypointIndexAt`): tap → select, drag past the platform
+  slop → `MapViewModel.moveStop(settled = false)` per frame, drop → `settled = true` (refetch).
+  The map never pans during a marker drag; disabled while playing. Move-mode strip copy:
+  "Drag Stop 2 or tap the map to move it".
+- **Sheet cap**: the expanded sheet stops at 60 % of the window (details column max =
+  60 % − peek), the stop list scrolls inside.
+- **Finish** clears the route from the map (`clearWaypoints`); stay-at-destination hold
+  unaffected.
+- Verified on the emulator (light; dark row unchanged from session 17): row, chip + copy,
+  drag (marker followed, map static, route refetched), 7-stop expanded sheet at 60 %,
+  Finish → empty map, release recording, font 1.3. Gotcha (again): zsh does not word-split
+  `$p` — `for p in "200 700"; tap $p` fails; loop over one coordinate at a time.

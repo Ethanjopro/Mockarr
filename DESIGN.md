@@ -353,7 +353,7 @@ the sheet (and by pushed screens). There is no navigation bar.
   scrollable options list — *Save route* first when a road route is loaded (reads *Saved*
   once it is), the drive switches, then *Saved routes ›* and *All settings ›*. The peek is
   the screen's resting state. The sheet is always draggable from anywhere on it, the
-  handle is a 48dp tap target that toggles peek ↔ expanded — two ways in, because a
+  handle (36dp of layout, 48dp of touch) toggles peek ↔ expanded — two ways in, because a
   swipe alone is neither discoverable nor accessible. The strip carries no expand glyph
   (Ethan, session 16): its trailing slot is the speed chip while driving and nothing else.
 - **Top overlays** sit `{spacing.map-edge}` from the edges: the search field full-width,
@@ -410,7 +410,9 @@ Direction chevrons on the route are 10dp, 2dp stroke, drawn in the casing colour
 ### The Action Row (signature)
 Strava's Record screen, matched: the sheet's peek is one 96dp row of three equal slots —
 Mode (56dp tonal icon + label) · **Start** (72dp filled indigo FAB + label) · Add / Edit
-route (56dp tonal icon + label) — Strava `hud-048` sizes. **Start while holding elsewhere**
+route (56dp tonal icon + label) — Strava `hud-048` sizes, circles top-aligned so each label
+sits under its own circle. The expanded sheet's detail column is capped at 45% of the
+window and scrolls, so the map is never buried. **Start while holding elsewhere**
 does not raise a dialog: the row fade-throughs into a "START THE DRIVE FROM" caption over
 two 56dp pills — **Held spot** (primary) · **Route start** (inverse) — and returns once one
 is picked; Back or a map tap cancels. In builder
@@ -491,7 +493,9 @@ are undefined (nothing loaded).
   `map-stop-via`, destination in `map-stop-end` with the ring colour as its text, on a
   baked soft shadow (3dp blur, 1.5dp down). Wait badge: 4.5dp amber dot at the top-right.
   Selected: the disc itself lifts to `map-selection` and grows 2dp (no halo); the number
-  flips to whichever ink contrasts. Tapping one opens the stop popover.
+  flips to whichever ink contrasts. Tapping one opens the stop popover; **dragging one
+  moves it** (the map does not pan; the route refetches on drop). The popover's wait row
+  reads the current value ("Wait · 5 min").
 - **Position:** 8dp `map-position` circle with a 3dp ground-colour ring. **Hold pin:** 9dp
   `map-hold-pin` circle, same ring. **Wait chip:** rounded pill, 11dp bold text with a
   clock glyph; ground-toned by default, amber while the wait is live.

@@ -114,7 +114,9 @@ fun SheetHandle(expanded: Boolean, onToggle: () -> Unit, modifier: Modifier = Mo
     Box(
         modifier = modifier
             .fillMaxWidth()
-            .height(Tokens.touchTarget)
+            // 36dp of layout (the row sits higher); the clickable still gets
+            // Compose's 48dp minimum interactive size.
+            .height(HANDLE_HEIGHT)
             .clickable(onClick = onToggle)
             .semantics {
                 contentDescription = label
@@ -193,6 +195,7 @@ val SPEED_PRESETS: List<Double> = listOf(
 private const val HALF_SPEED = 0.5
 private const val DOUBLE_SPEED = 2.0
 private val DISC_SIZE = 28.dp
+private val HANDLE_HEIGHT = 36.dp
 
 internal enum class StripAction { FIX, RELEASE, CANCEL_MOVE }
 

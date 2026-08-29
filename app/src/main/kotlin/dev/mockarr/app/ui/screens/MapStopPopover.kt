@@ -43,6 +43,7 @@ internal fun StopPopover(
 ) {
     val isEnd = index == count - 1 && count >= 2
     val hasWait = waypoint.waitSeconds > 0
+    val waitLabel = formatDurationShort(waypoint.waitSeconds.toDouble())
     MapPopover(anchor = anchor, onDismiss = onDismiss, modal = false) {
         Row(
             modifier = Modifier.padding(horizontal = Tokens.space4, vertical = Tokens.space2),
@@ -56,7 +57,6 @@ internal fun StopPopover(
                     style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
                 )
                 if (hasWait) {
-                    val waitLabel = formatDurationShort(waypoint.waitSeconds.toDouble())
                     Text(
                         text = stringResource(R.string.sheet_waits, waitLabel),
                         style = MaterialTheme.typography.bodySmall,
@@ -67,7 +67,11 @@ internal fun StopPopover(
         }
         if (!isEnd) {
             PopoverRow(
-                label = stringResource(if (hasWait) R.string.stop_menu_edit_wait else R.string.stop_menu_wait),
+                label = if (hasWait) {
+                    stringResource(R.string.stop_menu_wait_set, waitLabel)
+                } else {
+                    stringResource(R.string.stop_menu_wait)
+                },
                 icon = painterResource(R.drawable.ic_schedule),
                 onClick = onSetWait,
             )

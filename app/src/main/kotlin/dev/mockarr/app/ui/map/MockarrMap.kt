@@ -4,6 +4,7 @@ import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.graphics.Paint
 import android.graphics.Path
+import android.view.ViewConfiguration
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -84,6 +85,8 @@ fun MockarrMap(
     routeIsFallback: Boolean,
     onMapTap: (LatLng) -> Unit,
     onWaypointTap: (Int) -> Unit,
+    onWaypointDrag: (Int, LatLng) -> Unit,
+    onWaypointDrop: (Int, LatLng) -> Unit,
     onMapLongPress: (LatLng) -> Unit,
     onSelectedWaypointScreen: (Offset?) -> Unit,
     styleUrl: String,
@@ -100,11 +103,14 @@ fun MockarrMap(
     playbackPosition: LatLng? = null,
     cameraFollow: Boolean = false,
     animateCamera: Boolean = true,
+    dragEnabled: Boolean = true,
     modifier: Modifier = Modifier,
 ) {
     val context = LocalContext.current
     val currentOnTap by rememberUpdatedState(onMapTap)
     val currentOnWaypointTap by rememberUpdatedState(onWaypointTap)
+    val currentOnWaypointDrag by rememberUpdatedState(onWaypointDrag)
+    val currentOnWaypointDrop by rememberUpdatedState(onWaypointDrop)
     val currentOnLongPress by rememberUpdatedState(onMapLongPress)
     val currentOnCameraIdle by rememberUpdatedState(onCameraIdle)
     val currentOnUserGesture by rememberUpdatedState(onUserGesture)
@@ -112,6 +118,7 @@ fun MockarrMap(
     val currentVisible by rememberUpdatedState(visible)
     val currentLoadInitialCamera by rememberUpdatedState(loadInitialCamera)
     var map by remember { mutableStateOf<MapLibreMap?>(null) }
+    var dragHandler by remember { mutableStateOf<MarkerDragHandler?>(null) }
     var style by remember { mutableStateOf<Style?>(null) }
     var userMovedCamera by remember { mutableStateOf(false) }
     val density = LocalDensity.current.density
@@ -123,6 +130,19 @@ fun MockarrMap(
                 libreMap.moveCamera(
                     CameraUpdateFactory.newLatLngZoom(FALLBACK_CENTER.toMapLibre(), FALLBACK_ZOOM),
                 )
+                // Touches that start on a marker are owned by the drag handler
+                // (tap = select, drag = move); the click listener sees map taps only.
+                val handler = MarkerDragHandler(
+                    map = libreMap,
+                    density = density,
+                    slopPx = ViewConfiguration.get(context).scaledTouchSlop.toFloat(),
+                    onTap = { currentOnWaypointTap(it) },
+                    onDrag = { index, point -> currentOnWaypointDrag(index, point) },
+                    onDrop = { index, point -> currentOnWaypointDrop(index, point) },
+                )
+                @Suppress("ClickableViewAccessibility")
+                setOnTouchListener(handler)
+                dragHandler = handler
                 libreMap.addOnMapClickListener { p ->
                     if (currentVisible) {
                         val tapped = libreMap.waypointIndexAt(p, density)
@@ -243,6 +263,7 @@ fun MockarrMap(
         val loadedStyle = style ?: return@LaunchedEffect
         updateWaypoints(loadedStyle, waypoints, selectedWaypoint, markerStyle)
     }
+    LaunchedEffect(dragHandler, dragEnabled) { dragHandler?.enabled = dragEnabled }
     // The selected marker's window position rides every camera frame so the
     // stop popover stays glued to it.
     val tracker = remember(map) { map?.let { MarkerTracker(it, mapView) { p -> currentOnSelectedWaypointScreen(p) } } }

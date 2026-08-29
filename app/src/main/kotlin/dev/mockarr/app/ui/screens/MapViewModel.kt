@@ -235,11 +235,22 @@ class MapViewModel @Inject constructor(
         }
     }
 
-    /** Relocates the stop being moved; its wait survives, the route refetches. */
+    /** Relocates the stop being moved (tap-to-place); its wait survives, the route refetches. */
     fun moveWaypoint(point: LatLng) {
         val index = interaction.takeMove() ?: return
+        moveStop(index, point, settled = true)
+    }
+
+    /**
+     * A marker drag: every frame relocates the stop without a fetch (the line
+     * would flicker); the drop ([settled]) refetches. Either way the popover
+     * and any pending Move are gone — the finger is the move now.
+     */
+    fun moveStop(index: Int, point: LatLng, settled: Boolean) {
+        if (index !in _uiState.value.waypoints.indices) return
+        interaction.reset()
         _uiState.update { it.copy(waypoints = it.waypoints.movedTo(index, point)) }
-        scheduleRouteFetch()
+        if (settled) scheduleRouteFetch()
     }
 
     fun setProfile(profile: RoutingProfile) {

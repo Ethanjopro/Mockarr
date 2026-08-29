@@ -106,10 +106,10 @@
     <string name="builder_discard">Discard</string>
     <string name="builder_keep">Keep editing</string>
     <string name="stop_menu_wait">Wait here…</string>
-    <string name="stop_menu_edit_wait">Edit wait…</string>
+    <string name="stop_menu_wait_set">Wait · %1$s</string>
     <string name="stop_menu_move">Move stop</string>
     <string name="stop_menu_delete">Delete stop</string>
-    <string name="strip_moving_stop">Tap the map to move %1$s</string>
+    <string name="strip_moving_stop">Drag %1$s or tap the map to move it</string>
     <string name="strip_cancel">Cancel</string>
     <string name="strip_building">Building a route</string>
     <string name="strip_route_loaded">Route ready</string>

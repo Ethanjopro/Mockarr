@@ -69,6 +69,7 @@ import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
@@ -182,6 +183,8 @@ fun MapLayer(
                 viewModel.interaction.select(toggled)
             }
         },
+        onWaypointDrag = { index, point -> viewModel.moveStop(index, point, settled = false) },
+        onWaypointDrop = { index, point -> viewModel.moveStop(index, point, settled = true) },
         onSelectedWaypointScreen = viewModel.interaction::setMarkerScreen,
         onMapLongPress = {
             focusManager.clearFocus()
@@ -207,6 +210,7 @@ fun MapLayer(
         playbackPosition = if (playing) latestFix?.position else null,
         cameraFollow = followCamera && playing,
         animateCamera = rememberSystemAnimationsEnabled(),
+        dragEnabled = !playing,
         modifier = modifier,
     )
 }
@@ -482,9 +486,15 @@ fun MapScreen(
         setupReady = setupStatus?.readyToMock != false,
         movingStop = movingWaypoint?.let { stopName(it, state.waypoints.size) },
     )
-    var lastStrip by remember { mutableStateOf(nextStrip ?: StripModel("", StripTone.Neutral)) }
+    var lastStrip by remember { mutableStateOf(nextStrip ?: StripModel("", StripTone.Neutral, hidden = true)) }
     val strip = nextStrip ?: lastStrip
     SideEffect { if (nextStrip != null) lastStrip = nextStrip }
+    // The card animates in and out; while it does, it must keep showing the
+    // last *visible* state — never the hidden idle prompt (the "Plan a drive"
+    // flash after a hold, session 18).
+    var lastVisibleStrip by remember { mutableStateOf(strip) }
+    val shownStrip = if (strip.hidden) lastVisibleStrip else strip
+    SideEffect { if (!strip.hidden) lastVisibleStrip = strip }
     var cardHeightPx by remember { mutableIntStateOf(0) }
     // A hidden card (idle prompts) takes no room: the tools row drops to the sheet.
     val cardHeight = if (strip.hidden) 0.dp else with(LocalDensity.current) { cardHeightPx.toDp() }
@@ -536,7 +546,11 @@ fun MapScreen(
                                 stopping = playbackState is PlaybackState.Stopping,
                                 onPause = sessionViewModel::pause,
                                 onResume = sessionViewModel::resume,
-                                onFinish = sessionViewModel::stopPlayback,
+                                onFinish = {
+                                    // Finish is the end of the drive: the route leaves the map too.
+                                    sessionViewModel.stopPlayback()
+                                    viewModel.clearWaypoints()
+                                },
                                 modifier = Modifier.padding(horizontal = Tokens.inset, vertical = Tokens.space2),
                             )
                             PeekMode.BUILDER -> BuilderPeek(
@@ -567,8 +581,16 @@ fun MapScreen(
                 // Always composed: the sheet's Expanded anchor comes from its content
                 // height, so an empty detail column left nothing to drag towards and
                 // a slow drag did not move the sheet at all (session 15i).
+                // The whole expanded sheet stops at 60% of the window: a long stop
+                // list scrolls inside it instead of burying the map.
+                val maxDetailHeight = with(LocalDensity.current) {
+                    (LocalWindowInfo.current.containerSize.height * SHEET_MAX_FRACTION - peekHeightPx)
+                        .coerceAtLeast(0f)
+                        .toDp()
+                }
                 Column(
                     modifier = Modifier
+                        .heightIn(max = maxDetailHeight)
                         .verticalScroll(rememberScrollState())
                         .padding(bottom = Tokens.space4),
                 ) {
@@ -708,9 +730,9 @@ fun MapScreen(
                     .padding(bottom = peekHeight + Tokens.mapEdge),
             ) {
                 StatCard(
-                    strip = strip,
+                    strip = shownStrip,
                     stats = stats,
-                    onStripAction = when (strip.action) {
+                    onStripAction = when (shownStrip.action) {
                         StripAction.FIX -> onOpenSetup
                         StripAction.RELEASE -> sessionViewModel::release
                         StripAction.CANCEL_MOVE -> viewModel.interaction::cancelMove
@@ -1066,6 +1088,7 @@ private fun SearchResultRow(
 private enum class PeekMode { RECORD, BUILDER, PLAYING }
 
 private const val START_FROM_HOLD_METERS = 30.0
+private const val SHEET_MAX_FRACTION = 0.6f
 private const val DEFAULT_NUDGE_ZOOM = 15.0
 private const val MILLIS_PER_SECOND = 1_000.0
 private val RESULTS_MAX_HEIGHT = 280.dp

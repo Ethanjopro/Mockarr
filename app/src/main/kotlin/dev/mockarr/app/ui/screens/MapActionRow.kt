@@ -34,6 +34,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import dev.mockarr.app.R
@@ -101,12 +102,13 @@ private fun StartChoiceRow(choice: StartChoice) {
             .semantics { contentDescription = description },
         verticalArrangement = Arrangement.Center,
     ) {
-        // Say what the two pills are for (Ethan): a section-header caption.
+        // Say what the two pills are for (Ethan): a centred section-header caption.
         Text(
             text = stringResource(R.string.row_start_choice_title).uppercase(),
             style = MaterialTheme.typography.labelSmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.padding(bottom = Tokens.space1),
+            textAlign = TextAlign.Center,
+            modifier = Modifier.fillMaxWidth().padding(bottom = Tokens.space2),
         )
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -149,12 +151,14 @@ private fun ActionSlots(
     onStart: () -> Unit,
     onEditRoute: () -> Unit,
 ) {
+    // Circles share a top edge (Strava): the row reads higher and each label
+    // sits under its own circle.
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .height(ROW_HEIGHT)
             .padding(horizontal = Tokens.inset),
-        verticalAlignment = Alignment.CenterVertically,
+        verticalAlignment = Alignment.Top,
     ) {
         val modeLabel = stringResource(profile.shortLabelRes())
         val modeDescription = stringResource(R.string.row_mode_cd, modeLabel)
@@ -315,7 +319,7 @@ fun ModePickerSheet(
     }
 }
 
-private val ROW_HEIGHT = 96.dp
+private val ROW_HEIGHT = 100.dp
 private val PILL_MIN_FONT = 12.sp
 private val PILL_MAX_FONT = 16.sp
 
