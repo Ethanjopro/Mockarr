@@ -63,6 +63,15 @@ emulator binary yourself.
   runtime permissions are gone too: `shell pm grant dev.mockarr.app
   android.permission.ACCESS_FINE_LOCATION` (and `POST_NOTIFICATIONS`) before the
   first hold, or every long-press lands on a system dialog `tapon` cannot reach.
+- Marker touches belong to the drag handler: a long-press ON a stop disc opens
+  its popover, it never starts a hold. Hold by long-pressing the map beside the
+  disc (the hit box is exactly the drawn disc, ≈ 27 px radius on the AVD).
+- The stop popover follows its marker: any tap queued before a route refit
+  lands on the map and clears the selection. Wait for the strip to settle
+  ("Ready to drive"), re-tap the disc, then use the popover.
+- For strip text that appears later in playback (dwell, arrival), poll
+  `scripts/emu.sh ui` in a `for` loop with `shell sleep 5`; `waitfor` returned
+  1 immediately for "Waiting at stop 2" in session 19.
 - Non-modal Compose `Popup`s (the stop popover over a marker) are NOT in the
   `ui` dump, so `waitfor`/`tapon` cannot see them — verify with `shot` + Read
   and tap by pixel. Modal popups (the builder `⋯` menu) are dumped normally.
