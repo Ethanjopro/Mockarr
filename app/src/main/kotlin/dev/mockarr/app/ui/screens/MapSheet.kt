@@ -12,9 +12,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material3.BottomSheetDefaults
 import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -22,6 +20,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.CustomAccessibilityAction
@@ -107,7 +106,6 @@ fun PlaybackControls(
  * toggles peek ↔ expanded, and TalkBack gets the same as a custom action —
  * the swipe alone is not an accessible path.
  */
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SheetHandle(expanded: Boolean, onToggle: () -> Unit, modifier: Modifier = Modifier) {
     val label = stringResource(if (expanded) R.string.sheet_collapse_cd else R.string.sheet_expand_cd)
@@ -129,7 +127,14 @@ fun SheetHandle(expanded: Boolean, onToggle: () -> Unit, modifier: Modifier = Mo
             },
         contentAlignment = Alignment.Center,
     ) {
-        BottomSheetDefaults.DragHandle()
+        // Our own pill: the Material DragHandle carries ~22dp of vertical
+        // padding and got clipped inside the 36dp block (session 18).
+        Box(
+            modifier = Modifier
+                .size(HANDLE_PILL_WIDTH, HANDLE_PILL_HEIGHT)
+                .clip(CircleShape)
+                .background(MaterialTheme.colorScheme.outlineVariant),
+        )
     }
 }
 
@@ -196,6 +201,8 @@ private const val HALF_SPEED = 0.5
 private const val DOUBLE_SPEED = 2.0
 private val DISC_SIZE = 28.dp
 private val HANDLE_HEIGHT = 36.dp
+private val HANDLE_PILL_WIDTH = 32.dp
+private val HANDLE_PILL_HEIGHT = 4.dp
 
 internal enum class StripAction { FIX, RELEASE, CANCEL_MOVE }
 
@@ -250,6 +257,24 @@ internal fun stripFor(
     builder -> StripModel(stringResource(R.string.strip_building), StripTone.Neutral, hidden = true)
     state.route != null -> StripModel(stringResource(R.string.strip_route_loaded), StripTone.Ready)
     else -> StripModel(stringResource(R.string.strip_plan), StripTone.Neutral, hidden = true)
+}
+
+/**
+ * The second line under a hold: the route's own state ("Ready to drive" /
+ * "Route ready") stays visible while "Holding at X" takes the top band, so
+ * holding never hides the fact that there is a drive to start.
+ */
+@Composable
+internal fun secondaryStripFor(
+    state: MapViewModel.UiState,
+    holding: MockSessionState.Holding?,
+    playing: Boolean,
+    builder: Boolean,
+    movingStop: String? = null,
+): StripModel? = when {
+    holding == null || playing || movingStop != null || state.route == null -> null
+    builder -> StripModel(stringResource(R.string.strip_ready), StripTone.Ready)
+    else -> StripModel(stringResource(R.string.strip_route_loaded), StripTone.Ready)
 }
 
 @Composable

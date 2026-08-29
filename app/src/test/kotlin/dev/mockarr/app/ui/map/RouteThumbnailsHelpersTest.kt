@@ -72,7 +72,6 @@ private fun testPalette(route: Int) = MapPalette(
     stopEnd = 0xFF1A1B21.toInt(),
     stopText = 0xFFFFFFFF.toInt(),
     stopRing = 0xFFFFFFFF.toInt(),
-    waitBadge = 0xFFF0A422.toInt(),
     selection = 0xFF5C6BC0.toInt(),
     chip = 0xF21A1B21.toInt(),
     chipText = 0xFFFFFFFF.toInt(),

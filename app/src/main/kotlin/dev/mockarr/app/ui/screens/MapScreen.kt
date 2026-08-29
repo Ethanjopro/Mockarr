@@ -486,6 +486,13 @@ fun MapScreen(
         setupReady = setupStatus?.readyToMock != false,
         movingStop = movingWaypoint?.let { stopName(it, state.waypoints.size) },
     )
+    val secondaryStrip = secondaryStripFor(
+        state = state,
+        holding = holding,
+        playing = playing,
+        builder = builderMode,
+        movingStop = movingWaypoint?.let { stopName(it, state.waypoints.size) },
+    )
     var lastStrip by remember { mutableStateOf(nextStrip ?: StripModel("", StripTone.Neutral, hidden = true)) }
     val strip = nextStrip ?: lastStrip
     SideEffect { if (nextStrip != null) lastStrip = nextStrip }
@@ -732,6 +739,7 @@ fun MapScreen(
                 StatCard(
                     strip = shownStrip,
                     stats = stats,
+                    secondary = secondaryStrip,
                     onStripAction = when (shownStrip.action) {
                         StripAction.FIX -> onOpenSetup
                         StripAction.RELEASE -> sessionViewModel::release

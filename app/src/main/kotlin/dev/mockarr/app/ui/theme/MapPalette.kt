@@ -23,7 +23,6 @@ data class MapPalette(
     val stopEnd: Int,
     val stopText: Int,
     val stopRing: Int,
-    val waitBadge: Int,
     val selection: Int,
     val chip: Int,
     val chipText: Int,

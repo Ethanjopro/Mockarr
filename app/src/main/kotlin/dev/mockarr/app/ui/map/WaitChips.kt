@@ -13,7 +13,7 @@ import org.maplibre.geojson.FeatureCollection
 import kotlin.math.ceil
 
 /** Lift from the waypoint's coordinate to the chip's bottom edge. */
-internal const val WAIT_CHIP_LIFT_DP = 24f
+internal const val WAIT_CHIP_LIFT_DP = 18f
 
 private const val CHIP_TEXT_DP = 11f
 private const val CHIP_CLOCK_RADIUS_DP = 4.5f

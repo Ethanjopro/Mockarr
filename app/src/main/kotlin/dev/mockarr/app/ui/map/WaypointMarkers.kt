@@ -5,8 +5,9 @@ import android.graphics.BlurMaskFilter
 import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Paint
-import android.graphics.RectF
+import android.graphics.PointF
 import android.graphics.Typeface
+import androidx.compose.ui.geometry.Offset
 import dev.mockarr.app.ui.theme.MapPalette
 import dev.mockarr.core.model.Waypoint
 import org.maplibre.android.maps.MapLibreMap
@@ -17,13 +18,10 @@ import org.maplibre.geojson.FeatureCollection
 import kotlin.math.ceil
 import org.maplibre.android.geometry.LatLng as MapLibreLatLng
 
-private const val WAYPOINT_TAP_RADIUS_DP = 16f
-private const val WAYPOINT_RADIUS_DP = 11f
-private const val WAYPOINT_STROKE_DP = 2.5f
+internal const val WAYPOINT_RADIUS_DP = 11f
+internal const val WAYPOINT_STROKE_DP = 2.5f
 private const val WAYPOINT_TEXT_DP = 13f
-private const val WAIT_BADGE_RADIUS_DP = 4.5f
-private const val WAIT_BADGE_OFFSET_FRACTION = 0.7f
-private const val SELECTED_GROW_DP = 2f
+internal const val SELECTED_GROW_DP = 2f
 private const val LUMINANCE_THRESHOLD = 0.5
 private const val LUMA_R = 0.299
 private const val LUMA_G = 0.587
@@ -41,15 +39,23 @@ private const val RADIX_HEX = 16
 /** Everything a marker/chip bitmap needs besides its own content. */
 data class MarkerStyle(val density: Float, val palette: MapPalette)
 
-/** Index (SORT_KEY) of the topmost waypoint marker under the tap, or null. */
-internal fun MapLibreMap.waypointIndexAt(point: MapLibreLatLng, density: Float): Int? {
-    val screen = projection.toScreenLocation(point)
-    val radius = WAYPOINT_TAP_RADIUS_DP * density
-    val rect = RectF(screen.x - radius, screen.y - radius, screen.x + radius, screen.y + radius)
-    return queryRenderedFeatures(rect, WAYPOINT_LAYER)
-        .mapNotNull { feature -> runCatching { feature.getNumberProperty(SORT_KEY).toInt() }.getOrNull() }
-        .maxOrNull() // higher sort key renders on top — matches what the user sees
+/**
+ * Index of the stop whose drawn disc is under [point], or null. Pure geometry
+ * ([hitWaypoint]) rather than queryRenderedFeatures: the icon quad carries
+ * shadow + grow headroom, so a feature query hit ~2.7× the visible disc.
+ */
+internal fun MapLibreMap.waypointIndexAt(
+    point: MapLibreLatLng,
+    waypoints: List<Waypoint>,
+    selectedIndex: Int?,
+    density: Float,
+): Int? {
+    val tap = projection.toScreenLocation(point).toOffset()
+    val markers = waypoints.map { projection.toScreenLocation(it.position.toMapLibre()).toOffset() }
+    return hitWaypoint(tap, markers, selectedIndex, density)
 }
+
+private fun PointF.toOffset() = Offset(x, y)
 
 internal fun updateWaypoints(
     style: Style,
@@ -66,15 +72,13 @@ internal fun updateWaypoints(
             waypoints.lastIndex -> "end"
             else -> "via"
         }
-        val hasWait = waypoint.waitSeconds > 0
         val selected = index == selectedIndex
-        // Wait and selection flags are part of the key: addImage caches by
-        // name, so a same-named icon would keep showing the stale bitmap.
+        // The selection flag is part of the key: addImage caches by name, so
+        // a same-named icon would keep showing the stale bitmap.
         val icon = "waypoint-$role-${index + 1}" +
-            (if (hasWait) "-wait" else "") +
             (if (selected) "-sel" else "") +
             "-$paletteTag"
-        style.addImage(icon, waypointBitmap(role, index + 1, hasWait, selected, markerStyle))
+        style.addImage(icon, waypointBitmap(role, index + 1, selected, markerStyle))
         // RANK_KEY drives draw order (selected wins the overlap); SORT_KEY
         // stays the untouched tap identity read back by waypointIndexAt.
         val rank = if (selected) index + RANK_SELECTED_BOOST else index
@@ -91,7 +95,6 @@ internal fun updateWaypoints(
 private fun waypointBitmap(
     role: String,
     number: Int,
-    hasWait: Boolean,
     selected: Boolean,
     markerStyle: MarkerStyle,
 ): Bitmap {
@@ -137,18 +140,6 @@ private fun waypointBitmap(
     }
     val baseline = center - (text.ascent() + text.descent()) / 2f
     canvas.drawText(number.toString(), center, baseline, text)
-    if (hasWait) {
-        // Amber wait badge tucked inside the top-right of the marker circle,
-        // so the bitmap size (and the icon's anchor point) stays unchanged.
-        val badgeRadius = WAIT_BADGE_RADIUS_DP * density
-        val offset = fillRadius * WAIT_BADGE_OFFSET_FRACTION
-        val badge = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = palette.waitBadge }
-        canvas.drawCircle(center + offset, center - offset, badgeRadius, badge)
-        badge.color = palette.stopRing
-        badge.style = Paint.Style.STROKE
-        badge.strokeWidth = stroke / 2f
-        canvas.drawCircle(center + offset, center - offset, badgeRadius, badge)
-    }
     return bitmap
 }
 

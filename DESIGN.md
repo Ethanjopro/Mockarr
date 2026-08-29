@@ -240,7 +240,7 @@ signal, big bold numerals, and state shown as a tinted band on a card that float
 the map. The map is the product; every piece of chrome either serves the drive in progress
 or recedes. Colour appears where it means something — the route, the position, the primary
 action, the state strip — and nowhere else; weight and lift (bold type, soft shadows, a
-64dp Start) carry the energy instead.
+80dp Start) carry the energy instead.
 
 The system is Material 3 in structure (sheet, chips, snackbars, pills) with a hand-authored
 indigo scheme on every API level; dynamic colour is off so the map palette never fights a
@@ -408,11 +408,12 @@ Direction chevrons on the route are 10dp, 2dp stroke, drawn in the casing colour
 - **Disabled:** Material's 38% alpha; never hidden to signal disabled.
 
 ### The Action Row (signature)
-Strava's Record screen, matched: the sheet's peek is one 96dp row of three equal slots —
-Mode (56dp tonal icon + label) · **Start** (72dp filled indigo FAB + label) · Add / Edit
-route (56dp tonal icon + label) — Strava `hud-048` sizes, circles top-aligned so each label
-sits under its own circle. The expanded sheet's detail column is capped at 45% of the
-window and scrolls, so the map is never buried. **Start while holding elsewhere**
+Strava's Record screen, matched: the sheet's peek is one 120dp row of three equal slots in
+a centred 320dp cluster — Mode (64dp tonal, 28dp icon + `titleSmall` label) · **Start**
+(80dp filled indigo FAB, 40dp play) · Add / Edit route (64dp tonal, 28dp icon) — a step
+above Strava `hud-048` (≈58/68pt) because M3 glyphs read smaller; circles top-aligned so
+each label sits under its own circle. The expanded sheet's detail column is capped at 60%
+of the window and scrolls, so the map is never buried. **Start while holding elsewhere**
 does not raise a dialog: the row fade-throughs into a "START THE DRIVE FROM" caption over
 two 56dp pills — **Held spot** (primary) · **Route start** (inverse) — and returns once one
 is picked; Back or a map tap cancels. In builder

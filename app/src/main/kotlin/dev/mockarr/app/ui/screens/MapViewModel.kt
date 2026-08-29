@@ -38,6 +38,7 @@ import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.flow.updateAndGet
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withTimeoutOrNull
@@ -410,34 +411,33 @@ class MapViewModel @Inject constructor(
             delay(DEBOUNCE_MILLIS)
             _uiState.update { it.copy(isRouting = true, errorMessage = null) }
             val current = _uiState.value
-            val requestWaypoints = current.waypoints
-            val positions = requestWaypoints.map { it.position }
+            val positions = current.waypoints.map { it.position }
             routeProvider.route(positions, current.profile).fold(
                 onSuccess = { fetched ->
-                    val route = fetched.withWaits(requestWaypoints)
-                    _uiState.update {
+                    // Waits come from the state at completion, not the request
+                    // snapshot: a wait set while the fetch was in flight (the
+                    // usual case right after dropping a stop) must survive.
+                    val route = _uiState.updateAndGet {
                         it.copy(
-                            route = route,
+                            route = fetched.withWaits(it.waypoints),
                             routeIsFallback = false,
                             isRouting = false,
                             trafficFactor = settingsRepository.currentTrafficFactor(),
                         )
-                    }
+                    }.route ?: return@fold
                     _cameraCommand.value = CameraCommand.EnsureVisible(route.points, seq = cameraSeq++)
                     enrichWithElevations(route)
                 },
                 onFailure = { error ->
-                    val fallback = straightLine.route(positions, current.profile)
-                        .getOrNull()
-                        ?.withWaits(requestWaypoints)
-                    _uiState.update {
+                    val straight = straightLine.route(positions, current.profile).getOrNull()
+                    val fallback = _uiState.updateAndGet {
                         it.copy(
-                            route = fallback,
+                            route = straight?.withWaits(it.waypoints),
                             routeIsFallback = true,
                             isRouting = false,
                             errorMessage = friendlyMessage(error),
                         )
-                    }
+                    }.route
                     fallback?.let {
                         _cameraCommand.value = CameraCommand.EnsureVisible(it.points, seq = cameraSeq++)
                     }

@@ -638,3 +638,48 @@ Verified end-to-end like a human: app-drawer swipe → tapped the Mockarr icon �
   drag (marker followed, map static, route refetched), 7-stop expanded sheet at 60 %,
   Finish → empty map, release recording, font 1.3. Gotcha (again): zsh does not word-split
   `$p` — `for p in "200 700"; tap $p` fails; loop over one coordinate at a time.
+
+### 2026-08-29 — Session 19 (route maker, fourth round — Ethan's session-18 review)
+
+- **Wait only worked at the start stop — fixed** (`MapViewModel.scheduleRouteFetch`): the fetch
+  re-applied waits from a `waypoints` snapshot taken *before* the network call, so a wait set
+  while a fetch was in flight (the usual case right after dropping a stop) was clobbered in
+  `route.waypointWaitsSeconds` while the chip/popover still showed it. Waits now come from
+  live state inside `updateAndGet` on both the success and fallback branches. No ViewModel
+  test: its seven Hilt deps are concrete classes (Photon, DataStore…) and there is no mock
+  library — verified on the emulator instead (dwell at stop 2: "Waiting at stop 2 · 1:10").
+- **Wait chip ~60 dp above the disc — fixed**: MapLibre `icon-offset` is in dp (× icon-size),
+  not sprite pixels; `MockarrMap` multiplied by density. Lift is now `WAIT_CHIP_LIFT_DP = 18`
+  (disc radius 13.5 + gap). The amber wait badge inside the disc is gone (`waitBadge` removed
+  from `MapPalette` / both themes).
+- **Marker hit box = drawn disc**: `waypointIndexAt` no longer uses `queryRenderedFeatures`
+  (which matched the 40 dp icon quad with shadow headroom, ≈ 2.7× the disc). New pure
+  `hitWaypoint()` in `ui/map/MarkerHitTest.kt` (radius fill + ring, + grow for the selected
+  stop; selected wins overlaps, then higher index) with `MarkerHitTestTest`. `MockarrMap`
+  passes one `hitTest` lambda to both `MarkerDragHandler` and the click listener.
+- **Route zoom**: `ensureVisible` (round 9's smart fit) never zoomed *in*. It now refits — in
+  or out — when a point is out of view **or** the route is a speck (`fit.zoom − camera.zoom >
+  1.5`); otherwise the camera still stays put, so nearby taps don't slam the zoom.
+- **Holding + route state stacked**: `secondaryStripFor()` in `MapSheet.kt`; `StatCard` takes
+  `secondary` and renders it under the primary strip (latched through its exit animation).
+  A hold with a route loaded shows amber "Holding at X · Stop" over green "Ready to drive" /
+  "Route ready" and the trio.
+- **Duration cut-off**: `StatTrio` values autosize 28 → 18 sp (`TextAutoSize.StepBased`,
+  same pattern as `ActionPill`); "1 h 10 min" fits at font 1.3 in the Record card and the
+  builder peek.
+- **Pull tab**: `SheetHandle` draws its own 32×4 dp `outlineVariant` pill — the M3
+  `DragHandle` carries ~22 dp of padding and was clipped inside the 36 dp block.
+- **Action row**: 64 / 80 dp circles, 28 / 40 dp glyphs, `titleSmall` labels, three slots in
+  a centred 320 dp cluster, row 120 dp (108 clipped "Start" at font 1.3). Measured on
+  `hud-048` (480 px ≈ 390 pt): Strava ≈ 58 / 68 pt circles with ≈ 28 pt glyphs — ours run
+  one step larger because M3 glyphs/labels read smaller at equal circle sizes. DESIGN.md
+  numbers (row, Start, 60 % sheet cap) corrected.
+- Verified on the emulator (light + dark, font 1.0 + 1.3, fresh install): idle row + pill;
+  3-stop route refit on fetch; wait via popover → chip on the disc, no badge, duration 7 →
+  12 min; tap 20 dp beside a disc = map tap (added a stop), tap on the disc = popover;
+  hold beside stop 2 → stacked card; 4× playback dwelt at stop 2; 35 + 30 min waits →
+  "1 h 10 min" fits at 1.3; Saved routes in dark; logcat clean.
+- Gotchas: long-pressing *on* a disc opens the popover (the drag handler owns marker
+  touches) — hold by long-pressing the map beside it. The popover follows its marker, so a
+  tap queued before a camera refit lands on the map and clears the selection. `waitfor`
+  returned 1 immediately for a strip that appears later in playback — poll `ui` in a loop.

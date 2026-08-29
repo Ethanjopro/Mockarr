@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.text.TextAutoSize
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonColors
@@ -153,8 +154,10 @@ private fun ActionSlots(
 ) {
     // Circles share a top edge (Strava): the row reads higher and each label
     // sits under its own circle.
+    // The trio is one centred cluster, not three columns spread edge to edge.
     Row(
         modifier = Modifier
+            .widthIn(max = ROW_MAX_WIDTH)
             .fillMaxWidth()
             .height(ROW_HEIGHT)
             .padding(horizontal = Tokens.inset),
@@ -169,7 +172,7 @@ private fun ActionSlots(
                     .size(SIDE_BUTTON)
                     .semantics { contentDescription = modeDescription },
             ) {
-                Icon(painterResource(profile.iconRes()), contentDescription = null)
+                Icon(painterResource(profile.iconRes()), contentDescription = null, modifier = Modifier.size(SIDE_ICON))
             }
         }
         val startLabel = stringResource(R.string.row_start)
@@ -199,7 +202,11 @@ private fun ActionSlots(
                     .size(SIDE_BUTTON)
                     .semantics { contentDescription = routeLabel },
             ) {
-                Icon(painterResource(R.drawable.ic_add_route), contentDescription = null)
+                Icon(
+                    painterResource(R.drawable.ic_add_route),
+                    contentDescription = null,
+                    modifier = Modifier.size(SIDE_ICON),
+                )
             }
         }
     }
@@ -256,7 +263,7 @@ private fun RowSlot(
         Spacer(Modifier.height(Tokens.space1))
         Text(
             text = label,
-            style = MaterialTheme.typography.labelMedium,
+            style = MaterialTheme.typography.titleSmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             maxLines = 1,
         )
@@ -319,11 +326,15 @@ fun ModePickerSheet(
     }
 }
 
-private val ROW_HEIGHT = 100.dp
+private val ROW_HEIGHT = 120.dp
+private val ROW_MAX_WIDTH = 320.dp
 private val PILL_MIN_FONT = 12.sp
 private val PILL_MAX_FONT = 16.sp
 
-// Strava's Record row (hud-048): side circles ≈ 56dp, Start ≈ 72dp.
-private val SIDE_BUTTON = 56.dp
-private val START_BUTTON = 72.dp
-private val START_ICON = 36.dp
+// Strava's Record row (hud-048), measured: side circles ≈ 58pt with ≈ 28pt
+// glyphs, Start ≈ 68pt, 15pt labels. Ours run a step larger — the M3 24dp
+// icons and 12sp labels read small even at matching circle sizes (session 19).
+private val SIDE_BUTTON = 64.dp
+private val SIDE_ICON = 28.dp
+private val START_BUTTON = 80.dp
+private val START_ICON = 40.dp

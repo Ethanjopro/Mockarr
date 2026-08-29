@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.text.TextAutoSize
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
@@ -19,7 +20,11 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
@@ -27,6 +32,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import dev.mockarr.app.R
 import dev.mockarr.app.ui.formatDistance
 import dev.mockarr.app.ui.formatDurationShort
@@ -50,9 +56,13 @@ internal fun StatCard(
     strip: StripModel,
     stats: (@Composable () -> Unit)?,
     modifier: Modifier = Modifier,
+    secondary: StripModel? = null,
     onStripAction: (() -> Unit)? = null,
     trailing: (@Composable () -> Unit)? = null,
 ) {
+    // Keep the last second line through its exit animation.
+    var lastSecondary by remember { mutableStateOf(secondary) }
+    SideEffect { if (secondary != null) lastSecondary = secondary }
     Surface(
         modifier = modifier.fillMaxWidth(),
         shape = Tokens.cardShape,
@@ -67,6 +77,10 @@ internal fun StatCard(
                 onAction = onStripAction,
                 trailing = trailing,
             )
+            AnimatedVisibility(visible = secondary != null) {
+                val second = secondary ?: lastSecondary
+                if (second != null) StatusStrip(text = second.text, tone = second.tone)
+            }
             AnimatedVisibility(visible = stats != null) {
                 Column(modifier = Modifier.padding(horizontal = Tokens.inset, vertical = Tokens.space3)) {
                     stats?.invoke()
@@ -145,7 +159,9 @@ fun StatTrio(cells: List<StatCell>, modifier: Modifier = Modifier) {
                     style = MaterialTheme.typography.headlineMedium.copy(fontWeight = FontWeight.Bold),
                     color = MaterialTheme.colorScheme.onSurface,
                     maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
+                    softWrap = false,
+                    // "1 h 12 min" overflows a third of the card at 28sp: shrink, never clip.
+                    autoSize = TextAutoSize.StepBased(minFontSize = TRIO_MIN_FONT, maxFontSize = TRIO_MAX_FONT),
                 )
                 Text(
                     text = cell.label,
@@ -187,5 +203,7 @@ internal fun recordCells(state: MapViewModel.UiState, units: DistanceUnits): Lis
 }
 
 private const val SECONDS_PER_MINUTE = 60
+private val TRIO_MIN_FONT = 18.sp
+private val TRIO_MAX_FONT = 28.sp
 private val STRIP_MIN_HEIGHT = 48.dp
 private val PROGRESS_HEIGHT = 4.dp

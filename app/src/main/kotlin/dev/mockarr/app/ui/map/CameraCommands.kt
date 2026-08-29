@@ -40,19 +40,21 @@ private fun fitRoute(map: MapLibreMap, points: List<LatLng>, density: Float, ani
 
 /**
  * Builder-mode reframe: leaves the camera alone while every point stays inside
- * the overlay-padded viewport, and never zooms in when it does move — the old
- * unconditional bounds fit slammed the zoom in on nearby stops after every tap.
+ * the overlay-padded viewport at a sensible size, so tapping nearby stops does
+ * not slam the zoom after every edit. It does refit — zooming in or out — when
+ * a point is out of view or the route has become a speck ([ZOOM_IN_SLACK]
+ * levels smaller than its fit; Ethan, session 19: "the route doesn't zoom").
  */
 private fun ensureVisible(map: MapLibreMap, points: List<LatLng>, density: Float, animate: Boolean) {
     val bounds = boundsOf(points) ?: return
-    if (allPointsInView(map, points, density)) return
-    val fit = map.getCameraForLatLngBounds(bounds, fitPadding(density))
-    val target = fit?.target
-    if (target != null) {
-        val zoom = minOf(fit.zoom, map.cameraPosition.zoom)
-        map.move(CameraUpdateFactory.newLatLngZoom(target, zoom), animate)
-    }
+    val fit = map.getCameraForLatLngBounds(bounds, fitPadding(density)) ?: return
+    val speck = fit.zoom - map.cameraPosition.zoom > ZOOM_IN_SLACK
+    if (!speck && allPointsInView(map, points, density)) return
+    map.move(CameraUpdateFactory.newCameraPosition(fit), animate)
 }
+
+/** A route is "too small" once its fit sits this many zoom levels above the camera (≈ under ⅓ of the viewport). */
+private const val ZOOM_IN_SLACK = 1.5
 
 // Same margins as the fit padding, so a just-fitted route counts as in view.
 private fun allPointsInView(map: MapLibreMap, points: List<LatLng>, density: Float): Boolean {

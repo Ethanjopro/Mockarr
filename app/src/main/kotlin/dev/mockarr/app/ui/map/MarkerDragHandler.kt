@@ -14,7 +14,7 @@ import org.maplibre.android.maps.MapLibreMap
  */
 internal class MarkerDragHandler(
     private val map: MapLibreMap,
-    private val density: Float,
+    private val hitTest: (org.maplibre.android.geometry.LatLng) -> Int?,
     private val slopPx: Float,
     private val onTap: (Int) -> Unit,
     private val onDrag: (Int, LatLng) -> Unit,
@@ -40,7 +40,7 @@ internal class MarkerDragHandler(
     }
 
     private fun onDown(event: MotionEvent): Boolean {
-        val hit = if (enabled) map.waypointIndexAt(map.latLngAt(event), density) else null
+        val hit = if (enabled) hitTest(map.latLngAt(event)) else null
         index = hit
         down = Offset(event.x, event.y)
         dragging = false

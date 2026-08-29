@@ -116,6 +116,8 @@ fun MockarrMap(
     val currentOnUserGesture by rememberUpdatedState(onUserGesture)
     val currentOnSelectedWaypointScreen by rememberUpdatedState(onSelectedWaypointScreen)
     val currentVisible by rememberUpdatedState(visible)
+    val currentWaypoints by rememberUpdatedState(waypoints)
+    val currentSelectedWaypoint by rememberUpdatedState(selectedWaypoint)
     val currentLoadInitialCamera by rememberUpdatedState(loadInitialCamera)
     var map by remember { mutableStateOf<MapLibreMap?>(null) }
     var dragHandler by remember { mutableStateOf<MarkerDragHandler?>(null) }
@@ -132,9 +134,14 @@ fun MockarrMap(
                 )
                 // Touches that start on a marker are owned by the drag handler
                 // (tap = select, drag = move); the click listener sees map taps only.
+                // Hit-test against the drawn discs (not the icon quads), with
+                // whatever the stops and selection are at touch time.
+                val hitTest = { p: org.maplibre.android.geometry.LatLng ->
+                    libreMap.waypointIndexAt(p, currentWaypoints, currentSelectedWaypoint, density)
+                }
                 val handler = MarkerDragHandler(
                     map = libreMap,
-                    density = density,
+                    hitTest = hitTest,
                     slopPx = ViewConfiguration.get(context).scaledTouchSlop.toFloat(),
                     onTap = { currentOnWaypointTap(it) },
                     onDrag = { index, point -> currentOnWaypointDrag(index, point) },
@@ -145,7 +152,7 @@ fun MockarrMap(
                 dragHandler = handler
                 libreMap.addOnMapClickListener { p ->
                     if (currentVisible) {
-                        val tapped = libreMap.waypointIndexAt(p, density)
+                        val tapped = hitTest(p)
                         if (tapped != null) {
                             currentOnWaypointTap(tapped)
                         } else {
@@ -448,7 +455,7 @@ private fun setUpLayers(style: Style, density: Float, palette: MapPalette) {
             PropertyFactory.iconPitchAlignment(Property.ICON_PITCH_ALIGNMENT_MAP),
         ),
     )
-    addPointLayers(style, density)
+    addPointLayers(style)
     applyPalette(style, palette, density)
 }
 
@@ -494,7 +501,7 @@ private fun chevronBitmap(color: Int, density: Float): Bitmap {
     return bitmap
 }
 
-private fun addPointLayers(style: Style, density: Float) {
+private fun addPointLayers(style: Style) {
     // One symbol layer with the circle+number baked into each icon bitmap: a
     // CircleLayer + text SymbolLayer pair draws ALL circles beneath ALL numbers,
     // so overlapping markers showed the lower marker's number on the upper circle.
@@ -507,15 +514,15 @@ private fun addPointLayers(style: Style, density: Float) {
         ),
     )
     // Wait chips float above their markers: bottom-anchored at the waypoint,
-    // lifted clear of the marker circle. Offset is in bitmap pixels, and the
-    // chip bitmaps are baked at device density — hence the multiply.
+    // lifted clear of the marker circle. icon-offset is in dp (× icon-size),
+    // NOT bitmap pixels — multiplying by density here lifted the chip ~60 dp.
     style.addLayer(
         SymbolLayer(WAIT_CHIP_LAYER, WAIT_CHIP_SOURCE).withProperties(
             PropertyFactory.iconImage(Expression.get(ICON_KEY)),
             PropertyFactory.iconAllowOverlap(true),
             PropertyFactory.iconIgnorePlacement(true),
             PropertyFactory.iconAnchor(Property.ICON_ANCHOR_BOTTOM),
-            PropertyFactory.iconOffset(arrayOf(0f, -WAIT_CHIP_LIFT_DP * density)),
+            PropertyFactory.iconOffset(arrayOf(0f, -WAIT_CHIP_LIFT_DP)),
         ),
     )
     // The mocked location is the top of the stack: the hold pin and the live
