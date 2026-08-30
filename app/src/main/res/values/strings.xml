@@ -30,7 +30,6 @@
     <string name="sheet_resume">Resume</string>
     <string name="sheet_finish">Finish</string>
     <string name="sheet_stops_header">Stops · %1$d</string>
-    <string name="sheet_stops_more">Scroll for %1$d more</string>
     <string name="sheet_stop_n">Stop %1$d</string>
     <string name="sheet_start">Start</string>
     <string name="sheet_destination">Destination</string>

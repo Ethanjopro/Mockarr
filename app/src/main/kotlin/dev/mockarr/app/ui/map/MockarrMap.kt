@@ -100,6 +100,7 @@ fun MockarrMap(
     selectedWaypoint: Int? = null,
     activeDwell: ActiveDwell? = null,
     cameraCommand: CameraCommand? = null,
+    bottomObstructionPx: Int = 0,
     pinPosition: LatLng? = null,
     playbackPosition: LatLng? = null,
     cameraFollow: Boolean = false,
@@ -326,10 +327,12 @@ fun MockarrMap(
             ?.setGeoJson(playbackPosition.toFeatures())
     }
 
+    // Read at apply time, not as a key: a taller overlay must not re-run the last fit.
+    val currentBottomObstruction by rememberUpdatedState(bottomObstructionPx)
     LaunchedEffect(map, cameraCommand) {
         val libreMap = map ?: return@LaunchedEffect
         val command = cameraCommand ?: return@LaunchedEffect
-        applyCameraCommand(libreMap, command, density, animateCamera)
+        applyCameraCommand(libreMap, command, FitPadding(density, currentBottomObstruction), animateCamera)
     }
 
     // Follow eases the camera to each fix. The zoom floor applies only when

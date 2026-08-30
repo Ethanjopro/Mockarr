@@ -206,18 +206,6 @@ fun DiscardRouteDialog(onDiscard: () -> Unit, onDismiss: () -> Unit) {
 
 private const val SECONDS_PER_MINUTE = 60
 
-/** "Scroll for N more" under a capped stop list; only rendered while rows are hidden. */
-@Composable
-fun StopListMoreCaption(hidden: Int) {
-    if (hidden <= 0) return
-    Text(
-        text = stringResource(R.string.sheet_stops_more, hidden),
-        style = MaterialTheme.typography.labelSmall,
-        color = MaterialTheme.colorScheme.onSurfaceVariant,
-        modifier = Modifier.padding(horizontal = Tokens.inset, vertical = Tokens.space1),
-    )
-}
-
 /**
  * Fades the bottom [height] of the content to transparent while [visible] — the
  * "there is more below" cue for a capped list. An alpha mask (DstIn), so it needs

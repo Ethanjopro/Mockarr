@@ -34,6 +34,11 @@ private const val SHADOW_BLUR_DP = 3f
 private const val SHADOW_DY_DP = 1.5f
 private const val SHADOW_ALPHA = 0x48
 private const val RANK_SELECTED_BOOST = 1_000
+private const val BADGE_RADIUS_DP = 5f
+private const val BADGE_RING_DP = 1.25f
+private const val BADGE_CLOCK_RADIUS_DP = 3f
+private const val BADGE_CLOCK_STROKE_DP = 1f
+private const val DIAGONAL = 0.7071f
 private const val RADIX_HEX = 16
 
 /** Everything a marker/chip bitmap needs besides its own content. */
@@ -73,12 +78,14 @@ internal fun updateWaypoints(
             else -> "via"
         }
         val selected = index == selectedIndex
-        // The selection flag is part of the key: addImage caches by name, so
-        // a same-named icon would keep showing the stale bitmap.
+        val hasWait = waypoint.waitSeconds > 0
+        // Selection and wait flags are part of the key: addImage caches by
+        // name, so a same-named icon would keep showing the stale bitmap.
         val icon = "waypoint-$role-${index + 1}" +
             (if (selected) "-sel" else "") +
+            (if (hasWait) "-wait" else "") +
             "-$paletteTag"
-        style.addImage(icon, waypointBitmap(role, index + 1, selected, markerStyle))
+        style.addImage(icon, waypointBitmap(role, index + 1, selected, hasWait, markerStyle))
         // RANK_KEY drives draw order (selected wins the overlap); SORT_KEY
         // stays the untouched tap identity read back by waypointIndexAt.
         val rank = if (selected) index + RANK_SELECTED_BOOST else index
@@ -96,6 +103,7 @@ private fun waypointBitmap(
     role: String,
     number: Int,
     selected: Boolean,
+    hasWait: Boolean,
     markerStyle: MarkerStyle,
 ): Bitmap {
     val (density, palette) = markerStyle
@@ -140,7 +148,32 @@ private fun waypointBitmap(
     }
     val baseline = center - (text.ascent() + text.descent()) / 2f
     canvas.drawText(number.toString(), center, baseline, text)
+    if (hasWait) drawWaitBadge(canvas, center, radius + stroke / 2f, markerStyle)
     return bitmap
+}
+
+/**
+ * A small clock at the disc's top-right says "this stop waits" without the
+ * amount — the amount only appears (as a chip) while playback dwells there.
+ * The badge sits on the ring's circumference, inside the shadow headroom, so
+ * the bitmap size — and the anchor — never change.
+ */
+private fun drawWaitBadge(canvas: Canvas, center: Float, ringRadius: Float, markerStyle: MarkerStyle) {
+    val (density, palette) = markerStyle
+    val cx = center + ringRadius * DIAGONAL
+    val cy = center - ringRadius * DIAGONAL
+    val badgeRadius = BADGE_RADIUS_DP * density
+    val ring = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = palette.stopRing }
+    canvas.drawCircle(cx, cy, badgeRadius + BADGE_RING_DP * density, ring)
+    val fill = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = palette.chip }
+    canvas.drawCircle(cx, cy, badgeRadius, fill)
+    val glyph = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = palette.chipText
+        style = Paint.Style.STROKE
+        strokeWidth = BADGE_CLOCK_STROKE_DP * density
+        strokeCap = Paint.Cap.ROUND
+    }
+    drawClockGlyph(canvas, cx, cy, BADGE_CLOCK_RADIUS_DP * density, glyph)
 }
 
 /**

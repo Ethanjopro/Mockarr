@@ -4,7 +4,6 @@ import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.graphics.Paint
 import android.graphics.Typeface
-import dev.mockarr.app.ui.formatDurationShort
 import dev.mockarr.core.model.Waypoint
 import org.maplibre.android.maps.Style
 import org.maplibre.android.style.sources.GeoJsonSource
@@ -31,11 +30,12 @@ private const val RADIX_HEX = 16
 data class ActiveDwell(val waypointIndex: Int, val secondsLeft: Int)
 
 /**
- * One clock chip above every waited stop: the dwelling stop shows a live
- * countdown on an amber pill, the rest their configured wait. Countdown chips
- * mint a new image name each second, so [liveIcons] tracks what this style
- * currently holds and stale images are removed (re-adding under the same name
- * shows the stale bitmap — repo lore from the marker wait badges).
+ * One amber countdown chip above the stop playback is dwelling at — and only
+ * that one; a configured wait shows as the marker's clock badge instead, so the
+ * amount appears exactly while it counts down. Countdown chips mint a new image
+ * name each second, so [liveIcons] tracks what this style currently holds and
+ * stale images are removed (re-adding under the same name shows the stale
+ * bitmap — repo lore from the marker wait badges).
  */
 internal fun updateWaitChips(
     style: Style,
@@ -46,23 +46,18 @@ internal fun updateWaitChips(
 ) {
     val used = mutableSetOf<String>()
     val paletteTag = markerStyle.palette.hashCode().toUInt().toString(RADIX_HEX)
-    val features = waypoints.mapIndexedNotNull { index, waypoint ->
-        if (waypoint.waitSeconds <= 0) {
-            null
-        } else {
-            val dwellHere = activeDwell?.takeIf { it.waypointIndex == index }
-            val text = if (dwellHere != null) {
-                formatChipCountdown(dwellHere.secondsLeft)
-            } else {
-                formatDurationShort(waypoint.waitSeconds.toDouble())
-            }
-            val icon = "wait-chip-$text" + (if (dwellHere != null) "-live" else "") + "-$paletteTag"
-            style.addImage(icon, waitChipBitmap(text, dwellHere != null, markerStyle))
-            used += icon
-            Feature.fromGeometry(waypoint.position.toPoint()).apply {
-                addStringProperty(ICON_KEY, icon)
-            }
+    val dwellStop = activeDwell?.let { dwell -> waypoints.getOrNull(dwell.waypointIndex) }
+    val features = if (activeDwell == null || dwellStop == null || dwellStop.waitSeconds <= 0) {
+        emptyList()
+    } else {
+        val text = formatChipCountdown(activeDwell.secondsLeft)
+        val icon = "wait-chip-$text-live-$paletteTag"
+        style.addImage(icon, waitChipBitmap(text, markerStyle))
+        used += icon
+        val feature = Feature.fromGeometry(dwellStop.position.toPoint()).apply {
+            addStringProperty(ICON_KEY, icon)
         }
+        listOf(feature)
     }
     (liveIcons - used).forEach { style.removeImage(it) }
     liveIcons.clear()
@@ -84,11 +79,11 @@ internal fun formatChipCountdown(seconds: Int): String {
     }
 }
 
-/** Rounded pill with a hand-drawn clock glyph and bold text, baked at [density]. */
-private fun waitChipBitmap(text: String, active: Boolean, markerStyle: MarkerStyle): Bitmap {
+/** Amber rounded pill with a hand-drawn clock glyph and bold countdown text. */
+private fun waitChipBitmap(text: String, markerStyle: MarkerStyle): Bitmap {
     val (density, palette) = markerStyle
     val textPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        color = if (active) palette.chipActiveText else palette.chipText
+        color = palette.chipActiveText
         typeface = Typeface.DEFAULT_BOLD
         textSize = CHIP_TEXT_DP * density
     }
@@ -103,7 +98,7 @@ private fun waitChipBitmap(text: String, active: Boolean, markerStyle: MarkerSty
     val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
     val canvas = Canvas(bitmap)
     val pill = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        color = if (active) palette.chipActive else palette.chip
+        color = palette.chipActive
     }
     val corner = height / 2f
     canvas.drawRoundRect(0f, 0f, width.toFloat(), height.toFloat(), corner, corner, pill)
@@ -115,10 +110,15 @@ private fun waitChipBitmap(text: String, active: Boolean, markerStyle: MarkerSty
         strokeWidth = CHIP_CLOCK_STROKE_DP * density
         strokeCap = Paint.Cap.ROUND
     }
-    canvas.drawCircle(centerX, centerY, clockRadius, glyph)
-    canvas.drawLine(centerX, centerY, centerX, centerY - clockRadius * MINUTE_HAND_FRACTION, glyph)
-    canvas.drawLine(centerX, centerY, centerX + clockRadius * HOUR_HAND_FRACTION, centerY, glyph)
+    drawClockGlyph(canvas, centerX, centerY, clockRadius, glyph)
     val baseline = centerY - (textPaint.ascent() + textPaint.descent()) / 2f
     canvas.drawText(text, padH + clockRadius * 2 + gap, baseline, textPaint)
     return bitmap
+}
+
+/** Circle with two hands (minute up, hour right), stroked with [paint]. */
+internal fun drawClockGlyph(canvas: Canvas, cx: Float, cy: Float, radius: Float, paint: Paint) {
+    canvas.drawCircle(cx, cy, radius, paint)
+    canvas.drawLine(cx, cy, cx, cy - radius * MINUTE_HAND_FRACTION, paint)
+    canvas.drawLine(cx, cy, cx + radius * HOUR_HAND_FRACTION, cy, paint)
 }

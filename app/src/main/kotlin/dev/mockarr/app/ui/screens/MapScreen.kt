@@ -128,6 +128,7 @@ fun MapLayer(
     val followCamera by viewModel.followCamera.collectAsStateWithLifecycle()
     val cameraCommand by viewModel.cameraCommand.collectAsStateWithLifecycle()
     val selectedWaypoint by viewModel.interaction.selectedWaypoint.collectAsStateWithLifecycle()
+    val overlayBottomPx by viewModel.interaction.overlayBottomPx.collectAsStateWithLifecycle()
     val session by sessionViewModel.session.collectAsStateWithLifecycle()
     val latestFix by sessionViewModel.latestFix.collectAsStateWithLifecycle()
     val dwell by sessionViewModel.dwell.collectAsStateWithLifecycle()
@@ -210,6 +211,7 @@ fun MapLayer(
             ?.takeIf { it.waypointIndex < state.waypoints.size }
             ?.let { ActiveDwell(it.waypointIndex, it.secondsLeft) },
         cameraCommand = cameraCommand,
+        bottomObstructionPx = overlayBottomPx,
         pinPosition = (session as? MockSessionState.Holding)?.position,
         playbackPosition = if (playing) latestFix?.position else null,
         cameraFollow = followCamera && playing,
@@ -512,6 +514,12 @@ fun MapScreen(
     var cardHeightPx by remember { mutableIntStateOf(0) }
     // A hidden card (idle prompts) takes no room: the tools row drops to the sheet.
     val cardHeight = if (strip.hidden) 0.dp else with(LocalDensity.current) { cardHeightPx.toDp() }
+    // The map fits routes above this stack, so a stop never lands under a pill (session 21).
+    val toolsHeight = if (builderMode && !playing) Tokens.pillSize + Tokens.mapEdge else 0.dp
+    val cardBlock = if (strip.hidden) 0.dp else cardHeight + Tokens.mapEdge
+    val overlayBottom = peekHeight + Tokens.mapEdge + cardBlock + toolsHeight
+    val overlayBottomPx = with(LocalDensity.current) { overlayBottom.roundToPx() }
+    LaunchedEffect(overlayBottomPx) { viewModel.interaction.setOverlayBottom(overlayBottomPx) }
 
     BottomSheetScaffold(
         scaffoldState = scaffoldState,
@@ -933,7 +941,6 @@ private fun BuilderDetails(
             )
         }
     }
-    StopListMoreCaption(hidden)
 }
 
 /** One stop: numbered disc, role, wait, and its actions when selected. */

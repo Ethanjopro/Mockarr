@@ -825,3 +825,26 @@ Verified end-to-end like a human: app-drawer swipe → tapped the Mockarr icon �
 - Dwell copy: the last stop's wait reads "Waiting at destination · m:ss" (`strip_waiting_destination`);
   `RouteGeometry.DwellStop.isDestination` → `PlaybackState.Dwelling.isDestination`, built by one
   `dwelling()` helper in the engine.
+
+### 2026-08-30 — Session 21 (Ethan's round: search, pills, marker clock, caption)
+- `impeccable` skill: still installed (`.claude/skills/impeccable/`) — the question came up
+  because the roster is long; nothing was removed.
+- **"Scroll for N more" caption removed** (`StopListMoreCaption`, `sheet_stops_more`); the
+  half-row `bottomFade` stays as the only "it scrolls" cue.
+- **Marker clock badge** (`WaypointMarkers.drawWaitBadge`): a waited stop wears a 5 dp
+  ground-toned clock at its top-right, baked into the disc bitmap inside the existing
+  shadow/grow headroom (anchor unchanged; icon name gains `-wait`). `updateWaitChips` now
+  emits **one** chip — the amber live countdown above the dwelling stop — so the wait
+  *amount* is visible only while it counts down. `drawClockGlyph` is shared by both.
+- **"Buttons disappear when a marker is placed" — reproduced as the inverse**: the
+  post-placement `EnsureVisible` fit used a fixed 180 dp bottom padding while the real
+  bottom stack (sheet peek ≈194 dp + card + builder pills + edges) is ≈350 dp on the
+  emulator, so the fit parked stops *under* the pill row (a tap on stop 2 opened the Clear
+  dialog). Fix: `MapScreen` computes the overlay height (`peekHeight + card + pills`) and
+  reports it via `MapInteraction.setOverlayBottom`; `MockarrMap` passes it to
+  `FitPadding` (`CameraCommands.kt`), whose bottom = max(180 dp, overlay + 24 dp
+  clearance). Read through `rememberUpdatedState` so a taller overlay never re-runs the
+  last fit. Verified: four placements keep every stop above the pills.
+- Verified on the emulator (light + dark): badge on Start after "Wait here… → 1 min", no
+  chip; Play → amber "0:59" chip over Start while "Waiting at stop 1 · 0:58"; Finish →
+  hold → Stop.

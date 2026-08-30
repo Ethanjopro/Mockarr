@@ -48,6 +48,14 @@ class MapInteraction(private val isStop: (Int) -> Boolean) {
         _selectedMarkerScreen.value = point
     }
 
+    /** Height in px of the overlay stack rising from the map's bottom edge (sheet peek, card, pills). */
+    private val _overlayBottomPx = MutableStateFlow(0)
+    val overlayBottomPx: StateFlow<Int> = _overlayBottomPx.asStateFlow()
+
+    fun setOverlayBottom(px: Int) {
+        _overlayBottomPx.value = px
+    }
+
     /** Strava's Move Point: the next map tap relocates this stop. */
     fun beginMove(index: Int) {
         if (!isStop(index)) return

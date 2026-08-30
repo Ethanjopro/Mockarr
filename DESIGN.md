@@ -503,14 +503,16 @@ are undefined (nothing loaded).
   response, 20 Hz (`docs/research/thumbstick-rnd.md`).
 - **Stop discs:** 11dp radius, numbered, bold label; start in `map-stop-start`, vias in
   `map-stop-via`, destination in `map-stop-end` with the ring colour as its text, on a
-  baked soft shadow (3dp blur, 1.5dp down). Wait badge: 4.5dp amber dot at the top-right.
+  baked soft shadow (3dp blur, 1.5dp down). Wait badge: a 5dp ground-toned clock at the
+  top-right of every waited stop — the icon says "waits", never the amount.
   Selected: the disc itself lifts to `map-selection` and grows 2dp (no halo); the number
   flips to whichever ink contrasts. Tapping one opens the stop popover; **dragging one
   moves it** (the map does not pan; the route refetches on drop). The popover's wait row
   reads the current value ("Wait · 5 min").
 - **Position:** 8dp `map-position` circle with a 3dp ground-colour ring. **Hold pin:** 9dp
-  `map-hold-pin` circle, same ring. **Wait chip:** rounded pill, 11dp bold text with a
-  clock glyph; ground-toned by default, amber while the wait is live.
+  `map-hold-pin` circle, same ring. **Wait chip:** amber rounded pill, 11dp bold countdown
+  with a clock glyph, above the one stop playback is dwelling at — the amount shows only
+  while it counts down.
 
 ## Do's and Don'ts
 
