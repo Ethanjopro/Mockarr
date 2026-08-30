@@ -127,12 +127,20 @@ class SimulationEngine(
         }
     }
 
+    /**
+     * True once [stop] cut the run short of the destination. Stopping during the
+     * destination wait still counts as arrived.
+     */
+    var stoppedBeforeArrival: Boolean = false
+        private set
+
     fun stop() {
         val current = _state.value
         val stoppable = current is PlaybackState.Playing ||
             current is PlaybackState.Paused ||
             current is PlaybackState.Dwelling
         if (stoppable) {
+            stoppedBeforeArrival = !(current is PlaybackState.Dwelling && current.isDestination)
             _state.value = PlaybackState.Stopping
         }
     }

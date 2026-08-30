@@ -216,19 +216,19 @@ class MockSessionService : Service() {
                 if (tick++ % NOTIFICATION_UPDATE_TICKS == 0) refreshNotification()
             }
             stateJob.cancel()
-            onEngineEnded()
+            onEngineEnded(stoppedEarly = engine.stoppedBeforeArrival)
         }
     }
 
     /** End-of-route chain: destination hold → remembered pin → real location. */
-    private fun onEngineEnded() {
+    private fun onEngineEnded(stoppedEarly: Boolean) {
         val endPosition = repository.latestFix.value?.position
         repository.engineEnded()
         lastNotified = null
         val pin = rememberedPin
         when {
             settingsRepository.settings.value.stayAtDestination && endPosition != null ->
-                enterHold(endPosition, HoldSource.DESTINATION)
+                enterHold(endPosition, if (stoppedEarly) HoldSource.STOPPED else HoldSource.DESTINATION)
             pin != null -> enterHold(pin, HoldSource.PIN)
             else -> release()
         }
@@ -364,11 +364,12 @@ class MockSessionService : Service() {
 
     private fun holdingNotification(holding: MockSessionState.Holding): Notification {
         // Never raw coordinates: a generic label until (or unless) the name resolves.
-        val text = holding.placeName?.let { "Holding at $it" }
+        val text = holding.placeName?.let { getString(R.string.strip_holding_at, it) }
             ?: when {
-                holding.source == HoldSource.DESTINATION -> "Holding at destination"
-                holding.nameFailed -> "Holding at dropped pin"
-                else -> "Holding\u2026"
+                holding.source == HoldSource.DESTINATION -> getString(R.string.strip_holding_destination)
+                holding.source == HoldSource.STOPPED -> getString(R.string.strip_holding_stopped)
+                holding.nameFailed -> getString(R.string.strip_holding_pin)
+                else -> getString(R.string.notification_holding_pending)
             }
         return NotificationCompat.Builder(this, CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_stat_pin)

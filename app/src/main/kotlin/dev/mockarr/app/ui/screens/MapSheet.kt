@@ -300,6 +300,7 @@ private fun holdingText(holding: MockSessionState.Holding): String? {
     return when {
         place != null -> stringResource(R.string.strip_holding_at, place)
         holding.source == HoldSource.DESTINATION -> stringResource(R.string.strip_holding_destination)
+        holding.source == HoldSource.STOPPED -> stringResource(R.string.strip_holding_stopped)
         holding.nameFailed -> stringResource(R.string.strip_holding_pin)
         else -> null
     }

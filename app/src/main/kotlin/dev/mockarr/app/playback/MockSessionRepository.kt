@@ -34,7 +34,7 @@ sealed interface MockSessionState {
     ) : MockSessionState
 }
 
-enum class HoldSource { PIN, DESTINATION }
+enum class HoldSource { PIN, DESTINATION, STOPPED }
 
 /**
  * Single source of truth for the active mock session. The service hosts the

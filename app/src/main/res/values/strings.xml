@@ -19,6 +19,8 @@
     <string name="strip_holding_at">Holding at %1$s</string>
     <string name="strip_holding_destination">Holding at destination</string>
     <string name="strip_holding_pin">Holding at dropped pin</string>
+    <string name="strip_holding_stopped">Holding where you stopped</string>
+    <string name="notification_holding_pending">Holding…</string>
     <string name="strip_stop_hold">Stop</string>
 
     <!-- Map: sheet content -->

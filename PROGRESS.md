@@ -288,6 +288,19 @@ Verified end-to-end like a human: app-drawer swipe → tapped the Mockarr icon �
   2 s full push moved the pin one street-width (screen-relative pace) with the camera
   following mid-nudge — the old fixed z15 would have thrown it ≈1.3 km. Logcat clean.
 
+### 2026-08-30 — Session 22 (Ethan's five follow-ups: Finish label, banner, undo/redo, dialogs)
+
+- **Finish mid-route says where you are**: `SimulationEngine.stoppedBeforeArrival` (set by
+  `stop()` unless the run is already dwelling at the destination); `HoldSource.STOPPED`;
+  `MockSessionService.onEngineEnded(stoppedEarly)` holds as STOPPED instead of DESTINATION.
+  Strip + notification: "Holding where you stopped" (`strip_holding_stopped`) until the name
+  resolves; the notification's literals moved into strings.xml (`notification_holding_pending`).
+  `SimulationEngineStopTest` covers stop-early / run-to-end / stop-during-destination-wait.
+  Verified: Pause → Finish mid-drive → "Holding where you stopped" (strip + shade), then the
+  place name; a route driven to the end still reads "Holding at destination".
+  Gotcha: `svc wifi disable` + `svc data disable` freezes the pre-geocode strip text for a
+  screenshot (`resolveHoldName` runs once per hold); re-enable after.
+
 ## PLAN COMPLETE — remaining items are the user's
 
 1. **License decision** (GPL-3.0 vs Apache-2.0 vs other) — swap LICENSE, update README/CONTRIBUTING, then the repo can go public.
