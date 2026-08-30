@@ -110,6 +110,7 @@ class SimulationEngineDwellTest {
         advanceTimeBy(160_000)
         val dwelling = assertIs<PlaybackState.Dwelling>(engine.state.value)
         assertEquals(2, dwelling.waypointIndex)
+        assertTrue(dwelling.isDestination)
 
         advanceTimeBy(70_000)
         assertIs<PlaybackState.Finished>(engine.state.value)

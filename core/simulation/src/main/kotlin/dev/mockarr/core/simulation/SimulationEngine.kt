@@ -120,12 +120,7 @@ class SimulationEngine(
         val current = _state.value
         if (current is PlaybackState.Paused) {
             _state.value = if (dwellSecondsLeft > 0.0) {
-                PlaybackState.Dwelling(
-                    current.progress,
-                    current.remainingSeconds,
-                    dwellSecondsLeft / speedMultiplier,
-                    dwellStops.getOrNull(nextDwellIndex)?.waypointIndex ?: -1,
-                )
+                dwelling(current.progress, current.remainingSeconds, dwellStops.getOrNull(nextDwellIndex))
             } else {
                 PlaybackState.Playing(current.progress, current.remainingSeconds)
             }
@@ -169,12 +164,7 @@ class SimulationEngine(
             distance = stop.distanceMeters // land the dwell fixes exactly on the stop
             speed = 0.0
             dwellSecondsLeft = stop.waitSeconds.toDouble()
-            _state.value = PlaybackState.Dwelling(
-                progress(),
-                remainingWithDwell(),
-                dwellSecondsLeft / speedMultiplier,
-                stop.waypointIndex,
-            )
+            _state.value = dwelling(progress(), remainingWithDwell(), stop)
             return
         }
         _state.value = PlaybackState.Playing(progress(), remainingWithDwell())
@@ -188,15 +178,19 @@ class SimulationEngine(
             nextDwellIndex++
             _state.value = PlaybackState.Playing(progress(), remainingWithDwell())
         } else {
-            _state.value = PlaybackState.Dwelling(
-                progress(),
-                remainingWithDwell(),
-                dwellSecondsLeft / speedMultiplier,
-                dwellStops[nextDwellIndex].waypointIndex,
-            )
+            _state.value = dwelling(progress(), remainingWithDwell(), dwellStops[nextDwellIndex])
         }
         return currentFix()
     }
+
+    private fun dwelling(progress: Double, remaining: Double, stop: RouteGeometry.DwellStop?) =
+        PlaybackState.Dwelling(
+            progress,
+            remaining,
+            dwellSecondsLeft / speedMultiplier,
+            stop?.waypointIndex ?: -1,
+            stop?.isDestination ?: false,
+        )
 
     /** Cruise time to the destination plus every not-yet-elapsed dwell second. */
     private fun remainingWithDwell(): Double {

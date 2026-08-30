@@ -281,14 +281,15 @@ internal fun secondaryStripFor(
 private fun playbackStrip(playbackState: PlaybackState?): StripModel = when (playbackState) {
     is PlaybackState.Stopping -> StripModel(stringResource(R.string.strip_stopping), StripTone.Neutral)
     is PlaybackState.Paused -> StripModel(stringResource(R.string.strip_paused), StripTone.Hold)
-    is PlaybackState.Dwelling -> StripModel(
-        text = stringResource(
-            R.string.strip_waiting,
-            playbackState.waypointIndex + 1,
-            formatChipCountdown(playbackState.waitSecondsLeft.roundToInt()),
-        ),
-        tone = StripTone.Hold,
-    )
+    is PlaybackState.Dwelling -> {
+        val countdown = formatChipCountdown(playbackState.waitSecondsLeft.roundToInt())
+        val text = if (playbackState.isDestination) {
+            stringResource(R.string.strip_waiting_destination, countdown)
+        } else {
+            stringResource(R.string.strip_waiting, playbackState.waypointIndex + 1, countdown)
+        }
+        StripModel(text, StripTone.Hold)
+    }
     else -> StripModel(stringResource(R.string.strip_driving), StripTone.Accent)
 }
 

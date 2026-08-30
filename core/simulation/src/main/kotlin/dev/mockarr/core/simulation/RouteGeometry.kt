@@ -46,7 +46,12 @@ class RouteGeometry(
     internal val allowedVertexSpeeds: DoubleArray
 
     /** A user-requested stop along the route; [waypointIndex] names its waypoint. */
-    data class DwellStop(val distanceMeters: Double, val waitSeconds: Int, val waypointIndex: Int)
+    data class DwellStop(
+        val distanceMeters: Double,
+        val waitSeconds: Int,
+        val waypointIndex: Int,
+        val isDestination: Boolean,
+    )
 
     /** User-requested stops ordered by distance; interior waypoints and the start only. */
     val dwellStops: List<DwellStop>
@@ -83,7 +88,10 @@ class RouteGeometry(
         totalDurationSeconds = cumulativeDurations[n - 1]
 
         val dwells = dwellVertices(route, n)
-        dwellStops = dwells.map { DwellStop(cumulative[it.vertex], it.waitSeconds, it.waypointIndex) }
+        val lastWaypoint = route.waypointWaitsSeconds.lastIndex
+        dwellStops = dwells.map {
+            DwellStop(cumulative[it.vertex], it.waitSeconds, it.waypointIndex, it.waypointIndex == lastWaypoint)
+        }
         val dwellVertices = dwells.map { it.vertex }.toSet()
 
         // Turn caps at interior vertices, then a backward pass so every vertex

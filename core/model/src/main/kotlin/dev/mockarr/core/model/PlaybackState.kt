@@ -15,12 +15,14 @@ sealed interface PlaybackState {
      * Waiting at a user-set stop; playback resumes when the wait elapses.
      * @property waypointIndex index of the waypoint being waited at, or -1
      *   when unknown
+     * @property isDestination true while the wait is at the route's last stop
      */
     data class Dwelling(
         val progress: Double,
         val remainingSeconds: Double = 0.0,
         val waitSecondsLeft: Double = 0.0,
         val waypointIndex: Int = -1,
+        val isDestination: Boolean = false,
     ) : PlaybackState
 
     /** Decelerating to a stop before finishing, so playback never teleports. */

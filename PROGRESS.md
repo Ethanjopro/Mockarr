@@ -733,3 +733,6 @@ Verified end-to-end like a human: app-drawer swipe → tapped the Mockarr icon �
   `stopName()` is the one home for the "Stays at destination" rule; both surfaces render one
   wait control with `enabled = !stays`. Idle-sheet body copy reverted (the title already says
   "Tap the map to add stops").
+- Dwell copy: the last stop's wait reads "Waiting at destination · m:ss" (`strip_waiting_destination`);
+  `RouteGeometry.DwellStop.isDestination` → `PlaybackState.Dwelling.isDestination`, built by one
+  `dwelling()` helper in the engine.
