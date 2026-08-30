@@ -1,6 +1,8 @@
 # Search R&D — bringing place search to industry speed and relevance
 
-Status: research, 2026-08-28 (session 15i). Implementation is the next round; §6 is its plan.
+Status: research 2026-08-28 (session 15i); **§6 steps 1–3 shipped 2026-08-30 (session 21)** —
+see the addendum at the end for what measurement changed. Steps 4–5 and the `Geocoder`
+interface / "Search this area" chip remain open.
 Inputs: `MapSearchViewModel.kt`, `PhotonGeocoder.kt`, `MapSearchBar` (`MapScreen.kt`), Photon
 `docs/api-v1.md`, provider docs (fetched 2026-08-28), Strava `hud-042`, Google/Apple Maps.
 
@@ -127,3 +129,21 @@ browsing.
 4. Settings: "Search server" tile + dialog (reuse the routing-server dialog composables).
 5. Emulator verification: the 5 queries, recents flow, offline (airplane mode via
    `emu.sh shell svc wifi disable`), light/dark; measure again with `emu.sh record`.
+
+## 7. Addendum — implementation round (2026-08-30)
+
+Shipped: anchor **mocked → camera → real**, 2 chars / 200 ms, prefix cache (`PrefixCache`,
+LRU 32), stale-response guard, recents (`RecentSearchesStore`, own DataStore file, 10),
+structured rows with kind glyphs and bold match (`MapSearchComponents.kt`), dedupe by
+name + city / name + "where" line / 50 m. Tests: `PhotonGeocoderTest`, `MapSearchLogicTest`.
+
+**§1's zoom advice was wrong for streets.** Re-measured from Mountain View with
+`lat/lon` set: `zoom=16` made "25th ave" return Phoenix, Denver and Cedar Rapids — the bias
+radius is so tight that with no local textual match, distance stops mattering; `zoom=12`
+returns the San Mateo streets, and "starbucks" still ranks Mountain View first at 12
+(at 10 it drifts to SF/Livermore). The client therefore passes
+`camera.zoom.coerceIn(8, 12)` (`biasZoom`) — a zoomed-out map widens the bias, a street
+view never narrows it below a city.
+
+Deferred: `Geocoder` interface, "Search this area" chip, Settings search-server tile,
+saved-route matches in the list, `lang` (the public server 400s on unsupported codes).

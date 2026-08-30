@@ -25,27 +25,18 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.text.KeyboardActions
-import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.BottomSheetScaffold
-import androidx.compose.material3.Card
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.SheetValue
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.Text
@@ -77,8 +68,6 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.text.input.ImeAction
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.LifecycleResumeEffect
@@ -87,7 +76,6 @@ import dev.mockarr.app.R
 import dev.mockarr.app.playback.MockSessionState
 import dev.mockarr.app.ui.Motion
 import dev.mockarr.app.ui.Motion.fadeThrough
-import dev.mockarr.app.ui.formatDistance
 import dev.mockarr.app.ui.formatDurationShort
 import dev.mockarr.app.ui.map.ActiveDwell
 import dev.mockarr.app.ui.map.MockarrMap
@@ -106,7 +94,6 @@ import dev.mockarr.core.model.LatLng
 import dev.mockarr.core.model.PlaybackState
 import dev.mockarr.core.model.Route
 import dev.mockarr.core.model.Waypoint
-import dev.mockarr.core.routing.GeocodingResult
 import kotlinx.coroutines.launch
 import kotlin.math.roundToInt
 
@@ -256,7 +243,7 @@ fun MapScreen(
     val units by viewModel.units.collectAsStateWithLifecycle()
     val searchState by searchViewModel.state.collectAsStateWithLifecycle()
     val camera by viewModel.camera.collectAsStateWithLifecycle()
-    LaunchedEffect(camera) { camera?.let { searchViewModel.cameraBias = it.target } }
+    LaunchedEffect(camera) { camera?.let { searchViewModel.cameraBias = it } }
     val map3d by viewModel.map3dEnabled.collectAsStateWithLifecycle()
     val followCamera by viewModel.followCamera.collectAsStateWithLifecycle()
     val session by sessionViewModel.session.collectAsStateWithLifecycle()
@@ -673,11 +660,14 @@ fun MapScreen(
                         units = units,
                         onQueryChange = searchViewModel::setQuery,
                         onSearch = searchViewModel::submit,
+                        onFocus = searchViewModel::showRecents,
                         onResultSelected = {
                             focusManager.clearFocus()
                             searchViewModel.clearResults()
+                            searchViewModel.rememberPick(it)
                             viewModel.selectSearchResult(it)
                         },
+                        onClearRecents = searchViewModel::clearRecents,
                         onDismiss = {
                             focusManager.clearFocus()
                             searchViewModel.clearResults()
@@ -1064,98 +1054,6 @@ private fun MapControls(
     }
 }
 
-@Composable
-private fun MapSearchBar(
-    state: MapSearchViewModel.SearchState,
-    units: DistanceUnits,
-    onQueryChange: (String) -> Unit,
-    onSearch: () -> Unit,
-    onResultSelected: (GeocodingResult) -> Unit,
-    onDismiss: () -> Unit,
-) {
-    Column {
-        OutlinedTextField(
-            value = state.query,
-            onValueChange = onQueryChange,
-            placeholder = { Text(stringResource(R.string.map_search_hint)) },
-            singleLine = true,
-            shape = Tokens.controlShape,
-            trailingIcon = {
-                if (state.searching) {
-                    CircularProgressIndicator(modifier = Modifier.size(Tokens.space6), strokeWidth = 2.dp)
-                } else {
-                    IconButton(onClick = onSearch) {
-                        Icon(Icons.Filled.Search, contentDescription = stringResource(R.string.map_search_cd))
-                    }
-                }
-            },
-            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
-            keyboardActions = KeyboardActions(onSearch = { onSearch() }),
-            colors = OutlinedTextFieldDefaults.colors(
-                unfocusedContainerColor = MaterialTheme.colorScheme.surfaceContainerLowest,
-                focusedContainerColor = MaterialTheme.colorScheme.surfaceContainerLowest,
-                unfocusedBorderColor = Color.Transparent,
-            ),
-            modifier = Modifier.fillMaxWidth(),
-        )
-        if (state.results.isNotEmpty() || state.errorMessage != null) {
-            Spacer(Modifier.height(Tokens.space1))
-            Card(shape = Tokens.cardShape) {
-                Column {
-                    state.errorMessage?.let { message ->
-                        Text(
-                            text = message,
-                            style = MaterialTheme.typography.bodyMedium,
-                            modifier = Modifier.padding(horizontal = Tokens.inset, vertical = Tokens.space3),
-                        )
-                    }
-                    LazyColumn(modifier = Modifier.heightIn(max = RESULTS_MAX_HEIGHT)) {
-                        items(state.results) { suggestion ->
-                            SearchResultRow(suggestion, units) { onResultSelected(suggestion.result) }
-                            HorizontalDivider()
-                        }
-                    }
-                    Row(modifier = Modifier.align(Alignment.End)) {
-                        TextButton(onClick = onDismiss) { Text(stringResource(R.string.map_search_close)) }
-                    }
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun SearchResultRow(
-    suggestion: MapSearchViewModel.SearchSuggestion,
-    units: DistanceUnits,
-    onClick: () -> Unit,
-) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable(onClick = onClick)
-            .heightIn(min = Tokens.touchTarget)
-            .padding(horizontal = Tokens.inset, vertical = Tokens.space2),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Text(
-            text = suggestion.result.name,
-            style = MaterialTheme.typography.bodyMedium,
-            maxLines = 2,
-            overflow = TextOverflow.Ellipsis,
-            modifier = Modifier.weight(1f),
-        )
-        suggestion.distanceMeters?.let { meters ->
-            Spacer(Modifier.width(Tokens.space2))
-            Text(
-                text = formatDistance(meters, units),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-        }
-    }
-}
-
 private enum class PeekMode { RECORD, BUILDER, PLAYING }
 
 private const val START_FROM_HOLD_METERS = 30.0
@@ -1165,7 +1063,6 @@ private const val STOP_LIST_PEEK_ROWS = 3.5f
 private val STOP_ACTIONS_HEIGHT = 40.dp
 private const val DEFAULT_NUDGE_ZOOM = 15.0
 private const val MILLIS_PER_SECOND = 1_000.0
-private val RESULTS_MAX_HEIGHT = 280.dp
 private val PEEK_FALLBACK_HEIGHT = 200.dp
 
 @Composable

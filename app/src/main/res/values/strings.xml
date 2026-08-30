@@ -65,6 +65,11 @@
     <string name="map_search_hint">Search for a place</string>
     <string name="map_search_cd">Search</string>
     <string name="map_search_close">Close</string>
+    <string name="map_search_empty">No places match — try adding the city</string>
+    <string name="map_search_failed">Search failed — check your connection</string>
+    <string name="map_search_recent">Recent</string>
+    <string name="map_search_clear_recent">Clear</string>
+    <string name="map_search_recent_cd">Recent search</string>
     <string name="thumbstick_cd">Move held location</string>
 
     <!-- Map: dialogs -->

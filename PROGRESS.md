@@ -848,3 +848,26 @@ Verified end-to-end like a human: app-drawer swipe → tapped the Mockarr icon �
 - Verified on the emulator (light + dark): badge on Start after "Wait here… → 1 min", no
   chip; Play → amber "0:59" chip over Start while "Waiting at stop 1 · 0:58"; Finish →
   hold → Stop.
+- **Search like a nav app** (`search-rnd.md` §6 steps 1–3, scope chosen by Ethan: ranking +
+  rows + feel). `PhotonGeocoder`: `zoom` param, structured `GeocodingResult(name, secondary,
+  kind, city)` from `osm_key/osm_value`, dedupe by name+city / name+secondary / 50 m,
+  serialization errors → `Result.failure`; `PhotonGeocoderTest` (MockWebServer). New
+  `core:data` `RecentSearchesStore` (own `recent_searches` DataStore, JSON list of 10).
+  `MapSearchLogic.kt` holds the pure half — `searchAnchor` (mocked → camera → real),
+  `biasZoom`, `PrefixCache`, `matchingRecents`, `mergeSuggestions` — with
+  `MapSearchLogicTest`. `MapSearchViewModel`: 2 chars / 200 ms, local answers (recents +
+  cached prefix) render before the network, stale guard, `Status` enum replaces the
+  hard-coded English error strings. `MapSearchComponents.kt` (new file; `MapScreen.kt` was
+  at the cap): glyph rows, bold match, "Recent · Clear" header, notice line. Five new
+  Material glyph drawables.
+- **Measured surprise**: the R&D doc's "pass the camera zoom" made things *worse* for
+  streets — `zoom=16` sent "25th ave" to Phoenix; 12 is the sweet spot for every baseline
+  query (curl matrix in `search-rnd.md` §7). Bias zoom is clamped to 8–12.
+- Bug found on the first pass: after a pick, the recents flow re-rendered the cached prefix
+  list over the map; `listHidden` (pick/Close → until focus or a keystroke) fixes it.
+- Verified on the emulator: "starb" → Mountain View 1.0 mi first; "25th ave" → San Mateo
+  14 mi; "oakland" → Oakland CA 28 mi; "goldn gate" → bridge, one row per place; pick →
+  list gone, builder on; refocus → "Recent · Clear" with Starbucks; airplane mode → "Search
+  failed — check your connection" over the still-selectable recent; dark rows fine.
+- Deviations from the plan: items 1–3 went in one commit (the caption removal and the fit
+  fix both touched `MapScreen.kt`); Photon `lang` skipped (400 on unsupported codes).

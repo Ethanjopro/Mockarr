@@ -488,7 +488,12 @@ are undefined (nothing loaded).
 ### Inputs / Fields
 - **Search field:** `surface-container-lowest` fill, 12dp radius, no visible border until
   focused (then the indigo outline), trailing search icon or a 24dp progress spinner.
-  Results drop as a 16dp card with 48dp-min rows and a scroll cap of 280dp.
+  Results drop as a 16dp card with 48dp-min rows and a scroll cap of 280dp. Each row:
+  a 24dp `on-surface-variant` glyph by kind (pin = place, signpost = street, house =
+  address, skyline = city/region, history = recent), the name with the typed text bold,
+  a `bodySmall` "where" line, distance from the viewport right-aligned; one line each,
+  ellipsised. An empty focused field shows "Recent · Clear"; no-match and offline read
+  as a quiet notice above the list, never a blank card.
 - **Dialog text fields:** Material outlined, single line.
 
 ### Navigation

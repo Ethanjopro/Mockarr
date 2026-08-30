@@ -13,6 +13,7 @@ import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
 import dev.mockarr.app.BuildConfig
 import dev.mockarr.core.data.MockarrDatabase
+import dev.mockarr.core.data.RecentSearchesStore
 import dev.mockarr.core.data.SavedRoutesRepository
 import dev.mockarr.core.data.SettingsRepository
 import dev.mockarr.core.mocklocation.AndroidMockLocationController
@@ -26,6 +27,7 @@ import javax.inject.Singleton
 val USER_AGENT = "Mockarr/${BuildConfig.VERSION_NAME} (+https://github.com/Ethanjopro/Mockarr)"
 
 private val Context.settingsDataStore: DataStore<Preferences> by preferencesDataStore(name = "settings")
+private val Context.recentSearchesDataStore: DataStore<Preferences> by preferencesDataStore(name = "recent_searches")
 
 /** Core modules stay Hilt-free; all bindings live here. */
 @Module
@@ -52,6 +54,13 @@ object AppModule {
         @ApplicationContext context: Context,
         appScope: CoroutineScope,
     ): SettingsRepository = SettingsRepository(context.settingsDataStore, appScope)
+
+    @Provides
+    @Singleton
+    fun provideRecentSearchesStore(
+        @ApplicationContext context: Context,
+        appScope: CoroutineScope,
+    ): RecentSearchesStore = RecentSearchesStore(context.recentSearchesDataStore, appScope)
 
     @Provides
     @Singleton

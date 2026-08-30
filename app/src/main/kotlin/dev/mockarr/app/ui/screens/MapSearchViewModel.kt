@@ -6,9 +6,10 @@ import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dev.mockarr.app.playback.MockSessionRepository
 import dev.mockarr.app.playback.MockSessionState
+import dev.mockarr.core.data.RecentSearchesStore
 import dev.mockarr.core.data.SettingsRepository
-import dev.mockarr.core.model.GeoMath
 import dev.mockarr.core.model.LatLng
+import dev.mockarr.core.model.MapCamera
 import dev.mockarr.core.routing.GeocodingResult
 import dev.mockarr.core.routing.PhotonGeocoder
 import kotlinx.coroutines.Job
@@ -21,10 +22,10 @@ import kotlinx.coroutines.launch
 import javax.inject.Inject
 
 /**
- * Place search for the Map tab: debounced as-you-type lookups ranked around
- * the mocked position (then the real one, then the camera). Split from
- * MapViewModel so each stays under detekt's function cap and search can be
- * reused by the builder without dragging route state along.
+ * Place search for the Map tab, tuned to feel like a consumer nav app
+ * (`docs/research/search-rnd.md`): typeahead from two characters, recents at
+ * 0 ms, cached prefixes while the network answers, results ranked around the
+ * viewport. Split from MapViewModel so each stays under detekt's function cap.
  */
 @HiltViewModel
 class MapSearchViewModel @Inject constructor(
@@ -32,45 +33,53 @@ class MapSearchViewModel @Inject constructor(
     private val locationManager: LocationManager,
     private val sessionRepository: MockSessionRepository,
     private val settingsRepository: SettingsRepository,
+    private val recentSearches: RecentSearchesStore,
 ) : ViewModel() {
 
-    data class SearchSuggestion(
-        val result: GeocodingResult,
-        val distanceMeters: Double?,
-    )
+    enum class Status { IDLE, NO_MATCH, FAILED }
 
     data class SearchState(
         val query: String = "",
         val searching: Boolean = false,
         val results: List<SearchSuggestion> = emptyList(),
-        val errorMessage: String? = null,
+        val status: Status = Status.IDLE,
     )
 
     private val _state = MutableStateFlow(SearchState())
     val state: StateFlow<SearchState> = _state.asStateFlow()
 
     private var searchJob: Job? = null
+    private val cache = PrefixCache()
 
-    /** Camera target the map last idled at; the weakest ranking anchor. */
-    var cameraBias: LatLng? = null
+    /** A pick or Close hides the list until the field is focused or typed in again. */
+    private var listHidden = false
+
+    /** Camera the map last idled at; the ranking anchor unless a mock is live. */
+    var cameraBias: MapCamera? = null
 
     init {
         // Seed the bias so pre-pan queries still rank nearby places first.
         viewModelScope.launch {
             val saved = settingsRepository.awaitLoaded().lastCamera
-            if (cameraBias == null) cameraBias = saved?.target
+            if (cameraBias == null) cameraBias = saved
+        }
+        // Recents change (a pick, a clear): re-render whatever the field holds.
+        viewModelScope.launch {
+            recentSearches.recents.collect {
+                if (!listHidden) showLocal(_state.value.query, searching = _state.value.searching)
+            }
         }
     }
 
-    /** As-you-type: debounce, cancel the in-flight lookup, bias results toward the camera. */
+    /** As-you-type: local answers now, the network after a short debounce. */
     fun setQuery(query: String) {
         _state.update { it.copy(query = query) }
         searchJob?.cancel()
+        listHidden = false
         val trimmed = query.trim()
-        if (trimmed.length < MIN_QUERY_LENGTH) {
-            _state.update { it.copy(searching = false, results = emptyList(), errorMessage = null) }
-            return
-        }
+        val enough = trimmed.length >= MIN_QUERY_LENGTH
+        showLocal(trimmed, searching = enough)
+        if (!enough) return
         searchJob = viewModelScope.launch {
             delay(SEARCH_DEBOUNCE_MILLIS)
             runSearch(trimmed)
@@ -85,41 +94,59 @@ class MapSearchViewModel @Inject constructor(
         searchJob = viewModelScope.launch { runSearch(query) }
     }
 
+    /** The field lost its purpose (a pick, Close): drop the list, keep the text. */
     fun clearResults() {
-        _state.update { it.copy(results = emptyList(), errorMessage = null) }
+        searchJob?.cancel()
+        listHidden = true
+        _state.update { it.copy(searching = false, results = emptyList(), status = Status.IDLE) }
+    }
+
+    /** Recents for an empty, focused field. */
+    fun showRecents() {
+        listHidden = false
+        if (_state.value.query.isBlank()) showLocal("", searching = false)
+    }
+
+    fun rememberPick(result: GeocodingResult) {
+        viewModelScope.launch { recentSearches.remember(result, System.currentTimeMillis()) }
+    }
+
+    fun clearRecents() {
+        viewModelScope.launch { recentSearches.clear() }
+    }
+
+    /** Recents matching [query] plus cached prefix hits — renders within the frame. */
+    private fun showLocal(query: String, searching: Boolean) {
+        val trimmed = query.trim()
+        val cached = if (trimmed.length >= MIN_QUERY_LENGTH) cache.lookup(trimmed).orEmpty() else emptyList()
+        val merged = mergeSuggestions(matchingRecents(recentSearches.recents.value, trimmed), cached, anchor())
+        _state.update { it.copy(searching = searching, results = merged, status = Status.IDLE) }
     }
 
     private suspend fun runSearch(query: String) {
-        _state.update { it.copy(searching = true, errorMessage = null) }
-        val bias = mockedPosition()
-            ?: locationManager.quickLastKnown()?.let { LatLng(it.latitude, it.longitude) }
-            ?: cameraBias
-        geocoder.search(query, bias = bias).fold(
+        _state.update { it.copy(searching = true) }
+        val anchor = anchor()
+        geocoder.search(query, bias = anchor, zoom = biasZoom(cameraBias?.zoom)).fold(
             onSuccess = { results ->
-                val suggestions = results.map { result ->
-                    SearchSuggestion(
-                        result = result,
-                        distanceMeters = bias?.let { GeoMath.distanceMeters(it, result.position) },
-                    )
-                }
-                _state.update {
-                    it.copy(
-                        searching = false,
-                        results = suggestions,
-                        errorMessage = if (suggestions.isEmpty()) "No places found" else null,
-                    )
-                }
+                cache.put(query, results)
+                // Stale guard: the field may have moved on while this was in flight.
+                if (!_state.value.query.trim().equals(query, ignoreCase = true)) return
+                val merged = mergeSuggestions(matchingRecents(recentSearches.recents.value, query), results, anchor)
+                val status = if (merged.isEmpty()) Status.NO_MATCH else Status.IDLE
+                _state.update { it.copy(searching = false, results = merged, status = status) }
             },
-            onFailure = { error ->
-                _state.update {
-                    it.copy(
-                        searching = false,
-                        errorMessage = "Search failed: ${error.message ?: "network error"}",
-                    )
-                }
+            onFailure = {
+                if (!_state.value.query.trim().equals(query, ignoreCase = true)) return
+                _state.update { it.copy(searching = false, status = Status.FAILED) }
             },
         )
     }
+
+    private fun anchor(): LatLng? = searchAnchor(
+        mocked = mockedPosition(),
+        camera = cameraBias?.target,
+        real = locationManager.quickLastKnown()?.let { LatLng(it.latitude, it.longitude) },
+    )
 
     private fun mockedPosition(): LatLng? = when (val session = sessionRepository.session.value) {
         is MockSessionState.Holding -> session.position
@@ -128,7 +155,7 @@ class MapSearchViewModel @Inject constructor(
     }
 
     private companion object {
-        const val MIN_QUERY_LENGTH = 3
-        const val SEARCH_DEBOUNCE_MILLIS = 350L
+        const val MIN_QUERY_LENGTH = 2
+        const val SEARCH_DEBOUNCE_MILLIS = 200L
     }
 }
