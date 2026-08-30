@@ -18,22 +18,29 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.graphics.BlendMode
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.CompositingStrategy
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.rememberVectorPainter
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import dev.mockarr.app.R
 import dev.mockarr.app.ui.formatDistance
 import dev.mockarr.app.ui.formatDurationShort
 import dev.mockarr.app.ui.theme.DialogAction
 import dev.mockarr.app.ui.theme.MapIconPill
+import dev.mockarr.app.ui.theme.MapPill
 import dev.mockarr.app.ui.theme.MockarrDialog
 import dev.mockarr.app.ui.theme.Tokens
 import dev.mockarr.core.model.DistanceUnits
@@ -43,13 +50,12 @@ import kotlin.math.roundToInt
  * Builder-mode peek: the route-under-construction trio (Distance · Duration ·
  * Stops), the illustrated empty hint before the first stop, and the Done / ✕
  * row that returns to the Record layout. Strava's route builder, in place.
+ * Save lives with the map tools ([BuilderTools]), not here.
  */
 @Composable
 fun BuilderPeek(
     state: MapViewModel.UiState,
     units: DistanceUnits,
-    saving: Boolean,
-    onSave: () -> Unit,
     onDone: () -> Unit,
     onClose: () -> Unit,
 ) {
@@ -118,15 +124,6 @@ fun BuilderPeek(
                     )
                 }
             }
-            // Strava keeps Save in the builder sheet (map-348): outlined beside Done.
-            // Save waits for the route's place name; the spinner says so.
-            OutlinedButton(onClick = onSave, enabled = route != null && !state.routeIsFallback && !saving) {
-                if (saving) {
-                    CircularProgressIndicator(modifier = Modifier.size(SPINNER_SIZE), strokeWidth = 2.dp)
-                } else {
-                    Text(stringResource(R.string.builder_save))
-                }
-            }
             Button(onClick = onDone, modifier = Modifier.weight(1f)) {
                 Icon(painterResource(R.drawable.ic_check), contentDescription = null)
                 Spacer(Modifier.width(Tokens.space2))
@@ -137,15 +134,19 @@ fun BuilderPeek(
 }
 
 /**
- * Strava's builder tools, bottom-centre of the map: clear · reverse · undo · redo
+ * Strava's builder tools, bottom-centre of the map: clear · save · reverse · undo · redo
  * as white shadowed pills. Clear asks first (the host shows the discard dialog).
+ * Save waits for the route's place name; the spinner says so.
  */
 @Composable
 fun BuilderTools(
     canClear: Boolean,
+    canSave: Boolean,
+    saving: Boolean,
     canUndo: Boolean,
     canRedo: Boolean,
     canReverse: Boolean,
+    onSave: () -> Unit,
     onUndo: () -> Unit,
     onRedo: () -> Unit,
     onReverse: () -> Unit,
@@ -159,6 +160,17 @@ fun BuilderTools(
             onClick = onClearAll,
             enabled = canClear,
         )
+        MapPill(
+            onClick = onSave,
+            contentDescription = stringResource(R.string.builder_save_cd),
+            enabled = canSave && !saving,
+        ) {
+            if (saving) {
+                CircularProgressIndicator(modifier = Modifier.size(SPINNER_SIZE), strokeWidth = 2.dp)
+            } else {
+                Icon(painterResource(R.drawable.ic_save), contentDescription = null)
+            }
+        }
         MapIconPill(
             painter = painterResource(R.drawable.ic_swap),
             contentDescription = stringResource(R.string.builder_reverse_cd),
@@ -193,4 +205,39 @@ fun DiscardRouteDialog(onDiscard: () -> Unit, onDismiss: () -> Unit) {
 }
 
 private const val SECONDS_PER_MINUTE = 60
+
+/** "Scroll for N more" under a capped stop list; only rendered while rows are hidden. */
+@Composable
+fun StopListMoreCaption(hidden: Int) {
+    if (hidden <= 0) return
+    Text(
+        text = stringResource(R.string.sheet_stops_more, hidden),
+        style = MaterialTheme.typography.labelSmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        modifier = Modifier.padding(horizontal = Tokens.inset, vertical = Tokens.space1),
+    )
+}
+
+/**
+ * Fades the bottom [height] of the content to transparent while [visible] — the
+ * "there is more below" cue for a capped list. An alpha mask (DstIn), so it needs
+ * no background colour and works over any sheet surface.
+ */
+fun Modifier.bottomFade(visible: Boolean, height: Dp): Modifier {
+    if (!visible) return this
+    return this
+        .graphicsLayer { compositingStrategy = CompositingStrategy.Offscreen }
+        .drawWithContent {
+            drawContent()
+            drawRect(
+                brush = Brush.verticalGradient(
+                    colors = listOf(Color.Black, Color.Transparent),
+                    startY = size.height - height.toPx(),
+                    endY = size.height,
+                ),
+                blendMode = BlendMode.DstIn,
+            )
+        }
+}
+
 private val SPINNER_SIZE = 20.dp

@@ -338,6 +338,37 @@ Verified end-to-end like a human: app-drawer swipe → tapped the Mockarr icon �
 2. **Physical-device spot-check** (recommended before any release/announcement): install via `./gradlew :app:installDebug`, run the in-app setup checklist, play a route, watch Google Maps follow. Emulator can't show OEM battery-killer quirks.
 3. Optional future work (from PLAN.md future ideas): joystick mode, GPX import/export, multi-stop UI polish, favorite places, geocoder search, tag-triggered release workflow with signing.
 
+### 2026-08-30 — Session 23 (tooling audit, stop-list "more" cues, Save pill)
+
+- **Tooling audit (answered from the 13 transcripts on disk, 08-13 → 08-30)**: no marketplace
+  plugin is installed for Mockarr — every `installed_plugins.json` entry is scoped to the Oath
+  project; our tooling is the project-local skills/agents/hooks. Usage: `build-fixer` 22×,
+  `emulator-verifier` 9×, `kotlin-conventions` 8×, `/simplify` 4×, `emulator-verify` 3×,
+  `impeccable` 1× (+3 `/impeccable`), `progress-audit` 1×, `/five` **0×**. Actions: removed
+  the two Impeccable hooks from the git-ignored `settings.local.json` (its detector matches
+  only `.tsx/.css/.html`, so on Kotlin it cost a Node start per edit and a Stop hook for
+  nothing, and left 6 Node crash traces when the ignored `scripts/` were missing); retired
+  `/five` (`.claude/commands/five.md` + playbook lines). No standing audit — recount in ~2
+  months with the same transcript script (count `tool_use` by name / `Skill.skill` /
+  `Agent.subagent_type` / `<command-name>`).
+- **Stop list "there's more" cues** (`BuilderDetails`): lists longer than 3 stops cap at
+  **3.5 rows** (`STOP_LIST_PEEK_ROWS`), the bottom half-row fades to transparent
+  (`Modifier.bottomFade`, DstIn alpha mask — background-agnostic, in `MapBuilder.kt`), the
+  header counts (`"STOPS · 7"`, `sheet_stops_header` takes `%1$d`) and a `labelSmall`
+  caption `"Scroll for N more"` (`sheet_stops_more`, `StopListMoreCaption`) sits under the
+  list; N comes from a `derivedStateOf` over `layoutInfo` (last *fully* visible row), so fade
+  and caption vanish at the end. ≤3 stops keep the exact fit. Fade is half a row (24 dp) —
+  a full-row fade dimmed Stop 3's badge on the first pass.
+- **Save is a map pill**: `BuilderTools` is now clear · **save** · reverse · undo · redo
+  (`MapPill` with `ic_save.xml`, spinner while naming, disabled without a real route —
+  `canSave`/`saving`/`onSave`); the sheet's action row is ✕ · Done only (`BuilderPeek` lost
+  `saving`/`onSave`; `builder_save` → `builder_save_cd` "Save route"). DESIGN.md's tools-row
+  line updated to five pills.
+- Emulator-verified (verifier agent, fresh install, light + dark): 7-stop list shows
+  "STOPS · 7", faded half row, "Scroll for 4 more" → scrolled to the end nothing fades; 3-stop
+  list exact; save pill dimmed at 0 stops, enabled when routed, opens the Save dialog with the
+  suggested name, route lands in Routes; sheet row is ✕ · Done.
+
 ### 2026-08-26 — Session 14 (UI pass, Phase 0: audit)
 
 - **Decision**: full professional UI pass, consumer nav-app feel, audit → code directly (no

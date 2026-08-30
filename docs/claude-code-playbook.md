@@ -51,9 +51,6 @@ failures to `file:line — rule — message`; never edits tests to make them pas
 trial passed (3-tab smoke pass with screenshot evidence); its friction feedback
 drove the emu.sh improvements below.
 
-**`/five` root-cause command — `.claude/commands/five.md`.** Five Whys; the
-final answer must name a file/line or config key.
-
 **emu.sh extensions — `scripts/emu.sh`.** Added `launch`, `waitfor` (polls and
 echoes what it matched, supports `"a|b"` alternation), `assert`, `matchtext`,
 and real usage text. All paths verified on the live emulator, including timeout
@@ -65,6 +62,10 @@ app 13/20 and surfaced real defects our linters can't model: TalkBack-unreachabl
 tooltip descriptions, dark-UI/light-map pairing, a per-tick recomposition leak.
 Its raw-hex and top-app-bar rules fight deliberate choices on the MapLibre
 canvas — overrule the rubric there. Re-run `/impeccable audit` after design work.
+Its edit/Stop hooks (`settings.local.json`) were removed on 2026-08-30: the detector
+only matches `.tsx/.css/.html`, so on Kotlin they cost a Node start per edit and never
+fired. `/five` was retired the same day — zero uses in 13 sessions; the technique is one
+sentence of prompt when wanted.
 
 ## What we rejected, and why
 
@@ -118,7 +119,7 @@ Gradle and emulator boots, not token speed.
 - Every ~5 rounds: `/progress-audit` (docs-drift check) and `/claude-md-review`.
 - "Have build-fixer handle the build" / "have emulator-verifier check X" keeps
   Gradle stacktraces and adb output out of the main conversation.
-- `/five <symptom>` when a bug resists the first fix; `/impeccable audit` after
+- `/impeccable audit` after
   UI-heavy rounds (expect it to fight the MapLibre canvas colors — that's fine).
 - Ask "what's the efficiency note for this round?" anytime; Claude is under
   standing instructions to volunteer one when there's something worth saying.

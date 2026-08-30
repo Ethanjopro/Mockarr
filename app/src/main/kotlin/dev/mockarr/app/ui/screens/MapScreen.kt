@@ -54,6 +54,7 @@ import androidx.compose.material3.rememberBottomSheetScaffoldState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.SideEffect
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -569,8 +570,6 @@ fun MapScreen(
                             PeekMode.BUILDER -> BuilderPeek(
                                 state = state,
                                 units = units,
-                                saving = naming,
-                                onSave = ::beginSave,
                                 onDone = { viewModel.setBuilderMode(false) },
                                 onClose = {
                                     if (state.waypoints.isEmpty()) {
@@ -800,12 +799,15 @@ fun MapScreen(
             ) {
                 BuilderTools(
                     canClear = state.waypoints.isNotEmpty(),
+                    canSave = state.route != null && !state.routeIsFallback,
+                    saving = naming,
                     canUndo = canUndo,
                     canRedo = canRedo,
                     canReverse = state.waypoints.size >= 2,
                     onUndo = viewModel::undoWaypoint,
                     onRedo = viewModel::redoWaypoint,
                     onReverse = viewModel::reverseWaypoints,
+                    onSave = ::beginSave,
                     onClearAll = { showClearAll = true },
                 )
             }
@@ -881,14 +883,17 @@ private fun BuilderDetails(
     onMoveStop: (Int) -> Unit,
 ) {
     if (state.waypoints.isEmpty()) return
+    val count = state.waypoints.size
     Text(
-        text = stringResource(R.string.sheet_stops_header).uppercase(),
+        text = stringResource(R.string.sheet_stops_header, count).uppercase(),
         style = MaterialTheme.typography.labelSmall,
         color = MaterialTheme.colorScheme.onSurfaceVariant,
         modifier = Modifier.padding(horizontal = Tokens.inset, vertical = Tokens.space1),
     )
     // Long routes would bury the sheet: about three rows show and the rest scroll
     // inside — only once the sheet is expanded, so a drag up isn't spent on the list.
+    // Longer lists end mid-row, fade at the bottom and count the hidden rows, so the
+    // cut never reads as "that's all".
     val listState = rememberLazyListState()
     if (selectedWaypoint != null) {
         LaunchedEffect(selectedWaypoint) {
@@ -899,17 +904,25 @@ private fun BuilderDetails(
             if (!visible) listState.animateScrollToItem(selectedWaypoint)
         }
     }
-    val cap = Tokens.touchTarget * STOP_LIST_VISIBLE_ROWS + if (selectedWaypoint != null) STOP_ACTIONS_HEIGHT else 0.dp
+    val rows = if (count > STOP_LIST_VISIBLE_ROWS) STOP_LIST_PEEK_ROWS else STOP_LIST_VISIBLE_ROWS.toFloat()
+    val cap = Tokens.touchTarget * rows + if (selectedWaypoint != null) STOP_ACTIONS_HEIGHT else 0.dp
+    val hidden by remember(count) {
+        derivedStateOf {
+            val info = listState.layoutInfo
+            val lastFull = info.visibleItemsInfo.lastOrNull { it.offset + it.size <= info.viewportEndOffset }
+            if (lastFull == null) 0 else count - lastFull.index - 1
+        }
+    }
     LazyColumn(
         state = listState,
         userScrollEnabled = listScrollEnabled,
-        modifier = Modifier.heightIn(max = cap),
+        modifier = Modifier.heightIn(max = cap).bottomFade(visible = hidden > 0, height = Tokens.touchTarget / 2),
     ) {
         itemsIndexed(state.waypoints) { index, waypoint ->
             StopRow(
                 index = index,
                 waypoint = waypoint,
-                count = state.waypoints.size,
+                count = count,
                 selected = index == selectedWaypoint,
                 stayAtDestination = stayAtDestination,
                 onClick = { onSelectWaypoint(if (index == selectedWaypoint) null else index) },
@@ -920,6 +933,7 @@ private fun BuilderDetails(
             )
         }
     }
+    StopListMoreCaption(hidden)
 }
 
 /** One stop: numbered disc, role, wait, and its actions when selected. */
@@ -1140,6 +1154,7 @@ private enum class PeekMode { RECORD, BUILDER, PLAYING }
 private const val START_FROM_HOLD_METERS = 30.0
 private const val SHEET_MAX_FRACTION = 0.6f
 private const val STOP_LIST_VISIBLE_ROWS = 3
+private const val STOP_LIST_PEEK_ROWS = 3.5f
 private val STOP_ACTIONS_HEIGHT = 40.dp
 private const val DEFAULT_NUDGE_ZOOM = 15.0
 private const val MILLIS_PER_SECOND = 1_000.0
