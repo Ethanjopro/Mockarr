@@ -60,9 +60,11 @@ internal fun StatCard(
     onStripAction: (() -> Unit)? = null,
     trailing: (@Composable () -> Unit)? = null,
 ) {
-    // Keep the last second line through its exit animation.
-    var lastSecondary by remember { mutableStateOf(secondary) }
-    SideEffect { if (secondary != null) lastSecondary = secondary }
+    // Keep the last second line through its exit animation; never a duplicate
+    // of the top band (the double "Ready to drive" while a hold's name resolves).
+    val shownSecondary = visibleSecondary(strip, secondary)
+    var lastSecondary by remember { mutableStateOf(shownSecondary) }
+    SideEffect { if (shownSecondary != null) lastSecondary = shownSecondary }
     Surface(
         modifier = modifier.fillMaxWidth(),
         shape = Tokens.cardShape,
@@ -77,8 +79,8 @@ internal fun StatCard(
                 onAction = onStripAction,
                 trailing = trailing,
             )
-            AnimatedVisibility(visible = secondary != null) {
-                val second = secondary ?: lastSecondary
+            AnimatedVisibility(visible = shownSecondary != null) {
+                val second = shownSecondary ?: lastSecondary?.let { visibleSecondary(strip, it) }
                 if (second != null) StatusStrip(text = second.text, tone = second.tone)
             }
             AnimatedVisibility(visible = stats != null) {
@@ -89,6 +91,10 @@ internal fun StatCard(
         }
     }
 }
+
+/** The second band never repeats the first: a null-latched primary would otherwise echo it. */
+internal fun visibleSecondary(primary: StripModel, secondary: StripModel?): StripModel? =
+    secondary?.takeIf { it.text != primary.text }
 
 /**
  * The card's top band: one line of state copy on a tinted colour that

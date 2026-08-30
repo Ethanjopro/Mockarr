@@ -300,6 +300,12 @@ Verified end-to-end like a human: app-drawer swipe → tapped the Mockarr icon �
   place name; a route driven to the end still reads "Holding at destination".
   Gotcha: `svc wifi disable` + `svc data disable` freezes the pre-geocode strip text for a
   screenshot (`resolveHoldName` runs once per hold); re-enable after.
+- **One "Ready to drive", not two**: `holdingText()` returns null while a hold's name
+  resolves, so `MapScreen` latched the previous primary ("Ready to drive") while the
+  ungated secondary emitted the same text. Rule in `MapStatCard.kt`: `visibleSecondary()`
+  — the second band is never the first band's text (also applied to the latched exit copy).
+  `StatCardStripsTest`. Verified with network off (name never resolves): one green under the
+  amber hold band, still one after nudges, none doubled on release.
 
 ## PLAN COMPLETE — remaining items are the user's
 
