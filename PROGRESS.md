@@ -306,6 +306,21 @@ Verified end-to-end like a human: app-drawer swipe → tapped the Mockarr icon �
   — the second band is never the first band's text (also applied to the latched exit copy).
   `StatCardStripsTest`. Verified with network off (name never resolves): one green under the
   amber hold band, still one after nudges, none doubled on release.
+- **Undo / Redo in the route maker**: `BuilderHistory` (`ui/screens/BuilderHistory.kt`, pure,
+  50 snapshots) holds before-edit stop lists; a marker drag pushes once at its first frame.
+  `MapViewModel` routes every edit through `mutate(refetch, record, transform)` — reset,
+  snapshot, patch-or-refetch (wait-only diffs patch via `samePlaces`, an emptied list drops
+  the elevation job); undo/redo replay without recording; `clearWaypoints` = `mutate { empty }`;
+  history clears on builder close and saved-route load. Fourth pill `ic_redo` (Material
+  mirror of undo); `builder_undo_cd` is just "Undo". `BuilderHistoryTest`.
+  **Function budget**: `MapViewModel` was already at 25 (the plan's "23" undercounted), so
+  `placeFirstStop`/`prependWaypoint` folded into `addWaypoint(point, atStart)` (a placed stop
+  always opens the builder; `atStart` inserts the hold origin and leaves it) and the two-line
+  `moveWaypoint` inlined into the tap dispatch (`interaction.takeMove()` on every idle tap —
+  harmless when nothing is pending). Still 25.
+  Verified: undo ×2 / redo ×2 restore stops + line; a drag undoes in one step; trash → Discard
+  → undo brings all back; a new stop after undo disables Redo; reopen → both disabled; row of
+  four pills centred. Nit seen: the restored third leg took ~1–2 s to redraw once.
 
 ## PLAN COMPLETE — remaining items are the user's
 

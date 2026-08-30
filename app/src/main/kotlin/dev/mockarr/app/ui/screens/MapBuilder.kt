@@ -137,14 +137,17 @@ fun BuilderPeek(
 }
 
 /**
- * Strava's builder tools, bottom-centre of the map: clear · reverse · undo as
- * white shadowed pills. Clear asks first (the host shows the discard dialog).
+ * Strava's builder tools, bottom-centre of the map: clear · reverse · undo · redo
+ * as white shadowed pills. Clear asks first (the host shows the discard dialog).
  */
 @Composable
 fun BuilderTools(
+    canClear: Boolean,
     canUndo: Boolean,
+    canRedo: Boolean,
     canReverse: Boolean,
     onUndo: () -> Unit,
+    onRedo: () -> Unit,
     onReverse: () -> Unit,
     onClearAll: () -> Unit,
     modifier: Modifier = Modifier,
@@ -154,7 +157,7 @@ fun BuilderTools(
             painter = rememberVectorPainter(Icons.Filled.Delete),
             contentDescription = stringResource(R.string.builder_clear_all),
             onClick = onClearAll,
-            enabled = canUndo,
+            enabled = canClear,
         )
         MapIconPill(
             painter = painterResource(R.drawable.ic_swap),
@@ -167,6 +170,12 @@ fun BuilderTools(
             contentDescription = stringResource(R.string.builder_undo_cd),
             onClick = onUndo,
             enabled = canUndo,
+        )
+        MapIconPill(
+            painter = painterResource(R.drawable.ic_redo),
+            contentDescription = stringResource(R.string.builder_redo_cd),
+            onClick = onRedo,
+            enabled = canRedo,
         )
     }
 }

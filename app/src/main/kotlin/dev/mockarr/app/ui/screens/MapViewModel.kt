@@ -134,6 +134,10 @@ class MapViewModel @Inject constructor(
     /** Latest camera (target + zoom), live during gestures and animations. */
     val camera: StateFlow<MapCamera?> = liveCamera.asStateFlow()
 
+    private val history = BuilderHistory()
+    val canUndo: StateFlow<Boolean> = history.canUndo
+    val canRedo: StateFlow<Boolean> = history.canRedo
+
     init {
         viewModelScope.launch {
             routeHandoff.pending.collect { loaded ->
@@ -180,54 +184,31 @@ class MapViewModel @Inject constructor(
         }
     }
 
-    /** Idle map tap: the first stop opens the builder by itself — no "Add route" press needed. */
-    fun placeFirstStop(point: LatLng) {
-        _builderMode.value = true
-        addWaypoint(point) // resets the interaction itself
-    }
-
-    fun addWaypoint(point: LatLng) {
-        interaction.reset()
-        _uiState.update { it.copy(waypoints = it.waypoints + Waypoint(point)) }
-        scheduleRouteFetch()
-    }
-
-    /** Insert a new route origin (e.g. the held position, chosen at Play time). */
-    fun prependWaypoint(point: LatLng) {
-        interaction.reset()
-        _uiState.update { it.copy(waypoints = listOf(Waypoint(point)) + it.waypoints) }
-        scheduleRouteFetch()
+    /**
+     * A placed stop means building: an idle tap opens the builder by itself.
+     * [atStart] inserts a new origin instead (the held position, chosen at Play
+     * time) and leaves the builder as it is.
+     */
+    fun addWaypoint(point: LatLng, atStart: Boolean = false) {
+        if (!atStart) _builderMode.value = true
+        mutate { if (atStart) listOf(Waypoint(point)) + it else it + Waypoint(point) }
     }
 
     fun undoWaypoint() {
-        if (_uiState.value.waypoints.isEmpty()) return
-        interaction.reset()
-        _uiState.update { it.copy(waypoints = it.waypoints.dropLast(1)) }
-        scheduleRouteFetch()
+        val current = _uiState.value.waypoints
+        history.undo(current)?.let { mutate(refetch = !current.samePlaces(it), record = false) { _ -> it } }
     }
 
-    fun clearWaypoints() {
-        routeJob?.cancel()
-        elevationJob?.cancel()
-        interaction.reset()
-        _uiState.update {
-            it.copy(
-                waypoints = emptyList(),
-                route = null,
-                routeIsFallback = false,
-                isRouting = false,
-                errorMessage = null,
-            )
-        }
+    fun redoWaypoint() {
+        val current = _uiState.value.waypoints
+        history.redo(current)?.let { mutate(refetch = !current.samePlaces(it), record = false) { _ -> it } }
     }
+
+    fun clearWaypoints() = mutate { emptyList() }
 
     fun removeWaypoint(index: Int) {
         if (index !in _uiState.value.waypoints.indices) return
-        interaction.reset()
-        _uiState.update { state ->
-            state.copy(waypoints = state.waypoints.filterIndexed { i, _ -> i != index })
-        }
-        scheduleRouteFetch()
+        mutate { it.filterIndexed { i, _ -> i != index } }
     }
 
     /**
@@ -237,19 +218,11 @@ class MapViewModel @Inject constructor(
      */
     fun setWaypointWait(index: Int, waitSeconds: Int) {
         if (index !in _uiState.value.waypoints.indices) return
-        interaction.reset()
-        _uiState.update { state ->
-            val updated = state.waypoints.mapIndexed { i, waypoint ->
+        mutate(refetch = false) { stops ->
+            stops.mapIndexed { i, waypoint ->
                 if (i == index) waypoint.copy(waitSeconds = waitSeconds) else waypoint
             }
-            state.copy(waypoints = updated, route = state.route?.withWaits(updated))
         }
-    }
-
-    /** Relocates the stop being moved (tap-to-place); its wait survives, the route refetches. */
-    fun moveWaypoint(point: LatLng) {
-        val index = interaction.takeMove() ?: return
-        moveStop(index, point, settled = true)
     }
 
     /**
@@ -258,10 +231,42 @@ class MapViewModel @Inject constructor(
      * and any pending Move are gone — the finger is the move now.
      */
     fun moveStop(index: Int, point: LatLng, settled: Boolean) {
-        if (index !in _uiState.value.waypoints.indices) return
+        val before = _uiState.value.waypoints
+        if (index !in before.indices) return
+        if (settled) {
+            // A tap-to-place (or a one-frame drop) never opened a drag: snapshot now.
+            if (!history.beginDrag(before)) history.endDrag()
+        } else {
+            history.beginDrag(before)
+        }
         interaction.reset()
         _uiState.update { it.copy(waypoints = it.waypoints.movedTo(index, point)) }
         if (settled) scheduleRouteFetch()
+    }
+
+    /**
+     * One edit of the stop list: popover/move state reset, an undo snapshot
+     * (unless [record] is off — undo/redo replay one), then the route refetches
+     * — or, for wait-only edits, is patched in place. An emptied list also
+     * drops the in-flight elevation work.
+     */
+    private fun mutate(
+        refetch: Boolean = true,
+        record: Boolean = true,
+        transform: (List<Waypoint>) -> List<Waypoint>,
+    ) {
+        interaction.reset()
+        if (record) history.push(_uiState.value.waypoints)
+        val updated = transform(_uiState.value.waypoints)
+        if (updated.isEmpty()) elevationJob?.cancel()
+        _uiState.update { state ->
+            state.copy(
+                waypoints = updated,
+                route = if (refetch) state.route else state.route?.withWaits(updated),
+                isRouting = state.isRouting && updated.isNotEmpty(),
+            )
+        }
+        if (refetch) scheduleRouteFetch()
     }
 
     fun setProfile(profile: RoutingProfile) {
@@ -355,19 +360,19 @@ class MapViewModel @Inject constructor(
     /** Builder mode: map taps place stops; the sheet shows the route under construction. */
     fun setBuilderMode(active: Boolean) {
         interaction.reset()
+        if (!active) history.clear()
         _builderMode.value = active
     }
 
     /** Drive the route the other way round. */
     fun reverseWaypoints() {
         if (_uiState.value.waypoints.size < 2) return
-        interaction.reset()
-        _uiState.update { it.copy(waypoints = it.waypoints.asReversed()) }
-        scheduleRouteFetch()
+        mutate { it.asReversed() }
     }
 
     private fun loadSavedRoute(route: Route, profile: RoutingProfile) {
         _builderMode.value = false
+        history.clear()
         routeJob?.cancel()
         profileTouched = true
         val anchors = route.snappedWaypoints

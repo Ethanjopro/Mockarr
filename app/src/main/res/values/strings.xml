@@ -101,7 +101,8 @@
     <string name="builder_done">Done</string>
     <string name="builder_save">Save</string>
     <string name="builder_close_cd">Leave route building</string>
-    <string name="builder_undo_cd">Undo last stop</string>
+    <string name="builder_undo_cd">Undo</string>
+    <string name="builder_redo_cd">Redo</string>
     <string name="builder_reverse_cd">Reverse route</string>
     <string name="builder_clear_all">Clear all stops</string>
     <string name="builder_discard_title">Discard this route?</string>

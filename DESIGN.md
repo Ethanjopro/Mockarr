@@ -359,7 +359,7 @@ the sheet (and by pushed screens). There is no navigation bar.
   (Ethan, session 16): its trailing slot is the speed chip while driving and nothing else.
 - **Top overlays** sit `{spacing.map-edge}` from the edges: the search field full-width,
   then the FAB stack aligned to the right edge (3D toggle, locate / follow), 8dp apart —
-  every FAB is a **map pill**. The builder's tools row (`⋯` · reverse · undo) is three map
+  every FAB is a **map pill**. The builder's tools row (`⋯` · reverse · undo · redo) is four map
   pills bottom-centre, riding the stat card's top edge (Strava `map-352`).
 - **Spacing rhythm** is the 4dp grid: 4 / 8 / 12 / 16 / 24 / 32, with 20dp as the sheet and
   card content inset and 12dp as the map-edge gutter.

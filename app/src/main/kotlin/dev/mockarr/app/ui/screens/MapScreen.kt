@@ -162,19 +162,19 @@ fun MapLayer(
         waypoints = displayed,
         routePoints = state.route?.points.orEmpty(),
         routeIsFallback = state.routeIsFallback,
-        onMapTap = {
+        onMapTap = { point ->
             focusManager.clearFocus()
             // Dismiss-first: with a stop selected, a map tap deselects it rather
             // than dropping a new stop. Read .value at click time (repo rule).
             if (!playing) {
+                val moving = viewModel.interaction.takeMove()
                 when {
-                    // A pending Move owns the next tap (Strava's Move Point).
-                    viewModel.interaction.movingWaypoint.value != null -> viewModel.moveWaypoint(it)
+                    // A pending Move owns the next tap (Strava's Move Point); the wait survives.
+                    moving != null -> viewModel.moveStop(moving, point, settled = true)
                     viewModel.interaction.startChoiceRoute.value != null -> viewModel.interaction.clearStartChoice()
                     viewModel.interaction.selectedWaypoint.value != null -> viewModel.interaction.select(null)
-                    viewModel.builderMode.value -> viewModel.addWaypoint(it)
-                    // Idle: the first stop opens the builder by itself.
-                    else -> viewModel.placeFirstStop(it)
+                    // Building or idle: a stop lands (the first one opens the builder).
+                    else -> viewModel.addWaypoint(point)
                 }
             }
         },
@@ -238,6 +238,8 @@ fun MapScreen(
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val builderMode by viewModel.builderMode.collectAsStateWithLifecycle()
+    val canUndo by viewModel.canUndo.collectAsStateWithLifecycle()
+    val canRedo by viewModel.canRedo.collectAsStateWithLifecycle()
     val options by optionsViewModel.settings.collectAsStateWithLifecycle()
     val sheetHintPending by optionsViewModel.sheetHintPending.collectAsStateWithLifecycle()
     var handleAnchor by remember { mutableStateOf(Offset.Zero) }
@@ -357,7 +359,7 @@ fun MapScreen(
         StartChoice(
             onFromHold = {
                 viewModel.interaction.clearStartChoice()
-                currentHold()?.position?.let(viewModel::prependWaypoint)
+                currentHold()?.position?.let { viewModel.addWaypoint(it, atStart = true) }
                 playWhenRouteReady = true
             },
             onFromRouteStart = {
@@ -380,7 +382,7 @@ fun MapScreen(
             onConfirm = {
                 showRouteFromHoldPrompt = false
                 currentHold()?.position?.let { hold ->
-                    viewModel.prependWaypoint(hold)
+                    viewModel.addWaypoint(hold, atStart = true)
                     playWhenRouteReady = true
                 }
             },
@@ -797,9 +799,12 @@ fun MapScreen(
                     .padding(bottom = peekHeight + cardHeight + Tokens.mapEdge * 2),
             ) {
                 BuilderTools(
-                    canUndo = state.waypoints.isNotEmpty(),
+                    canClear = state.waypoints.isNotEmpty(),
+                    canUndo = canUndo,
+                    canRedo = canRedo,
                     canReverse = state.waypoints.size >= 2,
                     onUndo = viewModel::undoWaypoint,
+                    onRedo = viewModel::redoWaypoint,
                     onReverse = viewModel::reverseWaypoints,
                     onClearAll = { showClearAll = true },
                 )
