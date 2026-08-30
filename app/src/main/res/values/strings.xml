@@ -108,7 +108,6 @@
     <string name="builder_discard_title">Discard this route?</string>
     <string name="builder_discard_body">The stops you placed will be removed.</string>
     <string name="builder_discard">Discard</string>
-    <string name="builder_keep">Keep editing</string>
     <string name="stop_menu_wait">Wait here…</string>
     <string name="stop_menu_wait_set">Wait · %1$s</string>
     <string name="stop_menu_stays">Stays at destination</string>

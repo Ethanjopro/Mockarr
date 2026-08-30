@@ -1,7 +1,6 @@
 package dev.mockarr.app.ui.screens
 
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -11,7 +10,6 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -37,6 +35,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import dev.mockarr.app.R
+import dev.mockarr.app.ui.theme.DialogAction
+import dev.mockarr.app.ui.theme.MockarrDialog
 import dev.mockarr.app.ui.theme.MockarrTheme
 import dev.mockarr.app.ui.theme.Tokens
 
@@ -190,56 +190,55 @@ fun ServerDialog(
     onDismiss: () -> Unit,
 ) {
     var url by remember { mutableStateOf(if (isCustom) currentUrl else "") }
-    AlertDialog(
+    MockarrDialog(
+        title = stringResource(R.string.settings_server_title),
         onDismissRequest = onDismiss,
-        title = { Text(stringResource(R.string.settings_server_title)) },
-        text = {
-            Column(verticalArrangement = Arrangement.spacedBy(Tokens.space2)) {
-                Text(
-                    text = stringResource(R.string.settings_server_desc),
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-                OutlinedTextField(
-                    value = url,
-                    onValueChange = { url = it },
-                    placeholder = { Text(stringResource(R.string.settings_server_hint)) },
-                    singleLine = true,
-                    trailingIcon = {
-                        if (testState is SettingsViewModel.TestState.Testing) {
-                            CircularProgressIndicator(modifier = Modifier.size(Tokens.space6), strokeWidth = 2.dp)
-                        } else {
-                            TextButton(enabled = url.isNotBlank(), onClick = { onTest(url) }) {
-                                Text(stringResource(R.string.settings_server_test))
-                            }
-                        }
-                    },
-                )
-                when (testState) {
-                    SettingsViewModel.TestState.Success -> Text(
-                        text = stringResource(R.string.settings_server_ok),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MockarrTheme.colors.ready,
-                    )
-                    is SettingsViewModel.TestState.Failure -> Text(
-                        text = testState.message,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.error,
-                    )
-                    else -> Unit
+        confirm = DialogAction(
+            label = stringResource(R.string.dialog_save),
+            onClick = { onSave(url) },
+            enabled = url.isNotBlank(),
+        ),
+        dismiss = DialogAction(stringResource(R.string.dialog_cancel), onDismiss),
+    ) {
+        Text(
+            text = stringResource(R.string.settings_server_desc),
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        Spacer(Modifier.height(Tokens.space2))
+        OutlinedTextField(
+            value = url,
+            onValueChange = { url = it },
+            placeholder = { Text(stringResource(R.string.settings_server_hint)) },
+            singleLine = true,
+            trailingIcon = {
+                if (testState is SettingsViewModel.TestState.Testing) {
+                    CircularProgressIndicator(modifier = Modifier.size(Tokens.space6), strokeWidth = 2.dp)
+                } else {
+                    TextButton(enabled = url.isNotBlank(), onClick = { onTest(url) }) {
+                        Text(stringResource(R.string.settings_server_test))
+                    }
                 }
-                if (isCustom) {
-                    TextButton(onClick = onUsePublic) { Text(stringResource(R.string.settings_server_use_public)) }
-                }
-            }
-        },
-        confirmButton = {
-            TextButton(enabled = url.isNotBlank(), onClick = { onSave(url) }) {
-                Text(stringResource(R.string.dialog_save))
-            }
-        },
-        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.dialog_cancel)) } },
-    )
+            },
+        )
+        when (testState) {
+            SettingsViewModel.TestState.Success -> Text(
+                text = stringResource(R.string.settings_server_ok),
+                style = MaterialTheme.typography.bodySmall,
+                color = MockarrTheme.colors.ready,
+            )
+            is SettingsViewModel.TestState.Failure -> Text(
+                text = testState.message,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.error,
+            )
+            else -> Unit
+        }
+        if (isCustom) {
+            // Tertiary verb: stays a text button inside the body, not a third pill.
+            TextButton(onClick = onUsePublic) { Text(stringResource(R.string.settings_server_use_public)) }
+        }
+    }
 }
 
 private val TILE_MIN_HEIGHT = 96.dp

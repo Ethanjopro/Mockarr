@@ -1,17 +1,15 @@
 package dev.mockarr.app.ui.screens
 
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.FilterChip
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -22,6 +20,8 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.KeyboardType
 import dev.mockarr.app.R
 import dev.mockarr.app.ui.formatRouteTimestamp
+import dev.mockarr.app.ui.theme.DialogAction
+import dev.mockarr.app.ui.theme.MockarrDialog
 import dev.mockarr.app.ui.theme.Tokens
 
 private val WAIT_PRESET_MINUTES = listOf(1, 5, 15, 30)
@@ -46,64 +46,58 @@ internal fun WaypointWaitDialog(
     val customMinutes = customText.toIntOrNull()?.takeIf { it > 0 }
     val chosenMinutes = selectedPreset ?: customMinutes
 
-    AlertDialog(
+    MockarrDialog(
+        title = stringResource(R.string.dialog_wait_title),
         onDismissRequest = onDismiss,
-        title = { Text(stringResource(R.string.dialog_wait_title)) },
-        text = {
-            Column {
-                Text(stringResource(R.string.dialog_wait_body))
-                Spacer(Modifier.height(Tokens.space2))
-                // FlowRow: the dialog is too narrow for four chips — let the
-                // last chip wrap as a whole instead of shredding its label.
-                FlowRow(horizontalArrangement = Arrangement.spacedBy(Tokens.space2)) {
-                    WAIT_PRESET_MINUTES.forEach { minutes ->
-                        FilterChip(
-                            selected = selectedPreset == minutes,
-                            onClick = {
-                                selectedPreset = minutes
-                                customText = ""
-                            },
-                            label = { Text(stringResource(R.string.dialog_wait_minutes, minutes), softWrap = false) },
-                        )
-                    }
-                }
-                Spacer(Modifier.height(Tokens.space2))
-                OutlinedTextField(
-                    value = customText,
-                    onValueChange = {
-                        customText = it
-                        selectedPreset = null
+        confirm = DialogAction(
+            label = stringResource(R.string.dialog_set),
+            onClick = { chosenMinutes?.let { onConfirm(it * SECONDS_PER_MINUTE) } },
+            enabled = chosenMinutes != null,
+        ),
+        dismiss = DialogAction(stringResource(R.string.dialog_cancel), onDismiss),
+    ) {
+        Text(
+            text = stringResource(R.string.dialog_wait_body),
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        Spacer(Modifier.height(Tokens.space2))
+        // FlowRow: the dialog is too narrow for four chips — let the
+        // last chip wrap as a whole instead of shredding its label.
+        FlowRow(horizontalArrangement = Arrangement.spacedBy(Tokens.space2)) {
+            WAIT_PRESET_MINUTES.forEach { minutes ->
+                FilterChip(
+                    selected = selectedPreset == minutes,
+                    onClick = {
+                        selectedPreset = minutes
+                        customText = ""
                     },
-                    label = { Text(stringResource(R.string.dialog_wait_custom)) },
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                    singleLine = true,
+                    label = { Text(stringResource(R.string.dialog_wait_minutes, minutes), softWrap = false) },
                 )
             }
-        },
-        confirmButton = {
-            TextButton(
-                enabled = chosenMinutes != null,
-                onClick = { chosenMinutes?.let { onConfirm(it * SECONDS_PER_MINUTE) } },
-            ) { Text(stringResource(R.string.dialog_set)) }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) { Text(stringResource(R.string.dialog_cancel)) }
-        },
-    )
+        }
+        Spacer(Modifier.height(Tokens.space2))
+        OutlinedTextField(
+            value = customText,
+            onValueChange = {
+                customText = it
+                selectedPreset = null
+            },
+            label = { Text(stringResource(R.string.dialog_wait_custom)) },
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+            singleLine = true,
+        )
+    }
 }
 
 @Composable
 internal fun RouteFromHoldDialog(onConfirm: () -> Unit, onDismiss: () -> Unit) {
-    AlertDialog(
+    MockarrDialog(
+        title = stringResource(R.string.dialog_route_from_hold_title),
+        text = stringResource(R.string.dialog_route_from_hold_body),
         onDismissRequest = onDismiss,
-        title = { Text(stringResource(R.string.dialog_route_from_hold_title)) },
-        text = { Text(stringResource(R.string.dialog_route_from_hold_body)) },
-        confirmButton = {
-            TextButton(onClick = onConfirm) { Text(stringResource(R.string.dialog_route_and_play)) }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) { Text(stringResource(R.string.dialog_cancel)) }
-        },
+        confirm = DialogAction(stringResource(R.string.dialog_route_and_play), onConfirm),
+        dismiss = DialogAction(stringResource(R.string.dialog_cancel), onDismiss),
     )
 }
 
@@ -117,24 +111,23 @@ internal fun SaveRouteDialog(
     // the field never changes under the user's cursor.
     val defaultName = remember { "Route " + formatRouteTimestamp(System.currentTimeMillis()) }
     var name by remember { mutableStateOf(suggestedName ?: defaultName) }
-    AlertDialog(
+    MockarrDialog(
+        title = stringResource(R.string.dialog_save_title),
         onDismissRequest = onDismiss,
-        title = { Text(stringResource(R.string.dialog_save_title)) },
-        text = {
-            OutlinedTextField(
-                value = name,
-                onValueChange = { name = it },
-                label = { Text(stringResource(R.string.dialog_save_name)) },
-                singleLine = true,
-            )
-        },
-        confirmButton = {
-            TextButton(onClick = { onConfirm(name.trim()) }) { Text(stringResource(R.string.dialog_save)) }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) { Text(stringResource(R.string.dialog_cancel)) }
-        },
-    )
+        confirm = DialogAction(
+            label = stringResource(R.string.dialog_save),
+            onClick = { onConfirm(name.trim()) },
+            enabled = name.isNotBlank(),
+        ),
+        dismiss = DialogAction(stringResource(R.string.dialog_cancel), onDismiss),
+    ) {
+        OutlinedTextField(
+            value = name,
+            onValueChange = { name = it },
+            label = { Text(stringResource(R.string.dialog_save_name)) },
+            singleLine = true,
+        )
+    }
 }
 
 /** "1", "0.5", "0.25", "2" — no trailing zeros, no scientific notation. */

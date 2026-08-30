@@ -321,6 +321,16 @@ Verified end-to-end like a human: app-drawer swipe → tapped the Mockarr icon �
   Verified: undo ×2 / redo ×2 restore stops + line; a drag undoes in one step; trash → Discard
   → undo brings all back; a new stop after undo disables Redo; reopen → both disabled; row of
   four pills centred. Nit seen: the restored third leg took ~1–2 s to redraw once.
+- **Dialogs share one primitive**: `MockarrDialog` (`ui/theme/Dialogs.kt`, `DialogAction` in
+  its own file — detekt `MatchingDeclarationName`): `BasicAlertDialog` → 16 dp
+  `surfaceContainerLowest` card at `popoverElevation`, bold `titleMedium`, body on
+  `onSurfaceVariant`, `inset` padding, then outlined **Cancel** + filled pill primary
+  (`destructive` → `error`/`onError`). Discard, Wait, Route-from-hold, Save, Rename and Server
+  migrated; "Keep editing" (`builder_keep`) gone — Cancel everywhere. DESIGN.md: Elevation
+  note + new `### Dialog`. Captures: `docs/design/audit-2026-08/dialog-*-{light,dark}.webp`
+  (before; discard/rename/server added this session) and `dialog-*-v2-*.webp` (after).
+  Verified all six in light + dark: red Discard, Set/Save disabled on blank, chips wrap,
+  keyboard clears the buttons, server Test fits. Logcat clean; mock providers released.
 
 ## PLAN COMPLETE — remaining items are the user's
 

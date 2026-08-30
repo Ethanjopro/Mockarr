@@ -14,7 +14,6 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
@@ -22,7 +21,6 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -34,7 +32,9 @@ import androidx.compose.ui.unit.dp
 import dev.mockarr.app.R
 import dev.mockarr.app.ui.formatDistance
 import dev.mockarr.app.ui.formatDurationShort
+import dev.mockarr.app.ui.theme.DialogAction
 import dev.mockarr.app.ui.theme.MapIconPill
+import dev.mockarr.app.ui.theme.MockarrDialog
 import dev.mockarr.app.ui.theme.Tokens
 import dev.mockarr.core.model.DistanceUnits
 import kotlin.math.roundToInt
@@ -183,12 +183,12 @@ fun BuilderTools(
 /** Leaving the builder with unsaved stops. */
 @Composable
 fun DiscardRouteDialog(onDiscard: () -> Unit, onDismiss: () -> Unit) {
-    AlertDialog(
+    MockarrDialog(
+        title = stringResource(R.string.builder_discard_title),
+        text = stringResource(R.string.builder_discard_body),
         onDismissRequest = onDismiss,
-        title = { Text(stringResource(R.string.builder_discard_title)) },
-        text = { Text(stringResource(R.string.builder_discard_body)) },
-        confirmButton = { TextButton(onClick = onDiscard) { Text(stringResource(R.string.builder_discard)) } },
-        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.builder_keep)) } },
+        confirm = DialogAction(stringResource(R.string.builder_discard), onDiscard, destructive = true),
+        dismiss = DialogAction(stringResource(R.string.dialog_cancel), onDismiss),
     )
 }
 

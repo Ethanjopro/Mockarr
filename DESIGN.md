@@ -376,8 +376,8 @@ strips on `-high`, selected rows on `-high`, tracks on `-highest`); the map itse
 lowest layer. Everything that floats over the basemap reads as an object on it: the stat
 card (4dp), the sheet (8dp), the white **map pills** (6dp), **popovers** (8dp) and the
 marker bitmaps (a baked 3dp blur) — Strava's builder is the reference (`map-352`). Chips,
-strips and anything inside the sheet never get a shadow. Material's default component
-elevation (dialog, snackbar) is left as is.
+strips and anything inside the sheet never get a shadow. Material's default elevation is
+kept for snackbars; dialogs float at `popoverElevation` on a 16dp card.
 
 ### Named Rules
 **The Soft Lift Rule.** A shadow means "this floats over the map". The stat card, the
@@ -407,6 +407,16 @@ Direction chevrons on the route are 10dp, 2dp stroke, drawn in the casing colour
 - **Text:** indigo text, no container — tertiary actions in rows (Save · Undo · Clear) and
   the strip's action (Fix, Stop).
 - **Disabled:** Material's 38% alpha; never hidden to signal disabled.
+
+### Dialog
+- **Container:** `MockarrDialog` (`ui/theme/Dialogs.kt`) — the stat card's 16dp corner on
+  `surface-container-lowest`, floating at `popoverElevation`, 20dp inset; title
+  `titleMedium` bold, body `bodyMedium` on `onSurfaceVariant`.
+- **Actions:** one filled pill primary (the verb: Save, Set, Discard) beside one outlined
+  **Cancel** — the same pairing everywhere, never two flat text buttons. A tertiary verb
+  (Use public server) stays a text button inside the body.
+- **Destructive:** the primary wears `error` / `onError` (Discard); the label is the plain
+  verb, not a warning.
 
 ### The Action Row (signature)
 Strava's Record screen, matched: the sheet's peek is one 120dp row of three equal slots in
