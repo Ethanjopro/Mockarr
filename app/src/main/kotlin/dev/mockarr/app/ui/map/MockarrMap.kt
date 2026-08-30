@@ -94,6 +94,7 @@ fun MockarrMap(
     visible: Boolean,
     loadInitialCamera: suspend () -> MapCamera?,
     onCameraIdle: (MapCamera) -> Unit,
+    onCameraMove: (MapCamera) -> Unit,
     onUserGesture: () -> Unit,
     threeDimensional: Boolean,
     selectedWaypoint: Int? = null,
@@ -113,6 +114,7 @@ fun MockarrMap(
     val currentOnWaypointDrop by rememberUpdatedState(onWaypointDrop)
     val currentOnLongPress by rememberUpdatedState(onMapLongPress)
     val currentOnCameraIdle by rememberUpdatedState(onCameraIdle)
+    val currentOnCameraMove by rememberUpdatedState(onCameraMove)
     val currentOnUserGesture by rememberUpdatedState(onUserGesture)
     val currentOnSelectedWaypointScreen by rememberUpdatedState(onSelectedWaypointScreen)
     val currentVisible by rememberUpdatedState(visible)
@@ -170,6 +172,13 @@ fun MockarrMap(
                         userMovedCamera = true
                         currentOnUserGesture()
                     }
+                }
+                libreMap.addOnCameraMoveListener {
+                    val position = libreMap.cameraPosition
+                    val target = position.target ?: return@addOnCameraMoveListener
+                    currentOnCameraMove(
+                        MapCamera(LatLng(target.latitude, target.longitude), position.zoom),
+                    )
                 }
                 libreMap.addOnCameraIdleListener {
                     val position = libreMap.cameraPosition

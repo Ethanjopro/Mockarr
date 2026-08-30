@@ -196,7 +196,8 @@ fun MapLayer(
         palette = MockarrTheme.colors.map,
         visible = visible,
         loadInitialCamera = viewModel::initialCamera,
-        onCameraIdle = viewModel::saveCamera,
+        onCameraIdle = { viewModel.cameraChanged(it, idle = true) },
+        onCameraMove = { viewModel.cameraChanged(it, idle = false) },
         onUserGesture = {
             viewModel.setFollowCamera(false)
             viewModel.interaction.clearStartChoice()

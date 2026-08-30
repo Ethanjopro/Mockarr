@@ -126,11 +126,13 @@ class MapViewModel @Inject constructor(
     private var elevationJob: Job? = null
     private var cameraSeq = 0L
     private var profileTouched = false
-    private var lastKnownCamera: MapCamera? = null
+
+    // Live camera (every move frame) for the thumbstick's zoom; idle camera for DataStore.
+    private val liveCamera = MutableStateFlow<MapCamera?>(null)
     private val cameraSaves = MutableStateFlow<MapCamera?>(null)
 
-    /** Latest idle camera (target + zoom); the thumbstick reads zoom from here. */
-    val camera: StateFlow<MapCamera?> = cameraSaves.asStateFlow()
+    /** Latest camera (target + zoom), live during gestures and animations. */
+    val camera: StateFlow<MapCamera?> = liveCamera.asStateFlow()
 
     init {
         viewModelScope.launch {
@@ -162,10 +164,12 @@ class MapViewModel @Inject constructor(
                 settingsRepository.setLastCamera(camera)
             }
         }
-        // Seed the camera memory (the thumbstick reads zoom from it) before the first idle.
+        // Seed the live camera before the first move so a cold-start nudge
+        // already scales by the restored zoom (never seed cameraSaves: that
+        // would rewrite DataStore with its own value).
         viewModelScope.launch {
             val saved = settingsRepository.awaitLoaded().lastCamera
-            if (lastKnownCamera == null) lastKnownCamera = saved
+            if (liveCamera.value == null) liveCamera.value = saved
         }
         // Keep the summary's traffic preview in sync with the setting toggle.
         viewModelScope.launch {
@@ -326,9 +330,10 @@ class MapViewModel @Inject constructor(
     /** One-shot cold-start camera restore, read straight from disk (no default-value race). */
     suspend fun initialCamera(): MapCamera? = settingsRepository.awaitLoaded().lastCamera
 
-    fun saveCamera(camera: MapCamera) {
-        lastKnownCamera = camera
-        cameraSaves.value = camera
+    /** Every camera frame lands here; only idle frames are persisted. */
+    fun cameraChanged(camera: MapCamera, idle: Boolean) {
+        liveCamera.value = camera
+        if (idle) cameraSaves.value = camera
     }
 
     fun setFollowCamera(follow: Boolean) {

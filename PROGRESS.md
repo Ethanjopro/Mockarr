@@ -274,6 +274,20 @@ Verified end-to-end like a human: app-drawer swipe → tapped the Mockarr icon �
   - `MapViewModel.camera` exposes the idle camera as a PROPERTY (class sits at the 25-function cap). Thumbstick math is file-level + unit-tested (bearing quadrants, zoom-halving doubles meters, both clamps, dt/deflection proportionality) — mind the clamps when writing such tests: at z15–16 the raw speed exceeds the cap, so scaling asserts must use z17+.
 - Emulator-verified (verifier agent + follow-up fix pass): all five features PASS incl. dark theme; countdown observed 1:11→1:07 while the other chip stayed static; stick greys during playback. Verifier friction: the app logs no HTTP lines, so geocode cadence had to be verified behaviorally — a debug-loggable OkHttp interceptor would help future verifications.
 
+### 2026-08-30 — Session 21 (thumbstick: stale zoom)
+
+- **The stick's zoom was stale** (`docs/research/thumbstick-rnd.md`): the persisted camera
+  was seeded into `lastKnownCamera`, which nothing read (`camera` exposed `cameraSaves`), so a
+  cold-start nudge ran at `DEFAULT_NUDGE_ZOOM` (z15) until the first pan; and zoom was only
+  sampled on camera *idle*, so it lagged pinches and follow/keep-in-view moves. Now
+  `MockarrMap` has an `onCameraMove` callback (MapLibre `addOnCameraMoveListener`, every
+  frame) and `MapViewModel.cameraChanged(camera, idle)` feeds `liveCamera` (what `camera`
+  exposes, seeded from DataStore) on every frame and `cameraSaves` (debounced DataStore
+  write) only on idle. `saveCamera` / `lastKnownCamera` are gone.
+- Verified on the emulator: cold start restored a street-level camera; long-press → hold;
+  2 s full push moved the pin one street-width (screen-relative pace) with the camera
+  following mid-nudge — the old fixed z15 would have thrown it ≈1.3 km. Logcat clean.
+
 ## PLAN COMPLETE — remaining items are the user's
 
 1. **License decision** (GPL-3.0 vs Apache-2.0 vs other) — swap LICENSE, update README/CONTRIBUTING, then the repo can go public.

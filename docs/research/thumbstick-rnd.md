@@ -42,6 +42,13 @@ single tick is longer than a house frontage — "accurate" was impossible by con
 Metres per tick after (lat 37°, full push): z15 ≈ 34 m · z17 ≈ 8.6 m · z19 ≈ 2.1 m; at half
 stick: z17 ≈ 1.9 m · z19 ≈ 0.5 m.
 
+## Session 2026-08-30: the zoom the stick read was stale
+Two plumbing bugs, not physics: the persisted camera was seeded into a variable nothing
+read, so a cold-start nudge ran at a fixed z15 until the first pan; and zoom was only
+sampled on camera *idle*, so it lagged behind pinches and follow/keep-in-view moves.
+`MapViewModel.camera` is now fed from MapLibre's move listener on every frame (plus the
+persisted seed); the idle listener feeds only the debounced DataStore save.
+
 ## Not done (candidates if it still feels coarse)
 - Hold-to-lock a bearing (straight-line runs).
 - A zoom-independent absolute mode ("2 km/h walking pace").
