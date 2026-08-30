@@ -170,9 +170,9 @@ fun MapLayer(
                     viewModel.interaction.movingWaypoint.value != null -> viewModel.moveWaypoint(it)
                     viewModel.interaction.startChoiceRoute.value != null -> viewModel.interaction.clearStartChoice()
                     viewModel.interaction.selectedWaypoint.value != null -> viewModel.interaction.select(null)
-                    // Record layout is inert (Strava); only the builder places stops.
                     viewModel.builderMode.value -> viewModel.addWaypoint(it)
-                    else -> Unit
+                    // Idle: the first stop opens the builder by itself.
+                    else -> viewModel.placeFirstStop(it)
                 }
             }
         },
@@ -258,6 +258,7 @@ fun MapScreen(
     val selectedWaypoint by viewModel.interaction.selectedWaypoint.collectAsStateWithLifecycle()
     val movingWaypoint by viewModel.interaction.movingWaypoint.collectAsStateWithLifecycle()
     val markerScreen by viewModel.interaction.selectedMarkerScreen.collectAsStateWithLifecycle()
+    val popoverHidden by viewModel.interaction.popoverHidden.collectAsStateWithLifecycle()
     val startChoiceRoute by viewModel.interaction.startChoiceRoute.collectAsStateWithLifecycle()
 
     val context = LocalContext.current
@@ -611,7 +612,9 @@ fun MapScreen(
                         BuilderDetails(
                             state = state,
                             selectedWaypoint = selectedWaypoint,
-                            onSelectWaypoint = viewModel.interaction::select,
+                            stayAtDestination = options.stayAtDestination,
+                            listScrollEnabled = expanded,
+                            onSelectWaypoint = { viewModel.interaction.select(it, showPopover = false) },
                             onSetWait = { waitEditIndex = it },
                             onClearWait = { viewModel.setWaypointWait(it, 0) },
                             onRemoveStop = viewModel::removeWaypoint,
@@ -757,7 +760,8 @@ fun MapScreen(
             }
             // Strava's tap-a-point callout rides the selected marker; a pending
             // Move hides it so the strip's instruction is what the user reads.
-            val popoverIndex = selectedWaypoint
+            // A sheet pick highlights the marker only (popoverHidden), so no anchor.
+            val popoverIndex = selectedWaypoint.takeUnless { popoverHidden }
             val popoverAnchor = markerScreen
             val popoverStop = popoverIndex?.let { state.waypoints.getOrNull(it) }
             val popover = popoverIndex?.let { index ->
@@ -772,6 +776,7 @@ fun MapScreen(
                     waypoint = waypoint,
                     count = state.waypoints.size,
                     anchor = anchor,
+                    stayAtDestination = options.stayAtDestination,
                     onSetWait = {
                         waitEditIndex = index
                         viewModel.interaction.select(null)
@@ -855,11 +860,13 @@ private fun RecordPeek(
     )
 }
 
-/** Expanded builder content: the stops, then Save. */
+/** Expanded builder content: the stops (three rows tall, scrolling inside), then Save. */
 @Composable
 private fun BuilderDetails(
     state: MapViewModel.UiState,
     selectedWaypoint: Int?,
+    stayAtDestination: Boolean,
+    listScrollEnabled: Boolean,
     onSelectWaypoint: (Int?) -> Unit,
     onSetWait: (Int) -> Unit,
     onClearWait: (Int) -> Unit,
@@ -873,18 +880,41 @@ private fun BuilderDetails(
         color = MaterialTheme.colorScheme.onSurfaceVariant,
         modifier = Modifier.padding(horizontal = Tokens.inset, vertical = Tokens.space1),
     )
-    state.waypoints.forEachIndexed { index, waypoint ->
-        StopRow(
-            index = index,
-            waypoint = waypoint,
-            count = state.waypoints.size,
-            selected = index == selectedWaypoint,
-            onClick = { onSelectWaypoint(if (index == selectedWaypoint) null else index) },
-            onSetWait = { onSetWait(index) },
-            onClearWait = { onClearWait(index) },
-            onRemove = { onRemoveStop(index) },
-            onMove = { onMoveStop(index) },
-        )
+    // Long routes would bury the sheet: cap the list at three stops and scroll
+    // the rest inside it (the selected row's action strip adds its own height).
+    val listScroll = rememberScrollState()
+    val cap = STOP_ROW_HEIGHT * STOP_LIST_VISIBLE_ROWS + if (selectedWaypoint != null) STOP_ACTIONS_HEIGHT else 0.dp
+    val density = LocalDensity.current
+    LaunchedEffect(selectedWaypoint) {
+        // Bring the picked row into view (marker taps can land on stop 6) without
+        // moving a row that is already visible.
+        val index = selectedWaypoint ?: return@LaunchedEffect
+        val rowPx = with(density) { STOP_ROW_HEIGHT.roundToPx() }
+        val top = index * rowPx
+        val bottom = top + rowPx + with(density) { STOP_ACTIONS_HEIGHT.roundToPx() }
+        val capPx = with(density) { cap.roundToPx() }
+        when {
+            top < listScroll.value -> listScroll.animateScrollTo(top)
+            bottom > listScroll.value + capPx -> listScroll.animateScrollTo(bottom - capPx)
+        }
+    }
+    // Only an expanded sheet scrolls the list: during the drag up, nested
+    // scrolling would otherwise spend the gesture on the list first.
+    Column(modifier = Modifier.heightIn(max = cap).verticalScroll(listScroll, enabled = listScrollEnabled)) {
+        state.waypoints.forEachIndexed { index, waypoint ->
+            StopRow(
+                index = index,
+                waypoint = waypoint,
+                count = state.waypoints.size,
+                selected = index == selectedWaypoint,
+                stayAtDestination = stayAtDestination,
+                onClick = { onSelectWaypoint(if (index == selectedWaypoint) null else index) },
+                onSetWait = { onSetWait(index) },
+                onClearWait = { onClearWait(index) },
+                onRemove = { onRemoveStop(index) },
+                onMove = { onMoveStop(index) },
+            )
+        }
     }
 }
 
@@ -895,6 +925,7 @@ private fun StopRow(
     waypoint: Waypoint,
     count: Int,
     selected: Boolean,
+    stayAtDestination: Boolean,
     onClick: () -> Unit,
     onSetWait: () -> Unit,
     onClearWait: () -> Unit,
@@ -910,9 +941,9 @@ private fun StopRow(
             .fillMaxWidth()
             .background(background)
             .clickable(onClick = onClick)
-            .padding(horizontal = Tokens.inset, vertical = Tokens.space2),
+            .padding(horizontal = Tokens.inset),
     ) {
-        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.heightIn(min = Tokens.space8)) {
+        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.height(STOP_ROW_HEIGHT)) {
             StopDisc(number = index + 1, isStart = isStart, isEnd = isEnd)
             Spacer(Modifier.width(Tokens.space3))
             Column(modifier = Modifier.weight(1f)) {
@@ -934,8 +965,13 @@ private fun StopRow(
         }
         if (selected) {
             // On-sheet equivalent of the marker popover (TalkBack path).
-            Row(horizontalArrangement = Arrangement.spacedBy(Tokens.space2)) {
-                if (!isEnd) {
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(Tokens.space2),
+                modifier = Modifier.height(STOP_ACTIONS_HEIGHT),
+            ) {
+                if (isEnd && stayAtDestination) {
+                    TextButton(onClick = {}, enabled = false) { Text(stringResource(R.string.stop_menu_stays)) }
+                } else {
                     TextButton(onClick = onSetWait) {
                         Text(
                             stringResource(
@@ -1097,6 +1133,9 @@ private enum class PeekMode { RECORD, BUILDER, PLAYING }
 
 private const val START_FROM_HOLD_METERS = 30.0
 private const val SHEET_MAX_FRACTION = 0.6f
+private const val STOP_LIST_VISIBLE_ROWS = 3
+private val STOP_ROW_HEIGHT = 48.dp
+private val STOP_ACTIONS_HEIGHT = 40.dp
 private const val DEFAULT_NUDGE_ZOOM = 15.0
 private const val MILLIS_PER_SECOND = 1_000.0
 private val RESULTS_MAX_HEIGHT = 280.dp

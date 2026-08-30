@@ -75,6 +75,9 @@ class MockSessionService : Service() {
     private var holdJob: Job? = null
     private var wakeLock: PowerManager.WakeLock? = null
     private var routeDistanceMeters: Double = 0.0
+
+    /** Wait set on the destination stop; the engine rests there, so the service times it. */
+    private var destinationWaitSeconds: Int = 0
     private var lastNotified: Triple<Int, Int, Int>? = null
 
     /** The pin held when playback began — the fallback if "stay at destination" is off. */
@@ -181,6 +184,7 @@ class MockSessionService : Service() {
     private fun runSession(route: Route) {
         acquireWakeLock()
         routeDistanceMeters = route.distanceMeters
+        destinationWaitSeconds = route.waypointWaitsSeconds.lastOrNull() ?: 0
         val settings = settingsRepository.settings.value
         // Congestion factor is captured once at playback start, never mid-route.
         val trafficFactor = if (settings.trafficSimEnabled) {
@@ -200,6 +204,8 @@ class MockSessionService : Service() {
             ),
             clock = SimClock { SystemClock.elapsedRealtimeNanos() },
             random = Random(SystemClock.elapsedRealtimeNanos()),
+            // The speed chips outlive a drive: start the next one at the pace they show.
+            initialSpeedMultiplier = repository.speedMultiplier,
         )
         repository.playingStarted(engine)
 
@@ -218,17 +224,40 @@ class MockSessionService : Service() {
         }
     }
 
-    /** End-of-route chain: destination hold → remembered pin → real location. */
+    /** End-of-route chain: destination hold (open-ended or timed) → remembered pin → real location. */
     private fun onEngineEnded() {
         val endPosition = repository.latestFix.value?.position
         repository.engineEnded()
         lastNotified = null
-        val pin = rememberedPin
+        val wait = destinationWaitSeconds
+        destinationWaitSeconds = 0
         when {
             settingsRepository.settings.value.stayAtDestination && endPosition != null ->
                 enterHold(endPosition, HoldSource.DESTINATION)
-            pin != null -> enterHold(pin, HoldSource.PIN)
-            else -> release()
+            wait > 0 && endPosition != null -> holdAtDestinationFor(endPosition, wait)
+            else -> afterDestination()
+        }
+    }
+
+    /** Remembered pin, else the real location. */
+    private fun afterDestination() {
+        val pin = rememberedPin
+        if (pin != null) enterHold(pin, HoldSource.PIN) else release()
+    }
+
+    /**
+     * A timed destination wait: hold there for [seconds] (fast-forwarded by the
+     * playback multiplier, like mid-route dwells), then continue the chain. The
+     * timer runs beside the hold's keepalive; a manual Stop cancels both.
+     */
+    private fun holdAtDestinationFor(position: LatLng, seconds: Int) {
+        enterHold(position, HoldSource.DESTINATION)
+        val timed = holdJob
+        val multiplier = repository.speedMultiplier.coerceAtLeast(MIN_WAIT_MULTIPLIER)
+        scope.launch {
+            delay((seconds * MILLIS_PER_SECOND / multiplier).toLong())
+            // Only move on if this hold is still the live one (a manual hold or Stop replaces it).
+            if (holdJob === timed && timed?.isActive == true) afterDestination()
         }
     }
 
@@ -433,6 +462,8 @@ class MockSessionService : Service() {
         const val EXTRA_LAT = "lat"
         const val EXTRA_LNG = "lng"
         private const val CHANNEL_ID = "playback"
+        private const val MILLIS_PER_SECOND = 1000.0
+        private const val MIN_WAIT_MULTIPLIER = 0.1
         private const val NOTIFICATION_ID = 42
         private const val NOTIFICATION_UPDATE_TICKS = 5
         private const val PROGRESS_MAX = 100

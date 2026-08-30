@@ -30,9 +30,17 @@ class MapInteraction(private val isStop: (Int) -> Boolean) {
     private val _startChoiceRoute = MutableStateFlow<Route?>(null)
     val startChoiceRoute: StateFlow<Route?> = _startChoiceRoute.asStateFlow()
 
-    /** Marker tapped on the map (or null to dismiss the popover). */
-    fun select(index: Int?) {
+    /** True while the selection came from the sheet: highlight the marker, keep the popover shut. */
+    private val _popoverHidden = MutableStateFlow(false)
+    val popoverHidden: StateFlow<Boolean> = _popoverHidden.asStateFlow()
+
+    /**
+     * Select a stop (or null to dismiss). A marker tap shows the popover; a
+     * sheet row pick passes [showPopover] = false and only highlights the marker.
+     */
+    fun select(index: Int?, showPopover: Boolean = true) {
         _selectedWaypoint.value = index
+        _popoverHidden.value = index != null && !showPopover
         if (index == null) _selectedMarkerScreen.value = null
     }
 

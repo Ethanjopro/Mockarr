@@ -91,7 +91,12 @@ class MockSessionRepository @Inject constructor() {
         engine?.stop()
     }
 
+    /** Last multiplier set; the service scales a destination wait by it after the engine ends. */
+    var speedMultiplier: Double = 1.0
+        private set
+
     fun setSpeedMultiplier(multiplier: Double) {
+        speedMultiplier = multiplier
         engine?.setSpeedMultiplier(multiplier)
     }
 

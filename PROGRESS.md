@@ -683,3 +683,41 @@ Verified end-to-end like a human: app-drawer swipe → tapped the Mockarr icon �
   touches) — hold by long-pressing the map beside it. The popover follows its marker, so a
   tap queued before a camera refit lands on the map and clears the selection. `waitfor`
   returned 1 immediately for a strip that appears later in playback — poll `ui` in a loop.
+
+### 2026-08-29 — Session 20 (route maker, fifth round — Ethan's session-19 review)
+
+- **Stop list capped at 3 rows** (`BuilderDetails`): `StopRow` is a fixed 48 dp (+ 40 dp
+  action strip when selected); the list sits in its own `verticalScroll` column capped at
+  `3 × 48 (+ 40)` dp nested inside the sheet's detail scroll, and auto-scrolls to the
+  selected stop. Constants `STOP_LIST_VISIBLE_ROWS / STOP_ROW_HEIGHT / STOP_ACTIONS_HEIGHT`.
+- **Sheet pick = highlight only**: `MapInteraction.select(index, showPopover)` + `popoverHidden`
+  flow; the sheet passes `showPopover = false`, a marker tap keeps the default. The popover
+  gate in `MapScreen` adds `!popoverHidden`. `MapInteractionTest` covers it.
+- **Destination + Stay at destination**: `StopPopover`/`StopRow` take `stayAtDestination`
+  (`options.stayAtDestination`). Last stop + Stay on → greyed "Stays at destination" row;
+  otherwise the normal Wait row (the destination used to hide it). Because the engine rests
+  at the destination (`RouteGeometry.dwellVertices` skips it), `MockSessionService` now times
+  a destination wait itself: `onEngineEnded` → `holdAtDestinationFor()` holds as DESTINATION
+  for `wait / speedMultiplier` (repository remembers the last multiplier) and then continues
+  the pin → release chain — only if that hold is still the live one (`holdJob === timed`).
+- **Idle tap places the first stop**: `MapViewModel.placeFirstStop` = builder on + add;
+  `onMapTap`'s idle branch calls it. `sheet_idle_body` copy updated.
+- **Amber "Held spot" pill** in the start-choice row (`holdContainer` / `onHoldContainer`);
+  DESIGN.md's Amber Hold bullet lists it as the one button wearing the colour.
+- **Speed chips vs a new drive (pre-existing, fixed on the way)**: `MockSessionViewModel`'s
+  multiplier outlived a drive while every new `SimulationEngine` started at 1×, so the chip
+  read "4×" over a 1× drive. The service now seeds `initialSpeedMultiplier` from
+  `repository.speedMultiplier` (the same value the destination wait is scaled by).
+- Stop list follow-ups from the first emulator pass: the auto-scroll only moves when the
+  picked row is out of view (it used to push Start off for a visible Stop 2), and the inner
+  list scrolls only while the sheet is Expanded — a drag-expand used to spend the gesture on
+  the nested list and open it scrolled to the last stop.
+- Verified on the emulator (light + dark for the pill; fresh install): idle tap → builder
+  with Start placed; 7-stop route → 3-row list scrolling inside the sheet; sheet row pick →
+  marker grows, no popover, row actions in the sheet; Destination popover → greyed "Stays at
+  destination" with Stay on, "Wait here…" with Stay off; 1-min destination wait at 4× →
+  "Holding at destination" → named → released after ≈15 s (provider override removed only
+  at release); Held-spot pill amber over the amber Holding strip.
+- Gotchas: the stat card hides behind an *expanded* sheet — collapse it before polling strip
+  text, or the poll is blind. `for p in "x y"; set -- $p` does not split in zsh either.
+  A tap at y≈300 to "dismiss a popover" lands in the search field.

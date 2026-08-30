@@ -27,7 +27,8 @@ import dev.mockarr.core.model.Waypoint
 
 /**
  * Strava's tap-a-point callout, over the marker: the stop's name and wait,
- * then Wait · Move · Delete. [anchor] is the marker's window position, fed by
+ * then Wait (or a greyed "Stays at destination" on the last stop while that option is on)
+ * · Move · Delete. [anchor] is the marker's window position, fed by
  * the map every camera frame so the card rides along.
  */
 @Composable
@@ -36,6 +37,7 @@ internal fun StopPopover(
     waypoint: Waypoint,
     count: Int,
     anchor: Offset,
+    stayAtDestination: Boolean,
     onSetWait: () -> Unit,
     onMove: () -> Unit,
     onDelete: () -> Unit,
@@ -65,7 +67,15 @@ internal fun StopPopover(
                 }
             }
         }
-        if (!isEnd) {
+        if (isEnd && stayAtDestination) {
+            // The Stay option (Options sheet) already parks the drive here: say so, greyed.
+            PopoverRow(
+                label = stringResource(R.string.stop_menu_stays),
+                icon = painterResource(R.drawable.ic_schedule),
+                enabled = false,
+                onClick = {},
+            )
+        } else {
             PopoverRow(
                 label = if (hasWait) {
                     stringResource(R.string.stop_menu_wait_set, waitLabel)

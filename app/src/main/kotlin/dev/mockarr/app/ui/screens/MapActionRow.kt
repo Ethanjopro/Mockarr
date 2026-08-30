@@ -40,6 +40,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import dev.mockarr.app.R
 import dev.mockarr.app.ui.Motion.fadeThrough
+import dev.mockarr.app.ui.theme.MockarrTheme
 import dev.mockarr.app.ui.theme.Tokens
 import dev.mockarr.core.model.RoutingProfile
 
@@ -129,6 +130,11 @@ private fun RowScope.StartChoicePills(choice: StartChoice) {
         enabled = true,
         onClick = choice.onFromHold,
         contentDescription = stringResource(R.string.row_start_from_hold_cd),
+        // Amber Hold: the pill wears the held spot's colour, like the pin and the strip.
+        colors = ButtonDefaults.buttonColors(
+            containerColor = MockarrTheme.colors.holdContainer,
+            contentColor = MockarrTheme.colors.onHoldContainer,
+        ),
     )
     ActionPill(
         label = stringResource(R.string.row_start_from_route),

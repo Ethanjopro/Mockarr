@@ -278,7 +278,8 @@ borrow the accent.
 
 ### Tertiary
 - **Amber Hold** (`{colors.amber-hold}` / `{colors.amber-hold-dark}`): "you are parked
-  somewhere" — Holding and Waiting strips, the hold pin, wait badges and live wait chips.
+  somewhere" — Holding and Waiting strips, the hold pin, live wait chips and the
+  *Held spot* start pill (the one button that wears it: it names the held place).
 - **Error** (`{colors.error}` / `{colors.error-dark}`): not-set-up strip, routing failures.
 
 ### Neutral
