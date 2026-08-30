@@ -12,10 +12,8 @@ import dev.mockarr.app.playback.MockSessionService
 import dev.mockarr.core.model.LatLng
 import dev.mockarr.core.model.PlaybackState
 import dev.mockarr.core.model.Route
-import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
@@ -46,8 +44,7 @@ class MockSessionViewModel @Inject constructor(
         .distinctUntilChanged()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(), null)
 
-    private val _speedMultiplier = MutableStateFlow(1.0)
-    val speedMultiplier: StateFlow<Double> = _speedMultiplier.asStateFlow()
+    val speedMultiplier: StateFlow<Double> = repository.speedMultiplier
 
     fun play(route: Route) {
         repository.requestStart(route)
@@ -82,10 +79,7 @@ class MockSessionViewModel @Inject constructor(
 
     fun stopPlayback() = repository.stop()
 
-    fun setSpeedMultiplier(multiplier: Double) {
-        _speedMultiplier.value = multiplier
-        repository.setSpeedMultiplier(multiplier)
-    }
+    fun setSpeedMultiplier(multiplier: Double) = repository.setSpeedMultiplier(multiplier)
 
     fun consumeError() = repository.consumeError()
 

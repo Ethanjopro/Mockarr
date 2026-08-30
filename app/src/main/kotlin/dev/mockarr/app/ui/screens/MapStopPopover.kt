@@ -67,25 +67,17 @@ internal fun StopPopover(
                 }
             }
         }
-        if (isEnd && stayAtDestination) {
-            // The Stay option (Options sheet) already parks the drive here: say so, greyed.
-            PopoverRow(
-                label = stringResource(R.string.stop_menu_stays),
-                icon = painterResource(R.drawable.ic_schedule),
-                enabled = false,
-                onClick = {},
-            )
-        } else {
-            PopoverRow(
-                label = if (hasWait) {
-                    stringResource(R.string.stop_menu_wait_set, waitLabel)
-                } else {
-                    stringResource(R.string.stop_menu_wait)
-                },
-                icon = painterResource(R.drawable.ic_schedule),
-                onClick = onSetWait,
-            )
-        }
+        val stays = stopStays(index, count, stayAtDestination)
+        PopoverRow(
+            label = when {
+                stays -> stringResource(R.string.stop_menu_stays)
+                hasWait -> stringResource(R.string.stop_menu_wait_set, waitLabel)
+                else -> stringResource(R.string.stop_menu_wait)
+            },
+            icon = painterResource(R.drawable.ic_schedule),
+            enabled = !stays,
+            onClick = onSetWait,
+        )
         PopoverRow(
             label = stringResource(R.string.stop_menu_move),
             icon = painterResource(R.drawable.ic_target),
@@ -99,6 +91,10 @@ internal fun StopPopover(
         )
     }
 }
+
+/** The last stop's wait is moot while "Stay at destination" parks the drive there (greyed row). */
+internal fun stopStays(index: Int, count: Int, stayAtDestination: Boolean): Boolean =
+    stayAtDestination && index == count - 1 && count >= 2
 
 /** "Start" / "Stop 2" / "Destination" — the same words the sheet's stop list uses. */
 @Composable

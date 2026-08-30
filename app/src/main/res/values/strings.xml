@@ -22,7 +22,7 @@
 
     <!-- Map: sheet content -->
     <string name="sheet_idle_title">Tap the map to add stops</string>
-    <string name="sheet_idle_body">Tap the map to drop your first stop; two or more make a route. Long-press anywhere to hold your location there instead.</string>
+    <string name="sheet_idle_body">Two or more stops make a route. Long-press anywhere to hold your location there instead.</string>
     <string name="sheet_pause">Pause</string>
     <string name="sheet_resume">Resume</string>
     <string name="sheet_finish">Finish</string>

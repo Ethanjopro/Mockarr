@@ -101,6 +101,22 @@ class SimulationEngineDwellTest {
     }
 
     @Test
+    fun `dwells at the destination before finishing`() = runTest {
+        val route = twoLegRoute(waits = listOf(0, 0, 60))
+        val engine = SimulationEngine(route, noJitter, testClock())
+        val job = launch { engine.fixes.collect {} }
+
+        // 1 000 m at ≤10 m/s ⇒ at the destination within 160 s.
+        advanceTimeBy(160_000)
+        val dwelling = assertIs<PlaybackState.Dwelling>(engine.state.value)
+        assertEquals(2, dwelling.waypointIndex)
+
+        advanceTimeBy(70_000)
+        assertIs<PlaybackState.Finished>(engine.state.value)
+        job.join()
+    }
+
+    @Test
     fun `initial eta includes the dwell time`() = runTest {
         val plain = SimulationEngine(twoLegRoute(), noJitter, testClock())
         val withWait = SimulationEngine(twoLegRoute(waits = listOf(0, 60, 0)), noJitter, testClock())

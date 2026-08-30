@@ -26,6 +26,8 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
@@ -258,7 +260,7 @@ fun MapScreen(
     val selectedWaypoint by viewModel.interaction.selectedWaypoint.collectAsStateWithLifecycle()
     val movingWaypoint by viewModel.interaction.movingWaypoint.collectAsStateWithLifecycle()
     val markerScreen by viewModel.interaction.selectedMarkerScreen.collectAsStateWithLifecycle()
-    val popoverHidden by viewModel.interaction.popoverHidden.collectAsStateWithLifecycle()
+    val popoverWaypoint by viewModel.interaction.popoverWaypoint.collectAsStateWithLifecycle()
     val startChoiceRoute by viewModel.interaction.startChoiceRoute.collectAsStateWithLifecycle()
 
     val context = LocalContext.current
@@ -760,8 +762,7 @@ fun MapScreen(
             }
             // Strava's tap-a-point callout rides the selected marker; a pending
             // Move hides it so the strip's instruction is what the user reads.
-            // A sheet pick highlights the marker only (popoverHidden), so no anchor.
-            val popoverIndex = selectedWaypoint.takeUnless { popoverHidden }
+            val popoverIndex = popoverWaypoint
             val popoverAnchor = markerScreen
             val popoverStop = popoverIndex?.let { state.waypoints.getOrNull(it) }
             val popover = popoverIndex?.let { index ->
@@ -880,28 +881,25 @@ private fun BuilderDetails(
         color = MaterialTheme.colorScheme.onSurfaceVariant,
         modifier = Modifier.padding(horizontal = Tokens.inset, vertical = Tokens.space1),
     )
-    // Long routes would bury the sheet: cap the list at three stops and scroll
-    // the rest inside it (the selected row's action strip adds its own height).
-    val listScroll = rememberScrollState()
-    val cap = STOP_ROW_HEIGHT * STOP_LIST_VISIBLE_ROWS + if (selectedWaypoint != null) STOP_ACTIONS_HEIGHT else 0.dp
-    val density = LocalDensity.current
-    LaunchedEffect(selectedWaypoint) {
-        // Bring the picked row into view (marker taps can land on stop 6) without
-        // moving a row that is already visible.
-        val index = selectedWaypoint ?: return@LaunchedEffect
-        val rowPx = with(density) { STOP_ROW_HEIGHT.roundToPx() }
-        val top = index * rowPx
-        val bottom = top + rowPx + with(density) { STOP_ACTIONS_HEIGHT.roundToPx() }
-        val capPx = with(density) { cap.roundToPx() }
-        when {
-            top < listScroll.value -> listScroll.animateScrollTo(top)
-            bottom > listScroll.value + capPx -> listScroll.animateScrollTo(bottom - capPx)
+    // Long routes would bury the sheet: about three rows show and the rest scroll
+    // inside — only once the sheet is expanded, so a drag up isn't spent on the list.
+    val listState = rememberLazyListState()
+    if (selectedWaypoint != null) {
+        LaunchedEffect(selectedWaypoint) {
+            // Marker taps can pick stop 6: bring its row in, but leave a visible row alone.
+            val info = listState.layoutInfo
+            val row = info.visibleItemsInfo.firstOrNull { it.index == selectedWaypoint }
+            val visible = row != null && row.offset >= 0 && row.offset + row.size <= info.viewportEndOffset
+            if (!visible) listState.animateScrollToItem(selectedWaypoint)
         }
     }
-    // Only an expanded sheet scrolls the list: during the drag up, nested
-    // scrolling would otherwise spend the gesture on the list first.
-    Column(modifier = Modifier.heightIn(max = cap).verticalScroll(listScroll, enabled = listScrollEnabled)) {
-        state.waypoints.forEachIndexed { index, waypoint ->
+    val cap = Tokens.touchTarget * STOP_LIST_VISIBLE_ROWS + if (selectedWaypoint != null) STOP_ACTIONS_HEIGHT else 0.dp
+    LazyColumn(
+        state = listState,
+        userScrollEnabled = listScrollEnabled,
+        modifier = Modifier.heightIn(max = cap),
+    ) {
+        itemsIndexed(state.waypoints) { index, waypoint ->
             StopRow(
                 index = index,
                 waypoint = waypoint,
@@ -943,7 +941,8 @@ private fun StopRow(
             .clickable(onClick = onClick)
             .padding(horizontal = Tokens.inset),
     ) {
-        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.height(STOP_ROW_HEIGHT)) {
+        // Fixed row heights keep "three rows" true for the list cap.
+        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.height(Tokens.touchTarget)) {
             StopDisc(number = index + 1, isStart = isStart, isEnd = isEnd)
             Spacer(Modifier.width(Tokens.space3))
             Column(modifier = Modifier.weight(1f)) {
@@ -969,16 +968,17 @@ private fun StopRow(
                 horizontalArrangement = Arrangement.spacedBy(Tokens.space2),
                 modifier = Modifier.height(STOP_ACTIONS_HEIGHT),
             ) {
-                if (isEnd && stayAtDestination) {
-                    TextButton(onClick = {}, enabled = false) { Text(stringResource(R.string.stop_menu_stays)) }
-                } else {
-                    TextButton(onClick = onSetWait) {
-                        Text(
-                            stringResource(
-                                if (waypoint.waitSeconds > 0) R.string.sheet_edit_wait else R.string.sheet_set_wait,
-                            ),
-                        )
-                    }
+                val stays = stopStays(index, count, stayAtDestination)
+                TextButton(onClick = onSetWait, enabled = !stays) {
+                    Text(
+                        stringResource(
+                            when {
+                                stays -> R.string.stop_menu_stays
+                                waypoint.waitSeconds > 0 -> R.string.sheet_edit_wait
+                                else -> R.string.sheet_set_wait
+                            },
+                        ),
+                    )
                 }
                 if (waypoint.waitSeconds > 0) {
                     TextButton(onClick = onClearWait) { Text(stringResource(R.string.sheet_remove_wait)) }
@@ -1134,7 +1134,6 @@ private enum class PeekMode { RECORD, BUILDER, PLAYING }
 private const val START_FROM_HOLD_METERS = 30.0
 private const val SHEET_MAX_FRACTION = 0.6f
 private const val STOP_LIST_VISIBLE_ROWS = 3
-private val STOP_ROW_HEIGHT = 48.dp
 private val STOP_ACTIONS_HEIGHT = 40.dp
 private const val DEFAULT_NUDGE_ZOOM = 15.0
 private const val MILLIS_PER_SECOND = 1_000.0

@@ -60,9 +60,11 @@ class RouteGeometryDwellTest {
     }
 
     @Test
-    fun `destination wait produces no dwell stop`() {
+    fun `destination wait becomes a dwell stop at the last vertex`() {
         val geometry = RouteGeometry(twoLegRoute(waits = listOf(0, 0, 45)), decel)
-        assertTrue(geometry.dwellStops.isEmpty())
+        val stop = geometry.dwellStops.single()
+        assertEquals(2, stop.waypointIndex)
+        assertEquals(geometry.totalDistanceMeters, stop.distanceMeters, 1e-6)
     }
 
     @Test

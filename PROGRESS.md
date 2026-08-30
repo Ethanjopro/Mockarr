@@ -721,3 +721,15 @@ Verified end-to-end like a human: app-drawer swipe → tapped the Mockarr icon �
 - Gotchas: the stat card hides behind an *expanded* sheet — collapse it before polling strip
   text, or the poll is blind. `for p in "x y"; set -- $p` does not split in zsh either.
   A tap at y≈300 to "dismiss a popover" lands in the search field.
+- `/simplify` pass (same session): the destination wait moved **into the engine** —
+  `RouteGeometry.dwellVertices` now includes the last waypoint and `SimulationEngine.tick`
+  finishes only once no dwell is running, so the last stop gets the real `Dwelling` state
+  (countdown in the card, Pause/Resume, live multiplier, ETA consistent with the sheet); the
+  service-side timer, its two constants and `destinationWaitSeconds` are gone. The playback
+  multiplier has one owner (`MockSessionRepository.speedMultiplier` StateFlow, clamped to the
+  engine's range; the ViewModel delegates). `MapInteraction.popoverWaypoint` replaces the
+  `popoverHidden` flag. The stop list is a `LazyColumn` (intrinsic row heights, ≈3 rows via
+  `Tokens.touchTarget`, `animateScrollToItem` only for off-screen rows). `stopStays()` next to
+  `stopName()` is the one home for the "Stays at destination" rule; both surfaces render one
+  wait control with `enabled = !stays`. Idle-sheet body copy reverted (the title already says
+  "Tap the map to add stops").

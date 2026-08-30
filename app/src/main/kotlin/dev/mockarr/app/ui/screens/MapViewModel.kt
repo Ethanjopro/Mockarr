@@ -178,8 +178,8 @@ class MapViewModel @Inject constructor(
 
     /** Idle map tap: the first stop opens the builder by itself — no "Add route" press needed. */
     fun placeFirstStop(point: LatLng) {
-        setBuilderMode(true)
-        addWaypoint(point)
+        _builderMode.value = true
+        addWaypoint(point) // resets the interaction itself
     }
 
     fun addWaypoint(point: LatLng) {

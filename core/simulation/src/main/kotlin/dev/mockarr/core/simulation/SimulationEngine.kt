@@ -84,7 +84,9 @@ class SimulationEngine(
         is PlaybackState.Playing -> {
             step(dt)
             val fix = currentFix()
-            if (distance >= geometry.totalDistanceMeters - END_EPSILON_METERS) {
+            // A destination wait dwells first; the finish comes once it has run out.
+            val reachedEnd = distance >= geometry.totalDistanceMeters - END_EPSILON_METERS
+            if (_state.value is PlaybackState.Playing && reachedEnd) {
                 finish()
             }
             fix

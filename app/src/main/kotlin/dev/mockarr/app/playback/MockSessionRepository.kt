@@ -91,13 +91,14 @@ class MockSessionRepository @Inject constructor() {
         engine?.stop()
     }
 
-    /** Last multiplier set; the service scales a destination wait by it after the engine ends. */
-    var speedMultiplier: Double = 1.0
-        private set
+    /** Playback pace, owned here so the chips, the running engine and the next drive agree. */
+    private val _speedMultiplier = MutableStateFlow(1.0)
+    val speedMultiplier: StateFlow<Double> = _speedMultiplier.asStateFlow()
 
     fun setSpeedMultiplier(multiplier: Double) {
-        speedMultiplier = multiplier
-        engine?.setSpeedMultiplier(multiplier)
+        val clamped = multiplier.coerceIn(SimulationEngine.MIN_MULTIPLIER, SimulationEngine.MAX_MULTIPLIER)
+        _speedMultiplier.value = clamped
+        engine?.setSpeedMultiplier(clamped)
     }
 
     fun consumeError() {

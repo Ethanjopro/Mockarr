@@ -105,10 +105,10 @@ class RouteGeometry(
     private data class DwellVertex(val vertex: Int, val waitSeconds: Int, val waypointIndex: Int)
 
     /**
-     * Geometry vertex + wait for every waited waypoint except the destination
-     * (the engine already comes to rest there). Legs map 1:1 to waypoint
-     * pairs, so waypoint k's vertex is the boundary after leg k-1. Empty when
-     * waits or leg segments don't align with the geometry.
+     * Geometry vertex + wait for every waited waypoint, the destination
+     * included (the engine rests there for the wait, then finishes). Legs map
+     * 1:1 to waypoint pairs, so waypoint k's vertex is the boundary after leg
+     * k-1. Empty when waits or leg segments don't align with the geometry.
      */
     private fun dwellVertices(route: Route, n: Int): List<DwellVertex> {
         val waits = route.waypointWaitsSeconds
@@ -117,9 +117,9 @@ class RouteGeometry(
         if (!aligned) return emptyList()
         var vertex = 0
         val result = mutableListOf<DwellVertex>()
-        for (k in 0 until waits.lastIndex) {
+        for (k in waits.indices) {
             if (waits[k] > 0) result += DwellVertex(vertex, waits[k], k)
-            vertex += route.legs[k].segmentDistancesMeters.size
+            if (k < route.legs.size) vertex += route.legs[k].segmentDistancesMeters.size
         }
         return result
     }
