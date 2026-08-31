@@ -23,7 +23,9 @@ import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.CustomAccessibilityAction
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.customActions
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
@@ -47,10 +49,25 @@ private const val BASE_ALPHA = 0.92f
 private const val SCREEN_SPEED_PX_PER_SECOND = 180.0
 private const val WEB_MERCATOR_MPP_EQUATOR_Z0 = 156_543.03
 private const val MIN_NUDGE_MPS = 0.1
-private const val MAX_NUDGE_MPS = 300.0
+
+// Generous: binds only below ~z11 (continental views), so at every outdoor
+// zoom the stick keeps its constant apparent screen speed as zoom changes.
+private const val MAX_NUDGE_MPS = 10_000.0
 private const val FULL_CIRCLE_DEGREES = 360.0
 private const val DEAD_ZONE = 0.08f
 private const val RESPONSE_EXPONENT = 2.0
+
+/** One accessibility step: a second of full push in a compass direction. */
+private const val STEP_TICKS = 20
+private const val BEARING_EAST = 90.0
+private const val BEARING_SOUTH = 180.0
+private const val BEARING_WEST = 270.0
+private val NUDGE_ACTIONS = listOf(
+    R.string.thumbstick_nudge_north to 0.0,
+    R.string.thumbstick_nudge_east to BEARING_EAST,
+    R.string.thumbstick_nudge_south to BEARING_SOUTH,
+    R.string.thumbstick_nudge_west to BEARING_WEST,
+)
 
 /**
  * Corner joystick that nudges the held mocked location. [onNudge] fires at
@@ -73,6 +90,7 @@ fun ThumbstickOverlay(
     val knobColor = lerp(MaterialTheme.colorScheme.primary, MockarrTheme.colors.hold, push)
 
     val description = stringResource(R.string.thumbstick_cd)
+    val nudgeLabels = NUDGE_ACTIONS.associate { (labelRes, _) -> labelRes to stringResource(labelRes) }
     LaunchedEffect(enabled) {
         if (!enabled) {
             drag = Offset.Zero
@@ -98,7 +116,16 @@ fun ThumbstickOverlay(
             .shadow(Tokens.floatingElevation, CircleShape)
             .clip(CircleShape)
             .background(MaterialTheme.colorScheme.surfaceContainerLowest.copy(alpha = BASE_ALPHA))
-            .semantics { contentDescription = description }
+            .semantics {
+                contentDescription = description
+                // TalkBack's path: a step in each compass direction (one second of full push).
+                customActions = NUDGE_ACTIONS.map { (labelRes, bearing) ->
+                    CustomAccessibilityAction(nudgeLabels.getValue(labelRes)) {
+                        repeat(STEP_TICKS) { onNudge(bearing, 1f) }
+                        true
+                    }
+                }
+            }
             .pointerInput(enabled) {
                 if (enabled) {
                     detectDragGestures(

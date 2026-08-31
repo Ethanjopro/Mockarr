@@ -25,6 +25,7 @@ import dev.mockarr.core.routing.PhotonGeocoder
 import dev.mockarr.core.routing.RouteProvider
 import dev.mockarr.core.routing.RoutingException
 import dev.mockarr.core.routing.StraightLineRouteProvider
+import dev.mockarr.core.routing.stitchOffRoad
 import dev.mockarr.core.simulation.TrafficModel
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -34,6 +35,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
@@ -62,9 +64,17 @@ class MapViewModel @Inject constructor(
         val profile: RoutingProfile = RoutingProfile.DRIVING,
         val route: Route? = null,
         val routeIsFallback: Boolean = false,
+        /**
+         * The stop positions [route] was fetched for — the proof a snapped
+         * position belongs to a stop. Undo/redo swap [waypoints] while the old
+         * route waits out the refetch debounce; without this, markers rendered
+         * at the stale route's snapped spots (the "random jump", session 25).
+         */
+        val routedFor: List<LatLng>? = null,
         val isRouting: Boolean = false,
-        val errorMessage: String? = null,
-        val savedConfirmation: String? = null,
+        val routingError: RoutingError? = null,
+        /** The name just saved under, for the confirmation; consumed by the screen. */
+        val savedName: String? = null,
         /** The loaded route exists in Saved routes as-is; any edit clears it. */
         val routeSaved: Boolean = false,
         /** Congestion preview multiplier for the "about N min" summary. */
@@ -175,6 +185,15 @@ class MapViewModel @Inject constructor(
             val saved = settingsRepository.awaitLoaded().lastCamera
             if (liveCamera.value == null) liveCamera.value = saved
         }
+        // Flipping either off-road toggle reroutes the loaded stops so the line
+        // (its dotted connectors and their pacing) match the setting straight away.
+        viewModelScope.launch {
+            settingsRepository.settings
+                .map { it.offRoadEnabled to it.offRoadWalkEnabled }
+                .distinctUntilChanged()
+                .drop(1)
+                .collect { if (_uiState.value.waypoints.size >= 2) scheduleRouteFetch() }
+        }
         // Keep the summary's traffic preview in sync with the setting toggle.
         viewModelScope.launch {
             settingsRepository.settings
@@ -227,8 +246,9 @@ class MapViewModel @Inject constructor(
 
     /**
      * A marker drag: every frame relocates the stop without a fetch (the line
-     * would flicker); the drop ([settled]) refetches. Either way the popover
-     * and any pending Move are gone — the finger is the move now.
+     * would flicker); the drop ([settled]) refetches and ends Move mode. Drag
+     * frames must NOT reset interaction — Move mode is what allows the drag,
+     * so resetting mid-stroke would cancel it on the first frame.
      */
     fun moveStop(index: Int, point: LatLng, settled: Boolean) {
         val before = _uiState.value.waypoints
@@ -239,7 +259,7 @@ class MapViewModel @Inject constructor(
         } else {
             history.beginDrag(before)
         }
-        interaction.reset()
+        if (settled) interaction.reset()
         _uiState.update { it.copy(waypoints = it.waypoints.movedTo(index, point)) }
         if (settled) scheduleRouteFetch()
     }
@@ -281,17 +301,17 @@ class MapViewModel @Inject constructor(
         val route = state.route ?: return
         viewModelScope.launch {
             savedRoutesRepository.save(
-                name = name.ifBlank { "Unnamed route" },
+                name = name,
                 route = route,
                 profile = state.profile,
                 nowEpochMillis = System.currentTimeMillis(),
             )
-            _uiState.update { it.copy(savedConfirmation = "Saved \"$name\"", routeSaved = true) }
+            _uiState.update { it.copy(savedName = name, routeSaved = true) }
         }
     }
 
-    fun consumeSavedConfirmation() {
-        _uiState.update { it.copy(savedConfirmation = null) }
+    fun consumeSavedName() {
+        _uiState.update { it.copy(savedName = null) }
     }
 
     /**
@@ -304,8 +324,8 @@ class MapViewModel @Inject constructor(
         return withTimeoutOrNull(NAME_TIMEOUT_MILLIS) {
             val start = geocoder.reverse(route.points.first()).getOrNull()
             val end = geocoder.reverse(route.points.last()).getOrNull()
-            val startName = start?.name ?: return@withTimeoutOrNull null
-            val endName = end?.name ?: return@withTimeoutOrNull null
+            val startName = start?.routeEndpointName() ?: return@withTimeoutOrNull null
+            val endName = end?.routeEndpointName() ?: return@withTimeoutOrNull null
             val citySuffix = end.city?.let { ", $it" }.orEmpty()
             "$startName to $endName$citySuffix"
         }
@@ -331,6 +351,10 @@ class MapViewModel @Inject constructor(
             }
         }
     }
+
+    /** The device's REAL position, or null; permission is the caller's job (~5 s worst case). */
+    suspend fun realLocation(): LatLng? =
+        locationManager.currentReal()?.let { LatLng(it.latitude, it.longitude) }
 
     /** One-shot cold-start camera restore, read straight from disk (no default-value race). */
     suspend fun initialCamera(): MapCamera? = settingsRepository.awaitLoaded().lastCamera
@@ -384,8 +408,9 @@ class MapViewModel @Inject constructor(
                 profile = profile,
                 route = route,
                 routeIsFallback = false,
+                routedFor = anchors,
                 isRouting = false,
-                errorMessage = null,
+                routingError = null,
                 routeSaved = true,
                 trafficFactor = settingsRepository.currentTrafficFactor(),
             )
@@ -420,23 +445,32 @@ class MapViewModel @Inject constructor(
         _uiState.update { if (it.routeSaved) it.copy(routeSaved = false) else it }
         val state = _uiState.value
         if (state.waypoints.size < 2) {
-            _uiState.update { it.copy(route = null, routeIsFallback = false, errorMessage = null) }
+            _uiState.update {
+                it.copy(route = null, routeIsFallback = false, routedFor = null, routingError = null)
+            }
             return
         }
         routeJob = viewModelScope.launch {
             delay(DEBOUNCE_MILLIS)
-            _uiState.update { it.copy(isRouting = true, errorMessage = null) }
+            _uiState.update { it.copy(isRouting = true, routingError = null) }
             val current = _uiState.value
             val positions = current.waypoints.map { it.position }
             routeProvider.route(positions, current.profile).fold(
                 onSuccess = { fetched ->
+                    val liveSettings = settingsRepository.settings.value
+                    val stitched = if (liveSettings.offRoadEnabled) {
+                        stitchOffRoad(fetched, positions, current.profile, liveSettings.offRoadWalkEnabled)
+                    } else {
+                        fetched
+                    }
                     // Waits come from the state at completion, not the request
                     // snapshot: a wait set while the fetch was in flight (the
                     // usual case right after dropping a stop) must survive.
                     val route = _uiState.updateAndGet {
                         it.copy(
-                            route = fetched.withWaits(it.waypoints),
+                            route = stitched.withWaits(it.waypoints),
                             routeIsFallback = false,
+                            routedFor = positions,
                             isRouting = false,
                             trafficFactor = settingsRepository.currentTrafficFactor(),
                         )
@@ -450,8 +484,9 @@ class MapViewModel @Inject constructor(
                         it.copy(
                             route = straight?.withWaits(it.waypoints),
                             routeIsFallback = true,
+                            routedFor = positions,
                             isRouting = false,
-                            errorMessage = friendlyMessage(error),
+                            routingError = routingErrorOf(error),
                         )
                     }.route
                     fallback?.let {
@@ -513,29 +548,37 @@ private fun SettingsRepository.currentTrafficFactor(): Double =
         1.0
     }
 
-private fun friendlyMessage(error: Throwable): String {
-    val base = when (error) {
-        is RoutingException -> error.message ?: "Routing failed"
-        else -> "Routing failed: ${error.message ?: "unknown error"}"
-    }
-    return "$base — showing straight line instead"
+/** Why the road route is missing; the strip words it (never the exception text). */
+enum class RoutingError { NO_ROUTE, BUSY, OFFLINE, OTHER }
+
+internal fun routingErrorOf(error: Throwable): RoutingError = when (error) {
+    is RoutingException.NoRoute -> RoutingError.NO_ROUTE
+    is RoutingException.RateLimited -> RoutingError.BUSY
+    is RoutingException.Network -> RoutingError.OFFLINE
+    else -> RoutingError.OTHER
 }
 
 /**
- * Waypoints to draw on the map: the router's road-snapped locations when they
- * match the current request (so markers meet the route line), raw taps
- * otherwise. The size guard covers fetches still in flight after a new tap.
+ * Waypoints to draw on the map: the router's road-snapped location for each
+ * stop the route was actually fetched for (so markers meet the route line),
+ * the raw tap otherwise. Matching is per stop by tap identity, never by list
+ * size — a size gate flashed every already-snapped marker back to its raw tap
+ * for the whole refetch window each time a stop was added or removed.
  */
 internal fun displayWaypoints(
     waypoints: List<Waypoint>,
     route: Route?,
     routeIsFallback: Boolean,
-): List<Waypoint> =
-    if (route != null && !routeIsFallback && route.snappedWaypoints.size == waypoints.size) {
-        waypoints.zip(route.snappedWaypoints) { waypoint, snapped -> waypoint.copy(position = snapped) }
-    } else {
-        waypoints
+    routedFor: List<LatLng>?,
+): List<Waypoint> {
+    if (route == null || routeIsFallback) return waypoints
+    val snapped = route.snappedWaypoints
+    if (routedFor == null || snapped.size != routedFor.size) return waypoints
+    val snappedFor = routedFor.zip(snapped).toMap()
+    return waypoints.map { waypoint ->
+        snappedFor[waypoint.position]?.let { waypoint.copy(position = it) } ?: waypoint
     }
+}
 
 /** Attaches per-waypoint waits to a route when counts align; otherwise unchanged. */
 internal fun Route.withWaits(waypoints: List<Waypoint>): Route =

@@ -22,4 +22,7 @@ data class SavedRouteEntity(
     val waypointsJson: String? = null,
     /** JSON `List<Int>` of per-waypoint wait seconds, aligned with [waypointsJson]. */
     val waypointWaitsJson: String? = null,
+
+    /** JSON `List<OffRoadSpan>` of dotted-connector point ranges; null on pre-v4 rows. */
+    val offRoadSpansJson: String? = null,
 )

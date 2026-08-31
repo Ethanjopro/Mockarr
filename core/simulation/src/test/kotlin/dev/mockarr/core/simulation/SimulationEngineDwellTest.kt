@@ -2,6 +2,7 @@ package dev.mockarr.core.simulation
 
 import dev.mockarr.core.model.GeoMath
 import dev.mockarr.core.model.LatLng
+import dev.mockarr.core.model.OffRoadSpan
 import dev.mockarr.core.model.PlaybackState
 import dev.mockarr.core.model.Route
 import dev.mockarr.core.model.RouteLeg
@@ -127,7 +128,7 @@ class SimulationEngineDwellTest {
     }
 
     @Test
-    fun `dwell time scales with the speed multiplier`() = runTest {
+    fun `dwell time is unscaled by the speed multiplier`() = runTest {
         val start = testScheduler.currentTime
         collectAll(
             SimulationEngine(
@@ -143,11 +144,25 @@ class SimulationEngineDwellTest {
         collectAll(SimulationEngine(twoLegRoute(), noJitter, testClock(), initialSpeedMultiplier = 2.0))
         val baseline = testScheduler.currentTime - baselineStart
 
-        // Extra = 30 s scaled dwell + brake/re-accel overhead at the stop
-        // (cruise is 20 m/s at 2×, physics limits are unscaled) — well under
-        // the 60 s an unscaled dwell would add.
+        // Extra = the full 60 s dwell (a wait is real time at any multiplier)
+        // + brake/re-accel overhead at the stop (cruise is 20 m/s at 2×,
+        // physics limits are unscaled).
         val extraSeconds = (at2x - baseline) / 1000.0
-        assertTrue(extraSeconds in 25.0..45.0, "expected ≈30–40 s extra at 2×, got $extraSeconds")
+        assertTrue(extraSeconds in 55.0..75.0, "expected ≈60–70 s extra at 2×, got $extraSeconds")
+    }
+
+    @Test
+    fun `initial eta scales the cruise but not the dwell`() = runTest {
+        val plain = SimulationEngine(twoLegRoute(), noJitter, testClock(), initialSpeedMultiplier = 2.0)
+        val withWait = SimulationEngine(
+            twoLegRoute(waits = listOf(0, 60, 0)),
+            noJitter,
+            testClock(),
+            initialSpeedMultiplier = 2.0,
+        )
+        val plainEta = (plain.state.value as PlaybackState.Playing).remainingSeconds
+        val waitEta = (withWait.state.value as PlaybackState.Playing).remainingSeconds
+        assertEquals(60.0, waitEta - plainEta, 1e-6)
     }
 
     @Test
@@ -187,6 +202,27 @@ class SimulationEngineDwellTest {
         advanceTimeBy(10_000)
         job.join()
         assertIs<PlaybackState.Finished>(engine.state.value)
+    }
+
+    @Test
+    fun `off-road pause stops briefly at the connector entry and stretches the eta`() = runTest {
+        val spans = listOf(OffRoadSpan(5, 10))
+        val paused = twoLegRoute().copy(offRoadSpans = spans)
+        val params = noJitter.copy(offRoadPauseSeconds = 2)
+
+        val plainEta = (SimulationEngine(twoLegRoute(), noJitter, testClock()).state.value as PlaybackState.Playing)
+            .remainingSeconds
+        val pausedEta = (SimulationEngine(paused, params, testClock()).state.value as PlaybackState.Playing)
+            .remainingSeconds
+        assertEquals(2.0, pausedEta - plainEta, 1e-6)
+
+        val fixes = collectAll(SimulationEngine(paused, params, testClock()))
+        // The engine rests at the connector's entry vertex (500 m in) for the pause.
+        val entry = paused.points[5]
+        val stationary = fixes.filter {
+            it.speedMetersPerSecond == 0.0 && GeoMath.distanceMeters(it.position, entry) < 1.0
+        }
+        assertTrue(stationary.isNotEmpty(), "expected stationary fixes at the connector entry")
     }
 
     @Test

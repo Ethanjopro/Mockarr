@@ -4,6 +4,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
+import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -33,6 +34,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.IntOffset
@@ -136,7 +138,9 @@ fun MapPopover(
         properties = PopupProperties(focusable = modal, dismissOnClickOutside = modal),
     ) {
         val cardColor = MaterialTheme.colorScheme.surfaceContainerLowest
-        Column(modifier = modifier.widthIn(min = POPOVER_MIN_WIDTH, max = POPOVER_MAX_WIDTH)) {
+        // Intrinsic width: the card hugs its widest row (rows fillMaxWidth, so a
+        // plain wrap would balloon to the max) and only long content hits the cap.
+        Column(modifier = modifier.width(IntrinsicSize.Max).widthIn(max = POPOVER_MAX_WIDTH)) {
             if (!placement.above) Caret(cardColor, placement.caretX, caretPx, pointsUp = true)
             Surface(
                 shape = Tokens.cardShape,
@@ -171,9 +175,9 @@ fun PopoverRow(
     Row(
         modifier = modifier
             .fillMaxWidth()
-            .heightIn(min = ROW_MIN_HEIGHT)
-            .clickable(enabled = enabled, onClick = onClick)
-            .padding(horizontal = Tokens.space4, vertical = Tokens.space2),
+            .heightIn(min = Tokens.popoverRowHeight)
+            .clickable(enabled = enabled, onClick = onClick, role = Role.Button)
+            .padding(horizontal = Tokens.space3, vertical = Tokens.space2),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Text(
@@ -243,6 +247,4 @@ private class AnchorPositionProvider(
 private const val DISABLED_ALPHA = 0.38f
 private val POPOVER_GAP = 14.dp
 private val CARET_SIZE = 16.dp
-private val POPOVER_MIN_WIDTH = 176.dp
 private val POPOVER_MAX_WIDTH = 280.dp
-private val ROW_MIN_HEIGHT = 44.dp

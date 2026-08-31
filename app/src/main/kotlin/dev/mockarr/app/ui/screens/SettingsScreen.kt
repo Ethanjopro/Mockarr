@@ -25,6 +25,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
@@ -89,9 +90,13 @@ fun SettingsScreen(
         )
     }
 
+    // Pinned bar that tints as the list scrolls under it (M3), so rows never just vanish at a hard edge.
+    val scrollBehavior = TopAppBarDefaults.pinnedScrollBehavior()
     Scaffold(
+        modifier = Modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
         topBar = {
             CenterAlignedTopAppBar(
+                scrollBehavior = scrollBehavior,
                 title = { Text(stringResource(R.string.settings_title)) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
@@ -101,8 +106,9 @@ fun SettingsScreen(
                         )
                     }
                 },
-                colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
+                colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = MaterialTheme.colorScheme.surface,
+                    scrolledContainerColor = MaterialTheme.colorScheme.surfaceContainer,
                 ),
             )
         },
@@ -142,6 +148,13 @@ fun SettingsScreen(
                 checked = settings.trafficSimEnabled,
                 onCheckedChange = viewModel::setTrafficSimEnabled,
             )
+            OptionSwitchRow(
+                iconRes = R.drawable.ic_walk,
+                title = stringResource(R.string.settings_offroad_walk),
+                description = stringResource(R.string.settings_offroad_walk_desc),
+                checked = settings.offRoadWalkEnabled,
+                onCheckedChange = viewModel::setOffRoadWalkEnabled,
+            )
 
             SectionHeader(stringResource(R.string.settings_section_gps))
             GpsRows(settings = settings, viewModel = viewModel)
@@ -166,6 +179,13 @@ fun SettingsScreen(
                     },
                 ),
                 onClick = { showServer = true },
+            )
+            OptionSwitchRow(
+                iconRes = R.drawable.ic_add_route,
+                title = stringResource(R.string.settings_offroad),
+                description = stringResource(R.string.settings_offroad_desc),
+                checked = settings.offRoadEnabled,
+                onCheckedChange = viewModel::setOffRoadEnabled,
             )
 
             SectionHeader(stringResource(R.string.settings_section_about))

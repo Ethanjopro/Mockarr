@@ -15,6 +15,7 @@ data class MapPalette(
     val route: Int,
     val routeCasing: Int,
     val fallbackRoute: Int,
+    val offRoad: Int,
     val position: Int,
     val positionRing: Int,
     val holdPin: Int,

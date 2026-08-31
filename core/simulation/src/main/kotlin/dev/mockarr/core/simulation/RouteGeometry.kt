@@ -22,6 +22,7 @@ class RouteGeometry(
     durationScale: Double = 1.0,
     speedVariance: Double = 0.0,
     random: Random? = null,
+    offRoadPauseSeconds: Int = 0,
 ) {
     private val points: List<LatLng> = route.points
 
@@ -45,7 +46,10 @@ class RouteGeometry(
     /** Max speed allowed *at* vertex i (turn caps + braking backward pass). */
     internal val allowedVertexSpeeds: DoubleArray
 
-    /** A user-requested stop along the route; [waypointIndex] names its waypoint. */
+    /**
+     * A stop along the route; [waypointIndex] names its waypoint, or is -1 for
+     * a synthesized pause where the route leaves the road for a connector.
+     */
     data class DwellStop(
         val distanceMeters: Double,
         val waitSeconds: Int,
@@ -53,12 +57,33 @@ class RouteGeometry(
         val isDestination: Boolean,
     )
 
-    /** User-requested stops ordered by distance; interior waypoints and the start only. */
+    /** Waypoint waits plus synthesized off-road entry pauses, ordered by distance. */
     val dwellStops: List<DwellStop>
+
+    /** Geometry vertex per waypoint (waypoint k = boundary after leg k-1), or null when legs don't align. */
+    private val waypointVertices: List<Int>?
+
+    /** The destination's waypoint index (waypoints map 1:1 to leg boundaries). */
+    val lastWaypointIndex: Int = route.legs.size
 
     init {
         require(points.size >= 2) { "A route needs at least two points" }
         val n = points.size
+
+        waypointVertices = if (route.legs.isNotEmpty() &&
+            route.legs.sumOf { it.segmentDistancesMeters.size } == n - 1
+        ) {
+            buildList {
+                var vertex = 0
+                add(vertex)
+                for (leg in route.legs) {
+                    vertex += leg.segmentDistancesMeters.size
+                    add(vertex)
+                }
+            }
+        } else {
+            null
+        }
 
         cumulative = DoubleArray(n)
         segmentBearings = DoubleArray(n - 1)
@@ -87,12 +112,17 @@ class RouteGeometry(
         }
         totalDurationSeconds = cumulativeDurations[n - 1]
 
-        val dwells = dwellVertices(route, n)
-        val lastWaypoint = route.waypointWaitsSeconds.lastIndex
-        dwellStops = dwells.map {
-            DwellStop(cumulative[it.vertex], it.waitSeconds, it.waypointIndex, it.waypointIndex == lastWaypoint)
+        val dwells = dwellVertices(route)
+        val pauses = if (offRoadPauseSeconds > 0) offRoadEntryVertices(route, n) else emptyList()
+        val waypointStops = dwells.map {
+            val isEnd = it.waypointIndex == lastWaypointIndex
+            DwellStop(cumulative[it.vertex], it.waitSeconds, it.waypointIndex, isEnd)
         }
-        val dwellVertices = dwells.map { it.vertex }.toSet()
+        val pauseStops = pauses.map {
+            DwellStop(cumulative[it], offRoadPauseSeconds, waypointIndex = -1, isDestination = false)
+        }
+        dwellStops = (waypointStops + pauseStops).sortedBy { it.distanceMeters }
+        val dwellVertices = (dwells.map { it.vertex } + pauses).toSet()
 
         // Turn caps at interior vertices, then a backward pass so every vertex
         // speed is reachable under the deceleration limit.
@@ -110,27 +140,40 @@ class RouteGeometry(
         allowedVertexSpeeds[0] = 0.0 // start from rest
     }
 
+    /**
+     * Vertices where the route leaves the road for an off-road connector — an
+     * arrival span's start. A departure connector (stop → road) starts at the
+     * stop vertex, which is always some arrival span's end (or vertex 0 for an
+     * off-road route start), so those never pause. Out-of-range spans (stale
+     * persisted data) are ignored.
+     */
+    private fun offRoadEntryVertices(route: Route, n: Int): List<Int> {
+        val departures = route.offRoadSpans.map { it.end }.toSet()
+        return route.offRoadSpans
+            .filter { it.start in 1 until n - 1 && it.start !in departures }
+            .map { it.start }
+            .distinct()
+    }
+
     private data class DwellVertex(val vertex: Int, val waitSeconds: Int, val waypointIndex: Int)
 
     /**
      * Geometry vertex + wait for every waited waypoint, the destination
-     * included (the engine rests there for the wait, then finishes). Legs map
-     * 1:1 to waypoint pairs, so waypoint k's vertex is the boundary after leg
-     * k-1. Empty when waits or leg segments don't align with the geometry.
+     * included (the engine rests there for the wait, then finishes). Empty
+     * when waits or leg segments don't align with the geometry.
      */
-    private fun dwellVertices(route: Route, n: Int): List<DwellVertex> {
+    private fun dwellVertices(route: Route): List<DwellVertex> {
         val waits = route.waypointWaitsSeconds
-        val aligned = waits.size == route.legs.size + 1 &&
-            route.legs.sumOf { it.segmentDistancesMeters.size } == n - 1
-        if (!aligned) return emptyList()
-        var vertex = 0
-        val result = mutableListOf<DwellVertex>()
-        for (k in waits.indices) {
-            if (waits[k] > 0) result += DwellVertex(vertex, waits[k], k)
-            if (k < route.legs.size) vertex += route.legs[k].segmentDistancesMeters.size
-        }
-        return result
+        val vertices = waypointVertices
+        if (vertices == null || waits.size != vertices.size) return emptyList()
+        return waits.indices
+            .filter { waits[it] > 0 }
+            .map { DwellVertex(vertices[it], waits[it], it) }
     }
+
+    /** Route distance of waypoint [waypointIndex]'s vertex, or null when legs don't align. */
+    fun waypointDistanceMeters(waypointIndex: Int): Double? =
+        waypointVertices?.getOrNull(waypointIndex)?.let { cumulative[it] }
 
     fun segmentIndexAt(distance: Double): Int {
         val clamped = distance.coerceIn(0.0, totalDistanceMeters)

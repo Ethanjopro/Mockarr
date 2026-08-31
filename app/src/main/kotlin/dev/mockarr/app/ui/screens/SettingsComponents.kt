@@ -28,6 +28,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
@@ -158,7 +159,7 @@ fun ValueRow(iconRes: Int, title: String, description: String, value: String, on
         modifier = Modifier
             .fillMaxWidth()
             .heightIn(min = Tokens.space8 + Tokens.space6)
-            .clickable(onClick = onClick)
+            .clickable(onClick = onClick, role = Role.Button)
             .padding(horizontal = Tokens.inset, vertical = Tokens.space2),
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -174,7 +175,7 @@ fun ValueRow(iconRes: Int, title: String, description: String, value: String, on
         }
         Text(value, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
         Spacer(Modifier.width(Tokens.space1))
-        Text("›", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        RowChevron()
     }
 }
 
@@ -228,7 +229,7 @@ fun ServerDialog(
                 color = MockarrTheme.colors.ready,
             )
             is SettingsViewModel.TestState.Failure -> Text(
-                text = testState.message,
+                text = testState.message ?: stringResource(R.string.settings_server_failed),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.error,
             )
@@ -243,3 +244,13 @@ fun ServerDialog(
 
 private val TILE_MIN_HEIGHT = 96.dp
 private val TILE_ICON = 28.dp
+
+/** A chevron trailing a navigating row, drawn (not typed) so it matches the icon set. */
+@Composable
+fun RowChevron() {
+    Icon(
+        painter = painterResource(R.drawable.ic_chevron_right),
+        contentDescription = null,
+        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+    )
+}

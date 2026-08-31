@@ -871,3 +871,299 @@ Verified end-to-end like a human: app-drawer swipe → tapped the Mockarr icon �
   failed — check your connection" over the still-selectable recent; dark rows fine.
 - Deviations from the plan: items 1–3 went in one commit (the caption removal and the fit
   fix both touched `MapScreen.kt`); Photon `lang` skipped (400 on unsupported codes).
+
+### 2026-08-30 — Session 22 (impeccable critique → six fix commands)
+- `/impeccable critique everything` ran dual-agent (A: emulator design review, 47
+  screenshots; B: static scan — the bundled detector is web-only and returns nothing for
+  Kotlin). Score **28/40**; snapshot in `.impeccable/critique/`. Ethan chose: card lifecycle
+  first, Arrived → Holding as one band, full scope incl. P3 + minors, keep the five builder
+  pills.
+- **distill — one band from cold start to Stop.** `StatCard` lost its `secondary` strip
+  (`secondaryStripFor`, `visibleSecondary` and their test are gone). The trio now sits on
+  the card in builder mode too (`BuilderPeek` keeps only the hint + Done row). The idle
+  strip is visible ("Tap the map to add stops · long-press to hold") — the empty card;
+  only "Building a route" (one stop) hides it. The card and builder pills **ride the sheet**
+  (`sheetLiftPx()` in `MapScreen`, read in the `offset` lambda, capped under the top chrome)
+  — fixes both the speed-chip clip and the expanded sheet burying a hold's Stop.
+- **delight + clarify.** `MapSessionFeedback.kt`: `rememberArrived` (natural finish only —
+  never after Stopping — teal "Arrived at ‹place› · Stop" for 4 s with a Confirm haptic),
+  `ReleaseSnackbar` ("Stopped — your real location is live again" on any session → Idle).
+  Saved snackbar actually fires now (consume-then-show from the screen scope; the keyed
+  `LaunchedEffect` used to cancel itself). Route names prefer a POI's street
+  (`PlaceInfo.routeEndpointName()`, `PlaceInfo` gained `street`/`kind`). Routing failure is
+  a `RoutingError` enum worded by the strip (three strings), never exception text.
+  All inline English moved to `strings.xml`: `Formatter(res)` (`rememberFormatter()`)
+  replaces `formatDistance`/`formatDurationShort`/`routeSummaryText`; the service's channel,
+  titles, actions and error copy; `TestState.Failure(message: String?)` with a resource
+  fallback; "Map tab" copy fixed. `FormattingTest` now tests `durationParts`.
+- **onboard.** Setup opens on first run only when `readyNow()` is false. First-run hint
+  retitled "Plan your first drive". One-stop hint in the builder peek ("Tap the map again
+  to add a destination"). Search: a pick/Close clears the field; recents open only for a
+  focused empty field (`setFieldFocused`) — the recents list no longer covers the map on
+  every cold start (root cause: the recents collector rendered for a blank unfocused field).
+- **harden.** Sheet "Map" group: "Add a stop at the map centre" / "Hold my location at the
+  map centre" (own permission launcher); the add-stop row also heads the builder's stop
+  list; thumbstick exposes N/E/S/W nudges as custom accessibility actions; the MapLibre
+  view has a content description; `Role.Button`/`RadioButton` on every bare `clickable`;
+  all three permission denials surface as snackbars via `MockSessionViewModel`. Touch
+  targets: handle (`requiredHeight(48)` inside the 36dp block), popover rows 48, stop
+  actions 48. Chip and strip countdown both `ceil`.
+- **layout + polish.** Pinned `TopAppBar` scroll behaviour on Settings/Setup/Routes (tints
+  on scroll instead of a hard clip); divider where the sheet's detail list slides under the
+  peek; search results on `surface-container-lowest` at popover elevation with a bottom
+  fade past four rows; drawn `ic_chevron_right` replaces the "›" glyph; saved-route
+  duration includes waits (`SavedRoutesRepository.totalDurationSeconds`); `Tokens.discSize`
+  and Tokens replace the duplicated dp literals.
+- Verified on the emulator (light + dark): idle card; one-stop hint; builder card + pills
+  lifting with the sheet; record sheet with Map rows and the card capped under the search
+  field; Driving with chips open and the trio fully readable; "Arrived at Boulevard de
+  Magenta · Stop" → "Holding at … · Stop"; Stop snackbar; Save dialog suggests streets;
+  "Saved “…”" snackbar; Settings bar tint on scroll; saved-route card.
+- Not done (called out): via-stop dots on saved-route thumbnails (ThumbSpec has no
+  waypoints; would change the cache key); the dark Setup error banner keeps the M3
+  `errorContainer` role; the duplicated action row in the expanded sheet stays (Strava
+  keeps it too); Rush-hour traffic default untouched (product decision). Light-theme
+  status-bar icons were a transition artefact in the critique screenshot, not a bug.
+
+### 2026-08-30 — Session 23 (cross-device UI sweep: 8a baseline + phone matrix)
+- **Device-matrix verification of the session-22 tree** (uncommitted). Key fact settled
+  first: `mockarr_test` is 1080×2400 @420dpi — the Pixel 8a's exact display spec — so the
+  native AVD *is* the 8a for rendering. Other shapes emulated via `emu.sh resize`.
+- **Sweep (3 delegated passes)**: baseline light+dark full depth; font scale 1.3/1.5,
+  density 500, landscape; resized profiles 720×1600@320, 1344×2992@480, 1080×1920@420.
+  Evidence in the session scratchpad `sweep/` dirs. No crashes/ANRs anywhere.
+- **Findings → fixes (all verified fixed on the exposing profile):**
+  - *Blocker, landscape*: overlays were full-width while Material centres the sheet at
+    640dp — Holding's Stop untappable (thumbstick covered it), 3D toggle clipped, ghost
+    card fragments, paused trio clipped, Saved routes unreachable. Fix: `Tokens.sheetMaxWidth`
+    (640dp), passed as `sheetMaxWidth` to the scaffold and `widthIn(max=)` on the stat-card
+    and builder-tools overlays (`MapScreen.kt`); DESIGN.md landscape bullet + spacing token.
+  - *High*: `SpeedChips` row clipped "4x" at font scale ≥1.3 / density 500, absent at 720px.
+    Fix: `horizontalScroll` on the row (`MapSheet.kt`).
+  - *Medium*: snackbars rendered on the stat-card trio. Fix: `SnackbarHost` padded above the
+    card block (`cardBlock + toolsHeight`, `MapScreen.kt`).
+  - *Medium*: Back with search results open (keyboard closed) exited the app. Fix: search
+    dismiss is now the topmost case of the map `BackHandler` (`MapScreen.kt`).
+- Re-verified on emulator: all four fixes PASS on their exposing profiles + baseline
+  light/dark regression clean; portrait unchanged (411dp < 640dp cap). Build green.
+- Not fixed (called out): snackbars can still float over *expanded-sheet rows* on any
+  profile — standard Material transient behaviour, left as-is; note the pass-3 agent's
+  screenshots if it should change. No commit made — tree still carries sessions 22+23.
+
+### 2026-08-30 — Session 24 (Ethan's real-8a reports: navbar, joystick, compass, sheet drag)
+- **Repro-first round** (per the playbook: look before diagnosing). 3-button navigation
+  enabled on the emulator to match the 8a (`cmd overlay enable …navbar.threebutton`) —
+  worth remembering: the sweep passes all ran on gesture nav and missed an inset bug.
+- **Fixed (all re-verified on emulator, gesture+3-button):**
+  - *Navbar covered the last sheet rows* ("All settings" half-hidden): only the peek block
+    had `navigationBarsPadding()`; the expanded detail column ran under the bar. Fix:
+    `navigationBarsPadding()` on the detail column (`MapScreen.kt`).
+  - *Joystick overlapped UI*: thumbstick is fixed CenterEnd and sat on top of the builder
+    pills + the hold card's Stop (builder-during-hold state; reproduced by accident via a
+    `tapon "Stop"` substring hit on "Add a stop at the map centre" — watch that trap), and
+    an expanded sheet buried it inert. Fix: visibility now
+    `holding && !playing && !builderMode && !expanded` (`MapScreen.kt`).
+  - *Nudge sensitivity ignored zoom*: `MAX_NUDGE_MPS = 300` pinned ground speed from
+    ~z13 outward, killing the constant-screen-speed design. Raised to 10 000 (binds only
+    below ~z11); `ThumbstickHelpersTest` updated + new un-clamped z12/z13 doubling test.
+  - *Mystery black button behind the search bar*: MapLibre's default compass (never
+    configured) at its default top-right spot behind our chrome, appearing after
+    accidental two-finger rotation. Fix: `isRotateGesturesEnabled = false` +
+    `isCompassEnabled = false` at map init (`MockarrMap.kt`) — north-up always.
+- **Not a code fix — needs Ethan's call:** "sometimes impossible to drag up the
+  options/route list": reproduced — in builder mode (and playback) the sheet's detail is
+  the stop list (or speed chips) by design, options/routes rows aren't there, and with
+  ≤1 stop the expanded anchor is barely taller than the peek, so drag-up looks dead.
+  Options: live with it / add the options rows to the builder detail / a min expanded
+  height. Also noted: emulator can't two-finger drag, so 3D *tilt* visuals (and rotation)
+  remain unverifiable by script — the 3D toggle was verified functionally only.
+- Build green (detekt/ktlint/unit incl. new thumbstick tests). No commit — tree carries
+  sessions 22–24.
+
+### 2026-08-30 — Session 25 (planned round: 6 items from Ethan's builder feedback)
+- **Search tap-out placed a stop** (fixed): `MapLayer.onMapTap` had no search case —
+  it cleared focus AND fell through to `addWaypoint`. The search VM is nav-scoped and
+  invisible to the map layer, so "search owns the next tap" (field focused OR list open,
+  `fieldFocused` now in `SearchState`) is mirrored onto `MapInteraction`; a swallowed tap
+  bumps `searchDismissTicks` and MapScreen closes the search. Route "prompts" (Save/wait
+  dialogs) already scrim-consume taps.
+- **Undo/redo marker jump** (fixed): `displayWaypoints` matched stale routes by SIZE
+  alone, so during the 500 ms refetch debounce markers rendered at the previous route's
+  snapped spots. `UiState.routedFor` (the positions the route was fetched for) makes the
+  guard per-stop identity; a dragged stop now follows the finger while others stay
+  snapped. `DisplayWaypointsTest` rewritten (+ undo-same-size and drag cases).
+- **"Add a stop at the map centre" removed everywhere** (options list, builder details,
+  string) at Ethan's request. NOTE: that was the TalkBack/gesture-free stop-placing path —
+  flagged in DESIGN.md as a conscious gap. `mapCentre()` stays (hold-at-centre uses it).
+- **Navbar audit**: code-level audit found no missing insets (OpaqueScreen wraps pushed
+  screens; sheet peek+detail padded since s24); verified on-emulator under 3-button nav.
+- **Off-road routes** (new, Settings ▸ Routing ▸ "Off-road stops", default ON):
+  `stitchOffRoad` (core:routing) splices straight ~50 m-step connectors wherever OSRM
+  snapped a stop >25 m away — roads as far as they go, then terrain at half profile
+  speed; via stops get an out-and-back spur with the leg boundary AT the marker (dwells
+  happen there). Spans ride `Route.offRoadSpans` (serialized, defaulted); stitched
+  `snappedWaypoints` become the raw taps so markers sit where Ethan put them.
+  Rendering: `MapRouteLine.kt` splits solid road slices (ROUTE_SOURCE) from dotted
+  connector slices (FALLBACK_SOURCE reused). Toggle flips trigger a refetch.
+  Also added `snapping=any` to the OSRM query — the "small roads" report was the demo
+  server's car-only graph + road-true markers (b6b4ddf) making snaps visible, not a
+  request regression; snapping=any + off-road tails are the two mitigations.
+- **3D more pronounced**: toggling 3D now auto-pitches the camera to 55° (a hand-set
+  tilt is left alone; 2D still flattens), and `emphasizeExtrusions` (once per style
+  load — the height rewrite would compound) draws extrusions from z13, opacity 0.85,
+  heights ×1.5. Applies to light Liberty and the dark asset alike.
+- Tests: `OffRoadStitcherTest` (tail/via/start splice, thresholds, geometry-tiling
+  invariant, density), `SplitBySpansTest`, `DisplayWaypointsTest`. Build green.
+- Emulator verification (delegated pass, screenshots in /tmp/mockarr-verify/): all six
+  items PASS — tap-out swallow, undo/redo immediate frames clean, rows gone, 3-button
+  nav clean everywhere, dotted off-road tail + toggle round-trip, 3D auto-pitch — no
+  crashes/ANRs, no mock-session leak. No commit — tree still carries sessions 22–25
+  (matching s22–24 precedent; commit when Ethan says go).
+
+### 2026-08-31 — Session 26 (planned round: 7 items from Ethan's map/playback feedback)
+Plan file: ~/.claude/plans/rippling-moseying-stroustrup.md. Decisions via
+AskUserQuestion: soften 3D (not full revert), speed popup on the pill, real-location
+start as a start-time choice.
+- **3D dialled back** (s25 was "way too much"): `emphasizeExtrusions` deleted —
+  stock building heights/opacity, extrusions from the style's z14 again — and the
+  toggle auto-pitch reduced 55°→40° (`ENTER_3D_TILT_DEGREES`, `MockarrMap.kt`).
+- **Markers no longer shift when a stop is added** (root cause, "takes 3+"):
+  `displayWaypoints` had an all-or-nothing SIZE gate — on add (`waypoints.size !=
+  routedFor.size`) every previously-snapped marker flashed back to its raw tap for
+  the whole 0.6–2.5 s refetch window (500 ms debounce + OSRM 1 s min-interval).
+  Now a `routedFor→snapped` identity map keeps matched stops snapped; only the new
+  tap renders raw. Handles append/prepend/drag/undo uniformly.
+  `DisplayWaypointsTest` in-flight case REWRITTEN (it enshrined the bug) + prepend
+  case. Residual: OSRM re-snapping an earlier stop on the next fetch still moves it
+  once (inherent). A stop near the 25 m off-road threshold can also legitimately
+  hop between raw/snap across fetches (`stitchOffRoad` rewrites `snappedWaypoints`).
+- **Marker drag gated behind Move** (Ethan: drags fired accidentally): pure
+  `DragGate` extracted from `MarkerDragHandler` (unit-testable, no Robolectric) —
+  any marker hit still owns the gesture (tap = select survives) but only
+  `draggableIndex` (fed from `MapInteraction.movingWaypoint`, i.e. popover ▸ Move)
+  promotes to a drag; a swipe on any other marker is dead and does NOT select on
+  release. Trap fixed: `moveStop` reset interaction on every frame, which would
+  have cancelled Move on the first drag frame — now `if (settled)` only.
+  Tap-to-teleport coexists. `MarkerDragTest` rewritten around `DragGate`.
+- **Off-road dotted line blue + visible**: `FALLBACK_SOURCE` was overloaded
+  (routing-failure line AND connectors). New `OFF_ROAD_SOURCE`/`OFF_ROAD_LAYER`
+  (round dots `[0,2]`, the solid route's zoom-interpolated width) coloured from a
+  new `MapPalette.offRoad` token (route indigo: 0xFF3949AB / 0xFF9FA8FF); the
+  amber `fallbackRoute` failure signal is preserved on its own layer.
+- **New setting: "Walk off-road stretches"** (Settings ▸ Playback, default ON,
+  `off_road_walk_enabled`): connectors are timed at WALKING.typicalSpeedMps
+  (1.4 m/s) at stitch time (`stitchOffRoad(walkingPace=)`) instead of half profile
+  speed, and `RouteGeometry` synthesizes 2 s dwells (`waypointIndex = -1`) at
+  road→connector entry vertices from `Route.offRoadSpans` (`offRoadPauseSeconds`
+  in `SimulationParams`, set by `MockSessionService`; entry = span.start not in
+  any span.end, so via-stop departures don't pause). Strip: "Leaving the road ·
+  0:02" (`strip_offroad_pause`). Flipping either off-road toggle refetches
+  (observer now watches the pair). **Saved routes now persist spans**: Room v3→v4
+  (`offRoadSpansJson`, MIGRATION_3_4 registered in AppModule) — fixes the
+  pre-existing "saved routes lose the dotted rendering" gap too.
+- **Speed presets moved off the sheet** (Ethan disliked the bottom pop-out): the
+  run-box 1× pill now opens `SpeedPopover` (`MapStatCard.kt`, reuses `MapPopover`
+  + `SpeedChips`; pick→apply→close). During playback the sheet is inert by
+  construction: the detail column composes nothing (Expanded anchor collapses
+  onto the peek) and `SheetHandle` is hidden. Normal expansion returns after
+  Finish.
+- **Start from real location** (sibling of the held-spot flow, only when NOT
+  mocked — a running mock poisons GPS/NETWORK/FUSED reads, so Idle gating is
+  functional): Start with a route and no hold resolves `MapViewModel.realLocation()`
+  (new public wrapper over `currentReal()`; spinner in the Start button via
+  `locating`) and, if >30 m from the route start (`startsNear`, file-level +
+  tested), splits the row into "My location" (ic_target, primaryContainer) /
+  "Route start" — `StartChoice` reworked to `(origin: StartOrigin, onFromOrigin,
+  onFromRouteStart)`. One stop + no hold → new `RouteFromMeDialog`
+  ("Route from my location?"); `RecordPeek.canStart` widened to `route != null ||
+  size == 1`. No-permission first run falls through to `requestPlay`'s own flow.
+  New `reportLocateFailed` snackbar for a null fix.
+- detekt near-misses worth knowing: `MapViewModel` is now AT the 25-function class
+  cap (`realLocation` took the last slot); `MockarrMap.kt` is at 10 top-level
+  functions (file cap fires at 11) — `setUpLayers` LongMethod was fixed with a
+  LOCAL `zoomWidth` helper, not a new top-level fun.
+- Tests: `RouteGeometryOffRoadPauseTest` (new, 6 cases), engine off-road-pause
+  case in `SimulationEngineDwellTest`, `OffRoadStitcherTest` walking-pace,
+  `SavedRouteSpansTest` (app module — core:data has no test source set; stub dao;
+  runBlocking, app has no coroutines-test dep), `StartsNearTest`, `MarkerDragTest`,
+  `DisplayWaypointsTest`. Full `scripts/gradle build` green.
+- Emulator verification (delegated pass, screenshots in /tmp/mockarr-verify-s26b/):
+  all seven items PASS — 3D moderate + flattens, markers pixel-identical while a
+  new stop routes, drag dead without Move (popover/tap-select/teleport intact),
+  blue round-dot connectors (and they survive save/reload), brake→"Leaving the
+  road · 0:02"→~3 mph crawl with the setting ON and no pause at half-speed OFF,
+  sheet inert + speed popover during playback, My location/Route start pills +
+  1-stop dialog with clean add→remove mock-provider pairs every cycle. No
+  crashes/ANRs, no mock leak. Nit noted: the 2 s pause cue is easy to miss
+  (by design — "momentarily"). No commit — tree now carries sessions 22–26;
+  commit when Ethan says go.
+
+### 2026-08-31 — Session 27 (planned round: 7 items — arrival auto-clear, live waits, popup + banner, README)
+
+- **Dismiss-tap no longer drops a stop** (the popover's map-tap dismissal added a
+  waypoint): `MapInteraction.takeMove()` consumed the move AND cleared the
+  selection *before* the dismiss branch read it — dead branch, tap fell through
+  to `addWaypoint`. Replaced with a pure `tapAction(): TapAction`
+  (MoveStop / DismissStartChoice / DismissSelection / AddStop, priority order);
+  MapScreen's `when` dispatches. `moveStop(settled=true)` already resets
+  interaction, so nothing else consumes. 5 new `MapInteractionTest` cases (the
+  regression case asserts DismissSelection, not AddStop).
+- **Speed multiplier no longer scales wait timers**: `SimulationEngine.dwellTick`
+  ticks `dwellSecondsLeft -= dt` (was `dt * multiplier`); the displayed countdown
+  is the raw value; `remainingWithDwell()` and the initial ETA scale only the
+  cruise portion (`cruise / multiplier + dwell`). Test inverted:
+  `dwell time is unscaled by the speed multiplier` + a 2× initial-ETA companion.
+- **Wait times editable en route**: engine gains `setWaypointWait(index, seconds)`
+  — queued (`@Volatile` copy-on-write list) and drained at the top of each tick
+  so all mutation stays on the tick coroutine. Semantics: active dwell (or paused
+  mid-dwell, `dwellSecondsLeft > 0`) adjusts the countdown in place
+  (`new − elapsed`, clamped ≥ 0); passed stops are no-ops; ahead stops replace
+  (0 removes); a stop with no wait gets one inserted via new
+  `RouteGeometry.waypointDistanceMeters(waypointIndex)` (waypoint→vertex map now
+  precomputed for ALL waypoints; `dwellVertices` reuses it) — inserted stops
+  brake abruptly (their vertex kept cruise speed), documented. Plumbing mirrors
+  `setSpeedMultiplier`: `MockSessionRepository.setWaypointWait` →
+  `MockSessionViewModel.setWaypointWait`; MapViewModel untouched (AT the
+  25-function cap — its existing `setWaypointWait` patches the planned route).
+  UI: marker taps and the stop popover now work while playing, showing header +
+  Wait row only (Move/Delete hidden); a playing map tap only dismisses; the wait
+  dialog confirm pushes to both viewmodels. New
+  `SimulationEngineWaitEditTest` (6 cases).
+- **Route auto-clears on natural arrival** (Ethan picked auto-clear = same end
+  state as Finish): detector extracted to `ArrivalEffect(session, playbackState,
+  onArrived)` (fires when Playing ends and the last observed PlaybackState was
+  not Stopping — a user Stop always shows Stopping frames first);
+  `rememberArrived` rebuilt on top (haptic + 4 s strip flag unchanged, keyed on
+  `playing` so a new drive drops the flag). The clear lives in **MapLayer**
+  (always composed behind the NavHost — MapScreen leaves composition under
+  Routes/Settings and would leak the route): `ArrivalEffect { clearWaypoints() }`.
+  Stay-at-destination hold keeps holding; Undo can restore the route.
+- **Stop popover tightened**: `MapPopover` sizes by `width(IntrinsicSize.Max)`
+  capped at 280dp (rows `fillMaxWidth` inside a bounded Popup always ballooned
+  to the max before; the old 176dp min deleted); new `Tokens.popoverRowHeight`
+  = 44dp (DESIGN.md's popover spec — `touchTarget` stays 48); row + header
+  horizontal padding 16→12dp; no divider between header and first row.
+  SpeedPopover unaffected (chips exceed the cap, still scroll).
+- **Stat trio tap = edit route**: `StatCard` gains `onStatsClick` (stats block
+  only — the strip keeps its own action; `Role.Button` + "Edit the route" CD,
+  new string `stat_trio_edit_cd`); wired when `!playing && recordCells != null`
+  to `setBuilderMode(true)` + `sheetState.expand()` (+ retires the sheet hint).
+  Inert during playback (PlaybackStats also renders in that slot).
+- **README refreshed per ADR 0001**: dropped "fully open stack / no tracking /
+  F-Droid planned" (the two surviving commitments stated instead: no
+  anti-detection, nothing phones home undisclosed); stack line + attribution now
+  include Photon, Open-Meteo, OpenFreeMap (mirrors `settings_about_credits`);
+  features list caught up (search, waits editable mid-drive, off-road walking,
+  undo/redo, start-from-my-location, pin+thumbstick, stay-at-destination);
+  licence stays TBD minus the GPL/Apache leaning.
+- Build green (`scripts/gradle build` + `checkCoreBoundary`); one mechanical
+  detekt fix (ReturnCount in `dwellVertices`). Emulator verification (delegated
+  pass, screenshots in /tmp/mockarr-verify-s27/): all seven items PASS —
+  dismiss-tap keeps the count, popover ~137dp wide with no header divider,
+  4× dwell ticks ~1 s/s, mid-drive wait set + extended while dwelling (Wait row
+  only), all three arrival scenarios (auto-clear; clear + hold persists with
+  stay-on; Stop does NOT auto-clear), trio tap expands into the stop list and is
+  inert during playback. Clean mock add/remove pairs, no crashes/ANRs. DESIGN.md
+  popover + stat-card sections updated to match. Sessions 22–27 landed as one
+  commit on 2026-09-01 when Ethan gave the go (the sessions overlapped too many
+  files to slice cleanly — don't let the backlog grow this long again).

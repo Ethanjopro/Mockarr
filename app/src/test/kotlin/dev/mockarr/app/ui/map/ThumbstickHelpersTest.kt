@@ -55,7 +55,16 @@ class ThumbstickHelpersTest {
         assertEquals(0.1, creep, 1e-9)
         // Whole-world zoom → clamped down to the maximum speed.
         val sprint = nudgeMeters(deflection = 1f, zoom = 0.0, latitudeDegrees = 0.0, dtSeconds = 1.0)
-        assertEquals(300.0, sprint, 1e-9)
+        assertEquals(10_000.0, sprint, 1e-9)
+    }
+
+    @Test
+    fun `typical outdoor zooms are never speed-clamped`() {
+        // The 8a report: zooming out stopped changing the stick's ground speed.
+        // At city/regional zooms the doubling law must hold un-clamped.
+        val z13 = nudgeMeters(deflection = 1f, zoom = 13.0, latitudeDegrees = 48.0, dtSeconds = 0.2)
+        val z12 = nudgeMeters(deflection = 1f, zoom = 12.0, latitudeDegrees = 48.0, dtSeconds = 0.2)
+        assertEquals(z13 * 2, z12, 1e-6)
     }
 
     @Test

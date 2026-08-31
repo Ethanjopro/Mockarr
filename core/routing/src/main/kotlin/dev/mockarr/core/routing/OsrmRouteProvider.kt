@@ -54,7 +54,10 @@ class OsrmRouteProvider(
             append(profile.osrmName)
             append('/')
             append(coords)
-            append("?overview=full&geometries=polyline6&annotations=distance,duration&steps=false")
+            // snapping=any lets OSRM start/end on edges its default snapping
+            // excludes (side roads severed from the main graph) — without it,
+            // stops near small roads snapped to the nearest big one.
+            append("?overview=full&geometries=polyline6&annotations=distance,duration&steps=false&snapping=any")
         }
         return try {
             toResult(api.route(url))

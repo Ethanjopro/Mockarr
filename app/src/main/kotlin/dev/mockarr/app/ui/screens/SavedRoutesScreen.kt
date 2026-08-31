@@ -34,6 +34,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
@@ -85,9 +86,13 @@ fun SavedRoutesScreen(
         )
     }
 
+    // Pinned bar that tints as the list scrolls under it (M3), so rows never just vanish at a hard edge.
+    val scrollBehavior = TopAppBarDefaults.pinnedScrollBehavior()
     Scaffold(
+        modifier = Modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
         topBar = {
             CenterAlignedTopAppBar(
+                scrollBehavior = scrollBehavior,
                 title = { Text(stringResource(R.string.routes_title)) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
@@ -98,8 +103,9 @@ fun SavedRoutesScreen(
                     }
                 },
                 actions = { SortAction(sort = sort, onSort = viewModel::setSort) },
-                colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
+                colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = MaterialTheme.colorScheme.surface,
+                    scrolledContainerColor = MaterialTheme.colorScheme.surfaceContainer,
                 ),
             )
         },
@@ -140,6 +146,7 @@ fun SavedRoutesScreen(
                             thumbStyleUrl = thumbStyleUrl,
                             palette = palette,
                             nowEpochMillis = now,
+                            totalDurationSeconds = viewModel.totalDurationSeconds(entity),
                             loadThumbnail = viewModel::thumbnail,
                             onClick = {
                                 viewModel.load(entity)

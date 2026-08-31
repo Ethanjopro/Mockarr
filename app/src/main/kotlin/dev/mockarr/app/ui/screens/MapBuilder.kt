@@ -36,73 +36,30 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import dev.mockarr.app.R
-import dev.mockarr.app.ui.formatDistance
-import dev.mockarr.app.ui.formatDurationShort
 import dev.mockarr.app.ui.theme.DialogAction
 import dev.mockarr.app.ui.theme.MapIconPill
 import dev.mockarr.app.ui.theme.MapPill
 import dev.mockarr.app.ui.theme.MockarrDialog
 import dev.mockarr.app.ui.theme.Tokens
-import dev.mockarr.core.model.DistanceUnits
-import kotlin.math.roundToInt
 
 /**
- * Builder-mode peek: the route-under-construction trio (Distance · Duration ·
- * Stops), the illustrated empty hint before the first stop, and the Done / ✕
- * row that returns to the Record layout. Strava's route builder, in place.
- * Save lives with the map tools ([BuilderTools]), not here.
+ * Builder-mode peek: the illustrated hint until the route exists (no stops:
+ * how to start; one stop: how to finish), then the Done / ✕ row that returns
+ * to the Record layout. The trio lives on the stat card above, as in every
+ * other state. Strava's route builder, in place. Save lives with the map
+ * tools ([BuilderTools]), not here.
  */
 @Composable
 fun BuilderPeek(
     state: MapViewModel.UiState,
-    units: DistanceUnits,
     onDone: () -> Unit,
     onClose: () -> Unit,
 ) {
-    val route = state.route
     Column(modifier = Modifier.padding(horizontal = Tokens.inset, vertical = Tokens.space3)) {
-        if (state.waypoints.isEmpty()) {
-            Column(
-                modifier = Modifier.fillMaxWidth().padding(vertical = Tokens.space2),
-                horizontalAlignment = Alignment.CenterHorizontally,
-            ) {
-                Icon(
-                    painter = painterResource(R.drawable.ic_route),
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.size(Tokens.space8 + Tokens.space2),
-                )
-                Spacer(Modifier.height(Tokens.space2))
-                Text(
-                    text = stringResource(R.string.sheet_idle_title),
-                    style = MaterialTheme.typography.titleMedium,
-                    textAlign = TextAlign.Center,
-                )
-                Text(
-                    text = stringResource(R.string.sheet_idle_body),
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    textAlign = TextAlign.Center,
-                )
-            }
-        } else {
-            val seconds = route?.let { it.durationSeconds * state.trafficFactor + it.waypointWaitsSeconds.sum() }
-            val duration = seconds?.let {
-                formatDurationShort(
-                    (it / SECONDS_PER_MINUTE).roundToInt().coerceAtLeast(1) * SECONDS_PER_MINUTE.toDouble(),
-                )
-            }
-            val placeholder = stringResource(R.string.stat_placeholder)
-            StatTrio(
-                cells = listOf(
-                    StatCell(
-                        stringResource(R.string.stat_distance),
-                        route?.let { formatDistance(it.distanceMeters, units) } ?: placeholder,
-                    ),
-                    StatCell(stringResource(R.string.stat_duration), duration ?: placeholder),
-                    StatCell(stringResource(R.string.stat_stops), state.waypoints.size.toString()),
-                ),
-            )
+        when (state.waypoints.size) {
+            0 -> BuilderHint(R.string.sheet_idle_title, R.string.sheet_idle_body)
+            1 -> BuilderHint(R.string.sheet_one_stop_title, R.string.sheet_one_stop_body)
+            else -> Unit
         }
         Spacer(Modifier.height(Tokens.space3))
         Row(
@@ -130,6 +87,34 @@ fun BuilderPeek(
                 Text(stringResource(R.string.builder_done))
             }
         }
+    }
+}
+
+/** The builder's empty state: one glyph, a title, one line of how. */
+@Composable
+private fun BuilderHint(titleRes: Int, bodyRes: Int) {
+    Column(
+        modifier = Modifier.fillMaxWidth().padding(vertical = Tokens.space2),
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        Icon(
+            painter = painterResource(R.drawable.ic_route),
+            contentDescription = null,
+            tint = MaterialTheme.colorScheme.primary,
+            modifier = Modifier.size(Tokens.space8 + Tokens.space2),
+        )
+        Spacer(Modifier.height(Tokens.space2))
+        Text(
+            text = stringResource(titleRes),
+            style = MaterialTheme.typography.titleMedium,
+            textAlign = TextAlign.Center,
+        )
+        Text(
+            text = stringResource(bodyRes),
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            textAlign = TextAlign.Center,
+        )
     }
 }
 
@@ -203,8 +188,6 @@ fun DiscardRouteDialog(onDiscard: () -> Unit, onDismiss: () -> Unit) {
         dismiss = DialogAction(stringResource(R.string.dialog_cancel), onDismiss),
     )
 }
-
-private const val SECONDS_PER_MINUTE = 60
 
 /**
  * Fades the bottom [height] of the content to transparent while [visible] — the

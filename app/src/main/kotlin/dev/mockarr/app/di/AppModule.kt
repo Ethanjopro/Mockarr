@@ -66,7 +66,11 @@ object AppModule {
     @Singleton
     fun provideDatabase(@ApplicationContext context: Context): MockarrDatabase =
         Room.databaseBuilder(context, MockarrDatabase::class.java, MockarrDatabase.NAME)
-            .addMigrations(MockarrDatabase.MIGRATION_1_2, MockarrDatabase.MIGRATION_2_3)
+            .addMigrations(
+                MockarrDatabase.MIGRATION_1_2,
+                MockarrDatabase.MIGRATION_2_3,
+                MockarrDatabase.MIGRATION_3_4,
+            )
             .build()
 
     @Provides

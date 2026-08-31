@@ -105,6 +105,9 @@ class SavedRoutesViewModel @Inject constructor(
         ),
     )?.asImageBitmap()
 
+    /** Driving time plus waits, as the builder quoted it. */
+    fun totalDurationSeconds(entity: SavedRouteEntity): Double = repository.totalDurationSeconds(entity)
+
     /** Puts the route on the map; caller navigates to the Map tab. */
     fun load(entity: SavedRouteEntity) {
         routeHandoff.set(repository.toRoute(entity), repository.profileOf(entity))

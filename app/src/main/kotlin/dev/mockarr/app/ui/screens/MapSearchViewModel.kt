@@ -43,6 +43,8 @@ class MapSearchViewModel @Inject constructor(
         val searching: Boolean = false,
         val results: List<SearchSuggestion> = emptyList(),
         val status: Status = Status.IDLE,
+        /** The text field has focus — a map tap should close the search, not place a stop. */
+        val fieldFocused: Boolean = false,
     )
 
     private val _state = MutableStateFlow(SearchState())
@@ -53,6 +55,9 @@ class MapSearchViewModel @Inject constructor(
 
     /** A pick or Close hides the list until the field is focused or typed in again. */
     private var listHidden = false
+
+    /** Recents belong to a focused, empty field only — never to a cold start. */
+    private var fieldFocused = false
 
     /** Camera the map last idled at; the ranking anchor unless a mock is live. */
     var cameraBias: MapCamera? = null
@@ -66,7 +71,10 @@ class MapSearchViewModel @Inject constructor(
         // Recents change (a pick, a clear): re-render whatever the field holds.
         viewModelScope.launch {
             recentSearches.recents.collect {
-                if (!listHidden) showLocal(_state.value.query, searching = _state.value.searching)
+                val query = _state.value.query
+                if (!listHidden && (fieldFocused || query.isNotBlank())) {
+                    showLocal(query, searching = _state.value.searching)
+                }
             }
         }
     }
@@ -94,17 +102,24 @@ class MapSearchViewModel @Inject constructor(
         searchJob = viewModelScope.launch { runSearch(query) }
     }
 
-    /** The field lost its purpose (a pick, Close): drop the list, keep the text. */
+    /**
+     * The field lost its purpose (a pick, Close): the list and the text go —
+     * the placed stop or pin marks the place now, and a field that keeps old
+     * text re-opened its list on the next resume (critique, 2026-08-30).
+     */
     fun clearResults() {
         searchJob?.cancel()
         listHidden = true
-        _state.update { it.copy(searching = false, results = emptyList(), status = Status.IDLE) }
+        _state.update { SearchState(fieldFocused = fieldFocused) }
     }
 
-    /** Recents for an empty, focused field. */
-    fun showRecents() {
+    /** Focus gained: recents for an empty field; a field with text keeps whatever it shows. */
+    fun setFieldFocused(focused: Boolean) {
+        fieldFocused = focused
+        _state.update { it.copy(fieldFocused = focused) }
+        if (!focused || _state.value.query.isNotBlank()) return
         listHidden = false
-        if (_state.value.query.isBlank()) showLocal("", searching = false)
+        showLocal("", searching = false)
     }
 
     fun rememberPick(result: GeocodingResult) {

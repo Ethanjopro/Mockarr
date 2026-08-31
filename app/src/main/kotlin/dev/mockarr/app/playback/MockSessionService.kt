@@ -15,11 +15,10 @@ import androidx.core.app.ServiceCompat
 import dagger.hilt.android.AndroidEntryPoint
 import dev.mockarr.app.MainActivity
 import dev.mockarr.app.R
-import dev.mockarr.app.ui.errorMessageOrNull
-import dev.mockarr.app.ui.formatDistanceProgress
-import dev.mockarr.app.ui.formatDurationShort
+import dev.mockarr.app.ui.Formatter
 import dev.mockarr.core.data.SettingsRepository
 import dev.mockarr.core.mocklocation.MockLocationController
+import dev.mockarr.core.mocklocation.MockStartResult
 import dev.mockarr.core.model.LatLng
 import dev.mockarr.core.model.PlaybackState
 import dev.mockarr.core.model.Route
@@ -99,7 +98,11 @@ class MockSessionService : Service() {
         super.onCreate()
         val manager = getSystemService(NotificationManager::class.java)
         manager.createNotificationChannel(
-            NotificationChannel(CHANNEL_ID, "Mock location session", NotificationManager.IMPORTANCE_LOW),
+            NotificationChannel(
+                CHANNEL_ID,
+                getString(R.string.notification_channel),
+                NotificationManager.IMPORTANCE_LOW,
+            ),
         )
         // Progress alerts were removed; shed the channel on devices that have it.
         manager.deleteNotificationChannel("progress_alerts")
@@ -195,6 +198,7 @@ class MockSessionService : Service() {
                 tickHz = settings.tickHz,
                 durationScale = trafficFactor,
                 speedVarianceFraction = SPEED_VARIANCE_FRACTION,
+                offRoadPauseSeconds = if (settings.offRoadWalkEnabled) OFF_ROAD_PAUSE_SECONDS else 0,
                 jitterEnabled = settings.jitterEnabled,
                 jitterSigmaMeters = settings.jitterSigmaMeters,
             ),
@@ -316,12 +320,10 @@ class MockSessionService : Service() {
         )
         true
     } catch (e: IllegalStateException) {
-        repository.reportError("Could not start mocking: ${e.message}")
+        repository.reportError(getString(R.string.error_mock_start, e.message))
         false
     } catch (e: SecurityException) {
-        repository.reportError(
-            "Mocking needs the location permission (Android requires it for background use): ${e.message}",
-        )
+        repository.reportError(getString(R.string.error_mock_permission, e.message))
         false
     }
 
@@ -373,12 +375,12 @@ class MockSessionService : Service() {
             }
         return NotificationCompat.Builder(this, CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_stat_pin)
-            .setContentTitle("Mockarr — holding location")
+            .setContentTitle(getString(R.string.notification_title_holding))
             .setContentText(text)
             .setOngoing(true)
             .setOnlyAlertOnce(true)
             .setContentIntent(contentIntent)
-            .addAction(NotificationCompat.Action(0, "Stop", releaseIntent))
+            .addAction(NotificationCompat.Action(0, getString(R.string.notification_action_stop), releaseIntent))
             .build()
     }
 
@@ -387,35 +389,42 @@ class MockSessionService : Service() {
         val paused = state is PlaybackState.Paused
         val progress = state.progressOrZero
         val units = settingsRepository.settings.value.units
-        val progressText =
-            formatDistanceProgress(routeDistanceMeters * progress, routeDistanceMeters, units)
-        val etaSuffix = state.remainingSecondsOrNull
-            ?.let { " · ${formatDurationShort(it)} left" }
-            .orEmpty()
-        val statusSuffix = when {
-            paused -> " · paused"
-            state is PlaybackState.Dwelling -> " · waiting"
-            else -> ""
-        }
-        val text = progressText + etaSuffix + statusSuffix
+        val formatter = Formatter(resources)
+        val parts = listOfNotNull(
+            formatter.distanceProgress(routeDistanceMeters * progress, routeDistanceMeters, units),
+            state.remainingSecondsOrNull?.let { getString(R.string.notification_time_left, formatter.duration(it)) },
+            when {
+                paused -> getString(R.string.notification_paused)
+                state is PlaybackState.Dwelling -> getString(R.string.notification_waiting)
+                else -> null
+            },
+        )
+        val text = parts.joinToString(getString(R.string.notification_separator))
 
         val toggleAction = if (paused) {
-            NotificationCompat.Action(0, "Resume", resumeIntent)
+            NotificationCompat.Action(0, getString(R.string.notification_action_resume), resumeIntent)
         } else {
-            NotificationCompat.Action(0, "Pause", pauseIntent)
+            NotificationCompat.Action(0, getString(R.string.notification_action_pause), pauseIntent)
         }
 
         return NotificationCompat.Builder(this, CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_stat_pin)
-            .setContentTitle("Mockarr — driving route")
+            .setContentTitle(getString(R.string.notification_title_driving))
             .setContentText(text)
             .setOngoing(true)
             .setOnlyAlertOnce(true)
             .setProgress(PROGRESS_MAX, (progress * PROGRESS_MAX).toInt(), false)
             .setContentIntent(contentIntent)
             .addAction(toggleAction)
-            .addAction(NotificationCompat.Action(0, "Stop", stopIntent))
+            .addAction(NotificationCompat.Action(0, getString(R.string.notification_action_stop), stopIntent))
             .build()
+    }
+
+    /** User-facing failure copy for a mock session start, or null on success. */
+    private fun MockStartResult.errorMessageOrNull(): String? = when (this) {
+        MockStartResult.Ok -> null
+        MockStartResult.NotSelectedAsMockApp -> getString(R.string.error_mock_not_selected)
+        is MockStartResult.ProviderError -> message
     }
 
     private fun servicePendingIntent(action: String, requestCode: Int): PendingIntent =
@@ -444,6 +453,7 @@ class MockSessionService : Service() {
         private const val HOLD_NAME_TIMEOUT_MILLIS = 5_000L
         private const val SECONDS_PER_MINUTE = 60.0
         private const val SPEED_VARIANCE_FRACTION = 0.08
+        private const val OFF_ROAD_PAUSE_SECONDS = 2
         private const val HOLD_ACCURACY_METERS = 5.0
         private const val HOLD_ALTITUDE_METERS = 35.0
         private const val WAKE_LOCK_TAG = "mockarr:playback"

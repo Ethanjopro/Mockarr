@@ -1,6 +1,7 @@
 package dev.mockarr.app.ui.screens
 
 import androidx.compose.ui.geometry.Offset
+import dev.mockarr.core.model.Route
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNull
@@ -38,6 +39,38 @@ class MapInteractionTest {
         assertNull(interaction.selectedWaypoint.value)
         assertNull(interaction.selectedMarkerScreen.value)
         assertNull(interaction.popoverWaypoint.value)
+    }
+
+    @Test
+    fun `tap with only a selection dismisses instead of adding a stop`() {
+        interaction.select(1)
+        assertEquals(TapAction.DismissSelection, interaction.tapAction())
+    }
+
+    @Test
+    fun `tap with a pending move relocates that stop`() {
+        interaction.select(1)
+        interaction.beginMove(1)
+        assertEquals(TapAction.MoveStop(1), interaction.tapAction())
+    }
+
+    @Test
+    fun `tap with the start-choice pills up dismisses them before any selection`() {
+        interaction.select(1)
+        interaction.requestStartChoice(Route(points = emptyList(), legs = emptyList(), 0.0, 0.0))
+        assertEquals(TapAction.DismissStartChoice, interaction.tapAction())
+    }
+
+    @Test
+    fun `tap action is pure - deciding does not clear the selection`() {
+        interaction.select(1)
+        interaction.tapAction()
+        assertEquals(1, interaction.selectedWaypoint.value)
+    }
+
+    @Test
+    fun `tap with nothing open adds a stop`() {
+        assertEquals(TapAction.AddStop, interaction.tapAction())
     }
 
     @Test

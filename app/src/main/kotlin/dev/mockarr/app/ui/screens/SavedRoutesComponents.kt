@@ -49,8 +49,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import dev.mockarr.app.R
-import dev.mockarr.app.ui.formatDistance
-import dev.mockarr.app.ui.formatDurationShort
+import dev.mockarr.app.ui.rememberFormatter
 import dev.mockarr.app.ui.theme.DialogAction
 import dev.mockarr.app.ui.theme.MapPalette
 import dev.mockarr.app.ui.theme.MockarrDialog
@@ -78,11 +77,13 @@ fun SavedRouteCard(
     thumbStyleUrl: String,
     palette: MapPalette,
     nowEpochMillis: Long,
+    totalDurationSeconds: Double,
     loadThumbnail: ThumbnailLoader,
     onClick: () -> Unit,
     onRename: () -> Unit,
     onDelete: () -> Unit,
 ) {
+    val formatter = rememberFormatter()
     val split = remember(entity.name) { splitRouteName(entity.name) }
     val profile = RoutingProfile.fromNameOrDefault(entity.profile)
     Card(
@@ -116,8 +117,8 @@ fun SavedRouteCard(
                     Text(
                         text = stringResource(
                             R.string.routes_card_meta,
-                            formatDistance(entity.distanceMeters, units),
-                            formatDurationShort(entity.durationSeconds),
+                            formatter.distance(entity.distanceMeters, units),
+                            formatter.duration(totalDurationSeconds),
                         ),
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -350,11 +351,11 @@ private fun thumbnailPoints(encodedPolyline6: String): List<LatLng> {
 }
 
 private val THUMB_SIZE = 88.dp
-private val THUMB_PADDING = 8.dp
+private val THUMB_PADDING = Tokens.space2
 private val GLYPH_STROKE = 3.dp
 private val GLYPH_DOT = 3.5.dp
-private val CHIP_HEIGHT = 24.dp
-private val CHIP_ICON = 16.dp
+private val CHIP_HEIGHT = Tokens.space6
+private val CHIP_ICON = Tokens.space4
 private val EMPTY_GLYPH = 56.dp
 private const val MAX_THUMB_POINTS = 64
 private const val MIN_SPAN = 1e-9

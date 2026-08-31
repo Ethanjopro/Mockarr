@@ -101,6 +101,11 @@ class MockSessionRepository @Inject constructor() {
         engine?.setSpeedMultiplier(clamped)
     }
 
+    /** Live-updates one stop's wait on the running engine; a no-op between drives. */
+    fun setWaypointWait(waypointIndex: Int, waitSeconds: Int) {
+        engine?.setWaypointWait(waypointIndex, waitSeconds)
+    }
+
     fun consumeError() {
         _error.value = null
     }

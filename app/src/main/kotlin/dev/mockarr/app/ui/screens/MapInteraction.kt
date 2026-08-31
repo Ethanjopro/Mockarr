@@ -56,6 +56,27 @@ class MapInteraction(private val isStop: (Int) -> Boolean) {
         _overlayBottomPx.value = px
     }
 
+    /**
+     * True while the search UI owns the next map tap (field focused or its
+     * list open): that tap dismisses the search instead of placing a stop.
+     * Mirrored in by MapScreen — the search ViewModel is scoped to the Map
+     * destination and invisible to the map layer behind the NavHost.
+     */
+    private val _searchOwnsTaps = MutableStateFlow(false)
+    val searchOwnsTaps: StateFlow<Boolean> = _searchOwnsTaps.asStateFlow()
+
+    fun setSearchOwnsTaps(owns: Boolean) {
+        _searchOwnsTaps.value = owns
+    }
+
+    /** Bumped when the map swallowed a tap to close the search; MapScreen reacts. */
+    private val _searchDismissTicks = MutableStateFlow(0)
+    val searchDismissTicks: StateFlow<Int> = _searchDismissTicks.asStateFlow()
+
+    fun requestSearchDismiss() {
+        _searchDismissTicks.value += 1
+    }
+
     /** Strava's Move Point: the next map tap relocates this stop. */
     fun beginMove(index: Int) {
         if (!isStop(index)) return
@@ -68,8 +89,21 @@ class MapInteraction(private val isStop: (Int) -> Boolean) {
         select(null)
     }
 
-    /** The move index, consumed: null if no move was pending. */
-    fun takeMove(): Int? = _movingWaypoint.value.also { cancelMove() }
+    /**
+     * What the next plain map tap should do, in priority order: settle a pending
+     * Move, dismiss the start-choice pills, dismiss the open selection, or add a
+     * stop. Pure read — the caller performs the action (dismissal must not also
+     * drop a stop, so deciding and acting are kept separate).
+     */
+    fun tapAction(): TapAction {
+        val moving = _movingWaypoint.value
+        return when {
+            moving != null -> TapAction.MoveStop(moving)
+            _startChoiceRoute.value != null -> TapAction.DismissStartChoice
+            _selectedWaypoint.value != null -> TapAction.DismissSelection
+            else -> TapAction.AddStop
+        }
+    }
 
     fun requestStartChoice(route: Route) {
         _startChoiceRoute.value = route
@@ -84,4 +118,19 @@ class MapInteraction(private val isStop: (Int) -> Boolean) {
         _movingWaypoint.value = null
         select(null)
     }
+}
+
+/** The decision for a plain map tap — see [MapInteraction.tapAction]. */
+sealed interface TapAction {
+    /** A pending Move owns the tap: relocate this stop. */
+    data class MoveStop(val index: Int) : TapAction
+
+    /** The "from held spot / from route start" pills are up: this tap only closes them. */
+    data object DismissStartChoice : TapAction
+
+    /** A stop popover/selection is open: this tap only dismisses it. */
+    data object DismissSelection : TapAction
+
+    /** Nothing to dismiss: the tap drops a stop. */
+    data object AddStop : TapAction
 }

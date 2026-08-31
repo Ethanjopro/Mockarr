@@ -42,13 +42,19 @@ class SimulationEngine(
         params.durationScale,
         params.speedVarianceFraction,
         random,
+        params.offRoadPauseSeconds,
     )
 
     @Volatile
     private var speedMultiplier = initialSpeedMultiplier.coerceIn(MIN_MULTIPLIER, MAX_MULTIPLIER)
 
-    private val dwellStops = geometry.dwellStops
+    /** Copy-on-write: replaced wholesale by [applyWaitEdit] on the tick coroutine. */
+    private var dwellStops = geometry.dwellStops
     private var nextDwellIndex = 0
+
+    /** Wait edits queued by any thread, drained at the top of each tick. */
+    @Volatile
+    private var pendingWaitEdits: List<Pair<Int, Int>> = emptyList()
 
     /** Countdown of the active dwell; survives pause/resume, unlike the state object. */
     private var dwellSecondsLeft = 0.0
@@ -56,7 +62,7 @@ class SimulationEngine(
     private val _state = MutableStateFlow<PlaybackState>(
         PlaybackState.Playing(
             0.0,
-            (geometry.totalDurationSeconds + dwellStops.sumOf { it.waitSeconds }) / speedMultiplier,
+            geometry.totalDurationSeconds / speedMultiplier + dwellStops.sumOf { it.waitSeconds },
         ),
     )
     val state: StateFlow<PlaybackState> = _state.asStateFlow()
@@ -80,7 +86,12 @@ class SimulationEngine(
     }
 
     /** Advances one tick; returns the fix to emit, or null when the session is over. */
-    private fun tick(dt: Double): SimulatedFix? = when (_state.value) {
+    private fun tick(dt: Double): SimulatedFix? {
+        drainWaitEdits()
+        return tickState(dt)
+    }
+
+    private fun tickState(dt: Double): SimulatedFix? = when (_state.value) {
         is PlaybackState.Playing -> {
             step(dt)
             val fix = currentFix()
@@ -149,6 +160,58 @@ class SimulationEngine(
         speedMultiplier = multiplier.coerceIn(MIN_MULTIPLIER, MAX_MULTIPLIER)
     }
 
+    /**
+     * Updates one stop's wait mid-run (applied on the next tick). A stop already
+     * passed is a no-op; the active dwell's countdown is adjusted in place; a
+     * wait added to a previously unwaited stop dwells there when the drive
+     * arrives — with an abrupt brake, since its vertex kept its cruise speed.
+     */
+    fun setWaypointWait(waypointIndex: Int, waitSeconds: Int) {
+        pendingWaitEdits = pendingWaitEdits + (waypointIndex to waitSeconds)
+    }
+
+    private fun drainWaitEdits() {
+        val edits = pendingWaitEdits
+        if (edits.isEmpty()) return
+        pendingWaitEdits = emptyList()
+        for ((waypointIndex, waitSeconds) in edits) {
+            applyWaitEdit(waypointIndex, waitSeconds)
+        }
+    }
+
+    private fun applyWaitEdit(waypointIndex: Int, waitSeconds: Int) {
+        val stops = dwellStops
+        val existing = stops.indexOfFirst { it.waypointIndex == waypointIndex }
+        // Active dwell (or one frozen by pause): the countdown itself is adjusted.
+        val dwellingHere = existing >= 0 && existing == nextDwellIndex && dwellSecondsLeft > 0.0
+        when {
+            dwellingHere -> {
+                val elapsed = stops[existing].waitSeconds - dwellSecondsLeft
+                dwellSecondsLeft = (waitSeconds - elapsed).coerceAtLeast(0.0)
+                dwellStops = stops.replaceWait(existing, waitSeconds)
+            }
+            // Behind the drive: the moment has passed, nothing to change.
+            existing in 0 until nextDwellIndex -> Unit
+            existing >= 0 && waitSeconds <= 0 -> dwellStops = stops.filterIndexed { i, _ -> i != existing }
+            existing >= 0 -> dwellStops = stops.replaceWait(existing, waitSeconds)
+            waitSeconds > 0 -> insertDwell(waypointIndex, waitSeconds)
+            else -> Unit
+        }
+    }
+
+    /** Adds a dwell for a stop that had none; lands sorted, always at/after [nextDwellIndex]. */
+    private fun insertDwell(waypointIndex: Int, waitSeconds: Int) {
+        val stopDistance = geometry.waypointDistanceMeters(waypointIndex) ?: return
+        if (stopDistance <= distance) return // already driven past it
+        val stop = RouteGeometry.DwellStop(
+            stopDistance,
+            waitSeconds,
+            waypointIndex,
+            isDestination = waypointIndex == geometry.lastWaypointIndex,
+        )
+        dwellStops = (dwellStops + stop).sortedBy { it.distanceMeters }
+    }
+
     private val tickMillis: Long = (MILLIS_PER_SECOND / params.tickHz).toLong().coerceAtLeast(1L)
 
     private fun step(dt: Double) {
@@ -178,9 +241,9 @@ class SimulationEngine(
         _state.value = PlaybackState.Playing(progress(), remainingWithDwell())
     }
 
-    /** Counts down the active dwell; the countdown fast-forwards with the multiplier. */
+    /** Counts down the active dwell in real time — a wait is a wait at any speed multiplier. */
     private fun dwellTick(dt: Double): SimulatedFix {
-        dwellSecondsLeft -= dt * speedMultiplier
+        dwellSecondsLeft -= dt
         if (dwellSecondsLeft <= 0.0) {
             dwellSecondsLeft = 0.0
             nextDwellIndex++
@@ -195,19 +258,19 @@ class SimulationEngine(
         PlaybackState.Dwelling(
             progress,
             remaining,
-            dwellSecondsLeft / speedMultiplier,
+            dwellSecondsLeft,
             stop?.waypointIndex ?: -1,
             stop?.isDestination ?: false,
         )
 
-    /** Cruise time to the destination plus every not-yet-elapsed dwell second. */
+    /** Multiplier-scaled cruise time to the destination plus every not-yet-elapsed dwell second (real time). */
     private fun remainingWithDwell(): Double {
         val futureFrom = if (dwellSecondsLeft > 0.0) nextDwellIndex + 1 else nextDwellIndex
         var dwell = dwellSecondsLeft
         for (i in futureFrom until dwellStops.size) {
             dwell += dwellStops[i].waitSeconds
         }
-        return (geometry.remainingDurationSeconds(distance) + dwell) / speedMultiplier
+        return geometry.remainingDurationSeconds(distance) / speedMultiplier + dwell
     }
 
     private fun stopStep(dt: Double) {
@@ -287,3 +350,6 @@ class SimulationEngine(
         private const val DEFAULT_ALTITUDE_METERS = 35.0
     }
 }
+
+private fun List<RouteGeometry.DwellStop>.replaceWait(index: Int, waitSeconds: Int) =
+    mapIndexed { i, stop -> if (i == index) stop.copy(waitSeconds = waitSeconds) else stop }

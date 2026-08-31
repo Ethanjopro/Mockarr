@@ -32,6 +32,11 @@ data class MockarrSettings(
     val stayAtDestination: Boolean = true,
     val map3dEnabled: Boolean = true,
     val trafficSimEnabled: Boolean = true,
+    /** Routes may leave the road network to reach a stop the router can't (dotted connectors). */
+    val offRoadEnabled: Boolean = true,
+
+    /** Pause at the road's edge, then cross off-road connectors at walking pace. */
+    val offRoadWalkEnabled: Boolean = true,
     val setupSeen: Boolean = false,
     /** The one-time "pull the sheet up" hint on the Map has been dismissed. */
     val sheetHintSeen: Boolean = false,
@@ -104,6 +109,10 @@ class SettingsRepository(
 
     suspend fun setTrafficSimEnabled(value: Boolean) = edit { it[KEY_TRAFFIC_SIM] = value }
 
+    suspend fun setOffRoadEnabled(value: Boolean) = edit { it[KEY_OFF_ROAD] = value }
+
+    suspend fun setOffRoadWalkEnabled(value: Boolean) = edit { it[KEY_OFF_ROAD_WALK] = value }
+
     suspend fun setSetupSeen(value: Boolean) = edit { it[KEY_SETUP_SEEN] = value }
 
     suspend fun setSheetHintSeen(value: Boolean) = edit { it[KEY_SHEET_HINT_SEEN] = value }
@@ -137,6 +146,8 @@ class SettingsRepository(
         stayAtDestination = this[KEY_STAY_AT_DESTINATION] ?: DEFAULTS.stayAtDestination,
         map3dEnabled = this[KEY_MAP_3D] ?: DEFAULTS.map3dEnabled,
         trafficSimEnabled = this[KEY_TRAFFIC_SIM] ?: DEFAULTS.trafficSimEnabled,
+        offRoadEnabled = this[KEY_OFF_ROAD] ?: DEFAULTS.offRoadEnabled,
+        offRoadWalkEnabled = this[KEY_OFF_ROAD_WALK] ?: DEFAULTS.offRoadWalkEnabled,
         setupSeen = this[KEY_SETUP_SEEN] ?: DEFAULTS.setupSeen,
         sheetHintSeen = this[KEY_SHEET_HINT_SEEN] ?: DEFAULTS.sheetHintSeen,
     )
@@ -160,6 +171,8 @@ class SettingsRepository(
         val KEY_STAY_AT_DESTINATION = booleanPreferencesKey("stay_at_destination")
         val KEY_MAP_3D = booleanPreferencesKey("map_3d_enabled")
         val KEY_TRAFFIC_SIM = booleanPreferencesKey("traffic_sim_enabled")
+        val KEY_OFF_ROAD = booleanPreferencesKey("off_road_enabled")
+        val KEY_OFF_ROAD_WALK = booleanPreferencesKey("off_road_walk_enabled")
         val KEY_SETUP_SEEN = booleanPreferencesKey("setup_seen")
         val KEY_SHEET_HINT_SEEN = booleanPreferencesKey("sheet_hint_seen")
         val KEY_CAMERA_LAT = doublePreferencesKey("camera_lat")

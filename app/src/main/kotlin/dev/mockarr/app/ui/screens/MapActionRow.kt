@@ -19,6 +19,7 @@ import androidx.compose.foundation.text.TextAutoSize
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonColors
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledIconButton
 import androidx.compose.material3.FilledTonalIconButton
@@ -32,10 +33,12 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import dev.mockarr.app.R
@@ -57,8 +60,15 @@ internal fun RoutingProfile.shortLabelRes(): Int = when (this) {
     RoutingProfile.CYCLING -> R.string.row_mode_cycle
 }
 
-/** Start pressed while holding elsewhere: the row splits into these two pills. */
-data class StartChoice(val onFromHold: () -> Unit, val onFromRouteStart: () -> Unit)
+/** Where a drive can begin when Start is pressed away from the route's first stop. */
+enum class StartOrigin { HELD_SPOT, MY_LOCATION }
+
+/** Start pressed with another origin available: the row splits into these two pills. */
+data class StartChoice(
+    val origin: StartOrigin,
+    val onFromOrigin: () -> Unit,
+    val onFromRouteStart: () -> Unit,
+)
 
 /**
  * The signature row under the stat card (DESIGN.md → The Action Row): mode
@@ -78,6 +88,7 @@ fun ActionRow(
     onEditRoute: () -> Unit,
     modifier: Modifier = Modifier,
     choice: StartChoice? = null,
+    locating: Boolean = false,
 ) {
     AnimatedContent(
         targetState = choice,
@@ -88,7 +99,7 @@ fun ActionRow(
         if (pending != null) {
             StartChoiceRow(pending)
         } else {
-            ActionSlots(profile, canStart, routeLoaded, onPickMode, onStart, onEditRoute)
+            ActionSlots(profile, canStart, routeLoaded, onPickMode, onStart, onEditRoute, locating)
         }
     }
 }
@@ -124,18 +135,32 @@ private fun StartChoiceRow(choice: StartChoice) {
 
 @Composable
 private fun RowScope.StartChoicePills(choice: StartChoice) {
-    ActionPill(
-        label = stringResource(R.string.row_start_from_hold),
-        iconRes = R.drawable.ic_stat_pin,
-        enabled = true,
-        onClick = choice.onFromHold,
-        contentDescription = stringResource(R.string.row_start_from_hold_cd),
+    when (choice.origin) {
         // Amber Hold: the pill wears the held spot's colour, like the pin and the strip.
-        colors = ButtonDefaults.buttonColors(
-            containerColor = MockarrTheme.colors.holdContainer,
-            contentColor = MockarrTheme.colors.onHoldContainer,
-        ),
-    )
+        StartOrigin.HELD_SPOT -> ActionPill(
+            label = stringResource(R.string.row_start_from_hold),
+            iconRes = R.drawable.ic_stat_pin,
+            enabled = true,
+            onClick = choice.onFromOrigin,
+            contentDescription = stringResource(R.string.row_start_from_hold_cd),
+            colors = ButtonDefaults.buttonColors(
+                containerColor = MockarrTheme.colors.holdContainer,
+                contentColor = MockarrTheme.colors.onHoldContainer,
+            ),
+        )
+        // Primary, not amber: locating is where the device really is, no hold involved.
+        StartOrigin.MY_LOCATION -> ActionPill(
+            label = stringResource(R.string.row_start_from_me),
+            iconRes = R.drawable.ic_target,
+            enabled = true,
+            onClick = choice.onFromOrigin,
+            contentDescription = stringResource(R.string.row_start_from_me_cd),
+            colors = ButtonDefaults.buttonColors(
+                containerColor = MaterialTheme.colorScheme.primaryContainer,
+                contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
+            ),
+        )
+    }
     ActionPill(
         label = stringResource(R.string.row_start_from_route),
         iconRes = R.drawable.ic_play,
@@ -157,6 +182,7 @@ private fun ActionSlots(
     onPickMode: () -> Unit,
     onStart: () -> Unit,
     onEditRoute: () -> Unit,
+    locating: Boolean,
 ) {
     // Circles share a top edge (Strava): the row reads higher and each label
     // sits under its own circle.
@@ -185,19 +211,24 @@ private fun ActionSlots(
         RowSlot(
             label = startLabel,
             modifier = Modifier.weight(1f),
-            onClick = onStart.takeIf { canStart },
+            onClick = onStart.takeIf { canStart && !locating },
         ) {
             FilledIconButton(
                 onClick = onStart,
-                enabled = canStart,
+                enabled = canStart && !locating,
                 colors = IconButtonDefaults.filledIconButtonColors(),
                 modifier = Modifier.size(START_BUTTON),
             ) {
-                Icon(
-                    painter = painterResource(R.drawable.ic_play),
-                    contentDescription = stringResource(R.string.row_start_cd),
-                    modifier = Modifier.size(START_ICON),
-                )
+                // While the real location resolves, the button says so instead of play.
+                if (locating) {
+                    CircularProgressIndicator(modifier = Modifier.size(SIDE_ICON), strokeWidth = SPINNER_STROKE)
+                } else {
+                    Icon(
+                        painter = painterResource(R.drawable.ic_play),
+                        contentDescription = stringResource(R.string.row_start_cd),
+                        modifier = Modifier.size(START_ICON),
+                    )
+                }
             }
         }
         val routeLabel = stringResource(if (routeLoaded) R.string.row_switch_route else R.string.row_add_route)
@@ -259,7 +290,7 @@ private fun RowSlot(
     control: @Composable () -> Unit,
 ) {
     // The label is part of the target (Strava taps the whole slot).
-    val clickModifier = if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier
+    val clickModifier = if (onClick != null) Modifier.clickable(onClick = onClick, role = Role.Button) else Modifier
     Column(
         modifier = modifier.then(clickModifier).padding(vertical = Tokens.space1),
         horizontalAlignment = Alignment.CenterHorizontally,
@@ -272,6 +303,7 @@ private fun RowSlot(
             style = MaterialTheme.typography.titleSmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
         )
     }
 }
@@ -298,7 +330,7 @@ fun ModePickerSheet(
                 modifier = Modifier
                     .fillMaxWidth()
                     .heightIn(min = Tokens.space8 + Tokens.space4)
-                    .clickable(enabled = enabled) { onSelect(profile) }
+                    .clickable(enabled = enabled, role = Role.RadioButton) { onSelect(profile) }
                     .padding(horizontal = Tokens.inset, vertical = Tokens.space2),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
@@ -334,6 +366,7 @@ fun ModePickerSheet(
 
 private val ROW_HEIGHT = 120.dp
 private val ROW_MAX_WIDTH = 320.dp
+private val SPINNER_STROKE = 3.dp
 private val PILL_MIN_FONT = 12.sp
 private val PILL_MAX_FONT = 16.sp
 

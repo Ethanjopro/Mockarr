@@ -4,6 +4,7 @@ import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -20,22 +21,22 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import dev.mockarr.app.R
-import dev.mockarr.app.ui.formatDistance
-import dev.mockarr.app.ui.formatDurationShort
+import dev.mockarr.app.ui.rememberFormatter
+import dev.mockarr.app.ui.theme.MapPopover
 import dev.mockarr.app.ui.theme.MockarrTheme
 import dev.mockarr.app.ui.theme.Tokens
 import dev.mockarr.core.model.DistanceUnits
@@ -46,25 +47,21 @@ enum class StripTone { Neutral, Ready, Accent, Hold, Error }
 
 /**
  * Strava's Record "run box": a card floating over the map above the sheet —
- * the status strip on top, the stat trio (and progress) below when there is
- * something to count. [stats] null hides the trio: undefined numbers are
- * never shown as placeholders. The slot is its own recomposition scope, so a
- * per-fix speed cell does not redraw the whole overlay.
+ * one status strip on top (the session's single band: idle prompt, ready,
+ * driving, arrived, holding, error) and the stat trio (with progress) below
+ * when there is something to count. [stats] null hides the trio: undefined
+ * numbers are never shown as placeholders. The slot is its own recomposition
+ * scope, so a per-fix speed cell does not redraw the whole overlay.
  */
 @Composable
 internal fun StatCard(
     strip: StripModel,
     stats: (@Composable () -> Unit)?,
     modifier: Modifier = Modifier,
-    secondary: StripModel? = null,
     onStripAction: (() -> Unit)? = null,
+    onStatsClick: (() -> Unit)? = null,
     trailing: (@Composable () -> Unit)? = null,
 ) {
-    // Keep the last second line through its exit animation; never a duplicate
-    // of the top band (the double "Ready to drive" while a hold's name resolves).
-    val shownSecondary = visibleSecondary(strip, secondary)
-    var lastSecondary by remember { mutableStateOf(shownSecondary) }
-    SideEffect { if (shownSecondary != null) lastSecondary = shownSecondary }
     Surface(
         modifier = modifier.fillMaxWidth(),
         shape = Tokens.cardShape,
@@ -79,22 +76,23 @@ internal fun StatCard(
                 onAction = onStripAction,
                 trailing = trailing,
             )
-            AnimatedVisibility(visible = shownSecondary != null) {
-                val second = shownSecondary ?: lastSecondary?.let { visibleSecondary(strip, it) }
-                if (second != null) StatusStrip(text = second.text, tone = second.tone)
-            }
             AnimatedVisibility(visible = stats != null) {
-                Column(modifier = Modifier.padding(horizontal = Tokens.inset, vertical = Tokens.space3)) {
+                // Only the stats block is tappable — the strip keeps its own action.
+                val editLabel = stringResource(R.string.stat_trio_edit_cd)
+                val clickable = if (onStatsClick != null) {
+                    Modifier
+                        .clickable(onClick = onStatsClick, role = Role.Button)
+                        .semantics { contentDescription = editLabel }
+                } else {
+                    Modifier
+                }
+                Column(modifier = clickable.padding(horizontal = Tokens.inset, vertical = Tokens.space3)) {
                     stats?.invoke()
                 }
             }
         }
     }
 }
-
-/** The second band never repeats the first: a null-latched primary would otherwise echo it. */
-internal fun visibleSecondary(primary: StripModel, secondary: StripModel?): StripModel? =
-    secondary?.takeIf { it.text != primary.text }
 
 /**
  * The card's top band: one line of state copy on a tinted colour that
@@ -125,7 +123,7 @@ fun StatusStrip(
             .fillMaxWidth()
             .background(background)
             .padding(horizontal = Tokens.inset)
-            .heightIn(min = STRIP_MIN_HEIGHT),
+            .heightIn(min = Tokens.touchTarget),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Text(
@@ -148,6 +146,27 @@ fun StatusStrip(
             Spacer(Modifier.width(Tokens.space2))
             trailing()
         }
+    }
+}
+
+/** The speed presets in a card floated above the run box's speed pill. */
+@Composable
+internal fun SpeedPopover(
+    anchor: Offset,
+    speedMultiplier: Double,
+    onSpeedChange: (Double) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    MapPopover(anchor = anchor, onDismiss = onDismiss) {
+        SpeedChips(
+            speedMultiplier = speedMultiplier,
+            // Menu semantics: pick, apply, close — the pill's label confirms it.
+            onSpeedChange = {
+                onSpeedChange(it)
+                onDismiss()
+            },
+            modifier = Modifier.padding(horizontal = Tokens.space4, vertical = Tokens.space2),
+        )
     }
 }
 
@@ -196,13 +215,14 @@ fun DriveProgress(progress: Float, modifier: Modifier = Modifier) {
 @Composable
 internal fun recordCells(state: MapViewModel.UiState, units: DistanceUnits): List<StatCell>? {
     val route = state.route ?: return null
+    val formatter = rememberFormatter()
     val seconds = route.durationSeconds * state.trafficFactor + route.waypointWaitsSeconds.sum()
     val minutes = (seconds / SECONDS_PER_MINUTE).roundToInt().coerceAtLeast(1)
     return listOf(
-        StatCell(stringResource(R.string.stat_distance), formatDistance(route.distanceMeters, units)),
+        StatCell(stringResource(R.string.stat_distance), formatter.distance(route.distanceMeters, units)),
         StatCell(
             stringResource(R.string.stat_duration),
-            formatDurationShort(minutes * SECONDS_PER_MINUTE.toDouble()),
+            formatter.duration(minutes * SECONDS_PER_MINUTE.toDouble()),
         ),
         StatCell(stringResource(R.string.stat_stops), state.waypoints.size.toString()),
     )
@@ -211,5 +231,4 @@ internal fun recordCells(state: MapViewModel.UiState, units: DistanceUnits): Lis
 private const val SECONDS_PER_MINUTE = 60
 private val TRIO_MIN_FONT = 18.sp
 private val TRIO_MAX_FONT = 28.sp
-private val STRIP_MIN_HEIGHT = 48.dp
 private val PROGRESS_HEIGHT = 4.dp

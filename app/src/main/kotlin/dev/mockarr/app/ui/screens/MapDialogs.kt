@@ -101,6 +101,18 @@ internal fun RouteFromHoldDialog(onConfirm: () -> Unit, onDismiss: () -> Unit) {
     )
 }
 
+/** One stop, nothing mocked: route there from the device's real position. */
+@Composable
+internal fun RouteFromMeDialog(onConfirm: () -> Unit, onDismiss: () -> Unit) {
+    MockarrDialog(
+        title = stringResource(R.string.dialog_route_from_me_title),
+        text = stringResource(R.string.dialog_route_from_me_body),
+        onDismissRequest = onDismiss,
+        confirm = DialogAction(stringResource(R.string.dialog_route_and_play), onConfirm),
+        dismiss = DialogAction(stringResource(R.string.dialog_cancel), onDismiss),
+    )
+}
+
 @Composable
 internal fun SaveRouteDialog(
     suggestedName: String?,

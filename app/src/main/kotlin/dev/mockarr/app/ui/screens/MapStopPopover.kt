@@ -18,7 +18,7 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import dev.mockarr.app.R
-import dev.mockarr.app.ui.formatDurationShort
+import dev.mockarr.app.ui.rememberFormatter
 import dev.mockarr.app.ui.theme.MapPopover
 import dev.mockarr.app.ui.theme.MockarrTheme
 import dev.mockarr.app.ui.theme.PopoverRow
@@ -28,8 +28,10 @@ import dev.mockarr.core.model.Waypoint
 /**
  * Strava's tap-a-point callout, over the marker: the stop's name and wait,
  * then Wait (or a greyed "Stays at destination" on the last stop while that option is on)
- * · Move · Delete. [anchor] is the marker's window position, fed by
- * the map every camera frame so the card rides along.
+ * · Move · Delete. While [playing] only the Wait row shows — mid-drive the
+ * route's shape is fixed, but a coming stop's wait can still change. [anchor]
+ * is the marker's window position, fed by the map every camera frame so the
+ * card rides along.
  */
 @Composable
 internal fun StopPopover(
@@ -38,6 +40,7 @@ internal fun StopPopover(
     count: Int,
     anchor: Offset,
     stayAtDestination: Boolean,
+    playing: Boolean,
     onSetWait: () -> Unit,
     onMove: () -> Unit,
     onDelete: () -> Unit,
@@ -45,10 +48,10 @@ internal fun StopPopover(
 ) {
     val isEnd = index == count - 1 && count >= 2
     val hasWait = waypoint.waitSeconds > 0
-    val waitLabel = formatDurationShort(waypoint.waitSeconds.toDouble())
+    val waitLabel = rememberFormatter().duration(waypoint.waitSeconds.toDouble())
     MapPopover(anchor = anchor, onDismiss = onDismiss, modal = false) {
         Row(
-            modifier = Modifier.padding(horizontal = Tokens.space4, vertical = Tokens.space2),
+            modifier = Modifier.padding(horizontal = Tokens.space3, vertical = Tokens.space2),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             StopDisc(number = index + 1, isStart = index == 0, isEnd = isEnd)
@@ -77,18 +80,22 @@ internal fun StopPopover(
             icon = painterResource(R.drawable.ic_schedule),
             enabled = !stays,
             onClick = onSetWait,
+            // The header/action boundary reads through spacing; hairlines only separate actions.
+            divider = false,
         )
-        PopoverRow(
-            label = stringResource(R.string.stop_menu_move),
-            icon = painterResource(R.drawable.ic_target),
-            onClick = onMove,
-        )
-        PopoverRow(
-            label = stringResource(R.string.stop_menu_delete),
-            icon = rememberVectorPainter(Icons.Filled.Delete),
-            destructive = true,
-            onClick = onDelete,
-        )
+        if (!playing) {
+            PopoverRow(
+                label = stringResource(R.string.stop_menu_move),
+                icon = painterResource(R.drawable.ic_target),
+                onClick = onMove,
+            )
+            PopoverRow(
+                label = stringResource(R.string.stop_menu_delete),
+                icon = rememberVectorPainter(Icons.Filled.Delete),
+                destructive = true,
+                onClick = onDelete,
+            )
+        }
     }
 }
 

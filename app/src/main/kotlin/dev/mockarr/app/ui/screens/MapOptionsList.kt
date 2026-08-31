@@ -77,7 +77,7 @@ fun OptionLinkRow(
         modifier = Modifier
             .fillMaxWidth()
             .heightIn(min = Tokens.touchTarget + Tokens.space2)
-            .clickable(enabled = enabled, onClick = onClick)
+            .clickable(enabled = enabled, onClick = onClick, role = Role.Button)
             .padding(horizontal = Tokens.inset, vertical = Tokens.space2),
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -88,22 +88,25 @@ fun OptionLinkRow(
         }
         Spacer(Modifier.width(Tokens.space4))
         Text(title, style = MaterialTheme.typography.bodyLarge, color = ink, modifier = Modifier.weight(1f))
-        if (enabled) {
-            Text("›", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        }
+        if (enabled) RowChevron()
     }
 }
 
 /** Whether the options list offers Save for the loaded route. */
 enum class SaveRowState { HIDDEN, UNSAVED, SAVED }
 
-/** The drag-up list under the action row: Save, the settings that change a drive, then the other screens. */
+/**
+ * The drag-up list under the action row: Save, the map gestures as rows (the
+ * TalkBack and precision path to a stop or a hold), the settings that change
+ * a drive, then the other screens.
+ */
 @Composable
 fun OptionsList(
     settings: MockarrSettings,
     saveState: SaveRowState,
     saving: Boolean,
     onSaveRoute: () -> Unit,
+    onHoldAtCentre: () -> Unit,
     followCamera: Boolean,
     onFollowChange: (Boolean) -> Unit,
     onStayChange: (Boolean) -> Unit,
@@ -123,12 +126,14 @@ fun OptionsList(
             busy = saving,
         )
     }
-    Text(
-        text = stringResource(R.string.options_header).uppercase(),
-        style = MaterialTheme.typography.labelSmall,
-        color = MaterialTheme.colorScheme.onSurfaceVariant,
-        modifier = Modifier.padding(horizontal = Tokens.inset, vertical = Tokens.space1),
+    OptionsHeader(stringResource(R.string.options_map_header))
+    OptionLinkRow(
+        divider = false,
+        iconRes = R.drawable.ic_stat_pin,
+        title = stringResource(R.string.option_hold_centre),
+        onClick = onHoldAtCentre,
     )
+    OptionsHeader(stringResource(R.string.options_header))
     OptionSwitchRow(
         iconRes = R.drawable.ic_target,
         title = stringResource(R.string.option_follow),
@@ -166,6 +171,22 @@ fun OptionsList(
         iconRes = R.drawable.ic_settings,
         title = stringResource(R.string.option_settings),
         onClick = onOpenSettings,
+    )
+}
+
+/** Small-caps group label inside the sheet (the screens use [SectionHeader]). */
+@Composable
+private fun OptionsHeader(text: String) {
+    Text(
+        text = text.uppercase(),
+        style = MaterialTheme.typography.labelSmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        modifier = Modifier.padding(
+            start = Tokens.inset,
+            end = Tokens.inset,
+            top = Tokens.space3,
+            bottom = Tokens.space1,
+        ),
     )
 }
 

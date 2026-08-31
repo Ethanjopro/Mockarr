@@ -7,6 +7,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
+import dev.mockarr.app.R
 import dev.mockarr.app.playback.MockSessionRepository
 import dev.mockarr.app.playback.MockSessionService
 import dev.mockarr.core.model.LatLng
@@ -81,7 +82,19 @@ class MockSessionViewModel @Inject constructor(
 
     fun setSpeedMultiplier(multiplier: Double) = repository.setSpeedMultiplier(multiplier)
 
+    /** Live-updates one stop's wait on the running engine; a no-op between drives. */
+    fun setWaypointWait(waypointIndex: Int, waitSeconds: Int) = repository.setWaypointWait(waypointIndex, waitSeconds)
+
     fun consumeError() = repository.consumeError()
+
+    /** The user declined the location permission a mock needs: say so, like any other session error. */
+    fun reportPermissionDenied() = repository.reportError(context.getString(R.string.snack_location_permission))
+
+    /** Declined the permission "Go to my location" needs. */
+    fun reportLocatePermissionDenied() = repository.reportError(context.getString(R.string.snack_locate_permission))
+
+    /** The one-shot real-location read came back empty (GPS cold, indoors). */
+    fun reportLocateFailed() = repository.reportError(context.getString(R.string.snack_locate_failed))
 
     private fun startService(intent: Intent) {
         ContextCompat.startForegroundService(context, intent)

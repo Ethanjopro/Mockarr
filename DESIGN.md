@@ -110,6 +110,7 @@ spacing:
   space8: "32dp"
   map-edge: "12dp"
   touch-target: "48dp"
+  sheet-max-width: "640dp"
 components:
   button-primary:
     backgroundColor: "{colors.night-indigo}"
@@ -364,8 +365,9 @@ the sheet (and by pushed screens). There is no navigation bar.
 - **Spacing rhythm** is the 4dp grid: 4 / 8 / 12 / 16 / 24 / 32, with 20dp as the sheet and
   card content inset and 12dp as the map-edge gutter.
 - **Landscape / compact height**: the sheet keeps its peek and scrolls its detail column;
-  Material centres the sheet at its max width. Expanded-width side panel is a planned
-  adaptation, not yet built.
+  Material centres the sheet at its max width, and the floating overlays (stat card,
+  builder tools) cap at the same `{spacing.sheet-max-width}` so they never sprawl behind
+  the centred sheet. Expanded-width side panel is a planned adaptation, not yet built.
 - **Touch targets** are 48dp minimum, including list rows and search results.
 
 ## Elevation & Depth
@@ -392,6 +394,11 @@ cards, **12dp** for controls (search field, filter chips), and **full pills** fo
 FABs, the drag handle and the numbered stop discs. Map markers are circles with a 2.5dp
 ring in the ground colour; the selected marker gains an outer ring in `map-selection`.
 Direction chevrons on the route are 10dp, 2dp stroke, drawn in the casing colour.
+Off-road connectors (a stop the road network can't reach, off-road setting on) and the
+straight-line fallback draw as the same dotted `map-route-fallback` line; the road part
+of a route stays solid. 3D mode pitches the camera itself (55°) and draws building
+extrusions earlier, solider and 1.5× taller than the style's defaults — the toggle must
+read instantly, not only after a manual two-finger tilt.
 
 ## Components
 
@@ -443,12 +450,15 @@ stack and the builder tools; never inside the sheet.
 ### Popover
 Strava's builder menu and its tap-a-point callout: a 16dp `surface-container-lowest` card
 with the popover shadow and a **caret** on its anchor (`MapPopover`), sitting above the
-anchor and flipping below when there is no room. Rows (`PopoverRow`) are label-left,
-glyph-right, 44dp min, hairline dividers; a destructive row uses the error role and comes
-last. The **stop popover** (`StopPopover`) rides the selected marker on every camera frame:
-header = disc + "Stop 2" + its wait, then *Wait here…* (not on the destination) · *Move
-stop* · *Delete stop*. Outside tap and Back dismiss. Move puts the strip in "Tap the map to
-move Stop 2 — Cancel" and the next map tap relocates the stop.
+anchor and flipping below when there is no room. The card hugs its widest row (intrinsic
+width, 280dp cap). Rows (`PopoverRow`) are label-left, glyph-right, 44dp min, hairline
+dividers between actions only — never directly under a header; a destructive row uses the
+error role and comes last. The **stop popover** (`StopPopover`) rides the selected marker
+on every camera frame: header = disc + "Stop 2" + its wait, then *Wait here…* (not on the
+destination) · *Move stop* · *Delete stop*. While a drive is playing only the Wait row
+shows — the route's shape is fixed mid-drive, but a coming stop's wait can still change.
+Outside tap and Back dismiss. Move puts the strip in "Tap the map to move Stop 2 — Cancel"
+and the next map tap relocates the stop.
 
 ### Motion (one authored moment)
 Play is the only choreographed transition, built from three reusable pieces in
@@ -463,11 +473,23 @@ Resume + Finish with the same fade-through. Compose animations follow the system
 
 ### Stat Card (signature)
 Strava's "run box": a 16dp-corner `surface-container-lowest` card with the soft lift,
-floating `map-edge` above the sheet. **Status strip** on top: a 48dp-min band of bold Title
-copy, centred when alone, with an optional trailing text action (Fix / Stop) or the speed
-chip while driving. Container and content colours crossfade between the five tones
-(neutral / ready / accent / hold / error) — a colour animation on one surface, never a
-swap of components. Below it the **Stat Trio** when there is something to count.
+floating `map-edge` above the sheet — **in every state, from cold start to Stop**. With
+nothing loaded it is the empty card: one neutral band, "Tap the map to add stops ·
+long-press to hold". **Status strip** on top: a 48dp-min band of bold Title copy, centred
+when alone, with an optional trailing text action (Fix / Stop) or the speed chip while
+driving. Container and content colours crossfade between the five tones (neutral / ready
+/ accent / hold / error) — a colour animation on one surface, never a swap of components.
+**One band, never two:** the card never stacks a second strip; the trio under it is what
+says a route is loaded. The end of a drive is its own line — "Arrived at ‹place› · Stop"
+(ready tone, one haptic tick, ~4 s) before the band settles into "Holding at ‹place› ·
+Stop". Below the strip the **Stat Trio** when there is something to count — while
+building too (the builder's peek holds only the hint and the Done row). The card **rides
+the sheet**: as the sheet expands (speed chips, options, stops) the card and the builder
+pills lift with it, capped under the top chrome, so the trio stays readable while its
+speed changes and a hold's Stop is never buried. The only state with no card is a single
+placed stop ("Building a route"). With a route loaded (not driving) the **stats block is
+tappable** — it opens the expanded sheet's stop list (`Role.Button`, "Edit the route");
+the in-drive stats are inert.
 
 ### Stat Trio
 Three equal `weight(1f)` centred columns; Headline value (700, tabular) over its Label
@@ -488,19 +510,28 @@ are undefined (nothing loaded).
 ### Inputs / Fields
 - **Search field:** `surface-container-lowest` fill, 12dp radius, no visible border until
   focused (then the indigo outline), trailing search icon or a 24dp progress spinner.
-  Results drop as a 16dp card with 48dp-min rows and a scroll cap of 280dp. Each row:
+  Results drop as a 16dp `surface-container-lowest` card at popover elevation with 48dp-min
+  rows and a scroll cap of 280dp; past four rows the list fades at the bottom. Each row:
   a 24dp `on-surface-variant` glyph by kind (pin = place, signpost = street, house =
   address, skyline = city/region, history = recent), the name with the typed text bold,
   a `bodySmall` "where" line, distance from the viewport right-aligned; one line each,
   ellipsised. An empty focused field shows "Recent · Clear"; no-match and offline read
-  as a quiet notice above the list, never a blank card.
+  as a quiet notice above the list, never a blank card. A pick, Close, or a tap on the
+  map clears the field and its list — while the search is up, a map tap only dismisses
+  it, never places a stop; recents open only for a focused, empty field — never on launch.
 - **Dialog text fields:** Material outlined, single line.
 
 ### Navigation
 - No navigation bar. The Map is the root; **Saved routes** and **All settings** are rows
-  at the bottom of the sheet's drag-up list and open as pushed screens with a centred top
-  bar and a back arrow; Setup opens from Settings or the strip's Fix action. System back
-  always returns to the map.
+  at the bottom of the sheet's drag-up list and open as pushed screens with a centred,
+  pinned top bar (tints to `surface-container` as content scrolls under it) and a back
+  arrow; Setup opens from Settings or the strip's Fix action, and on first run only when a
+  required step is missing. System back always returns to the map.
+- **Every map gesture has a row twin** in the sheet (the TalkBack and precision path): a
+  "Map" group with "Hold my location at the map centre", and compass nudges as custom
+  accessibility actions on the thumbstick. Clickable rows carry a `Role`. ("Add a stop at
+  the map centre" was removed at Ethan's request, session 25 — placing a stop currently
+  has no gesture-free twin; restore one if accessibility becomes a goal.)
 
 ### Map markers
 - **Thumbstick (hold only):** a 120dp white pill-family base with the floating shadow and a

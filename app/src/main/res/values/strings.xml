@@ -16,16 +16,25 @@
     <string name="strip_stopping">Stopping…</string>
     <string name="strip_waiting">Waiting at stop %1$d · %2$s</string>
     <string name="strip_waiting_destination">Waiting at destination · %1$s</string>
+    <string name="strip_offroad_pause">Leaving the road · %1$s</string>
     <string name="strip_holding_at">Holding at %1$s</string>
     <string name="strip_holding_destination">Holding at destination</string>
     <string name="strip_holding_pin">Holding at dropped pin</string>
     <string name="strip_holding_stopped">Holding where you stopped</string>
     <string name="notification_holding_pending">Holding…</string>
     <string name="strip_stop_hold">Stop</string>
+    <string name="strip_idle">Tap the map to add stops · long-press to hold</string>
+    <string name="strip_arrived">Arrived</string>
+    <string name="strip_arrived_at">Arrived at %1$s</string>
+    <string name="strip_routing_failed">No road route here — showing a straight line instead</string>
+    <string name="strip_routing_busy">Routing server is busy — showing a straight line for now</string>
+    <string name="strip_routing_offline">Can\'t reach the routing server — showing a straight line instead</string>
 
     <!-- Map: sheet content -->
     <string name="sheet_idle_title">Tap the map to add stops</string>
     <string name="sheet_idle_body">Two or more stops make a route. Long-press anywhere to hold your location there instead.</string>
+    <string name="sheet_one_stop_title">Tap the map again to add a destination</string>
+    <string name="sheet_one_stop_body">Or press Start to hold your location at this stop.</string>
     <string name="sheet_pause">Pause</string>
     <string name="sheet_resume">Resume</string>
     <string name="sheet_finish">Finish</string>
@@ -51,6 +60,7 @@
     <string name="stat_distance">Distance</string>
     <string name="stat_duration">Duration</string>
     <string name="stat_stops">Stops</string>
+    <string name="stat_trio_edit_cd">Edit the route</string>
     <string name="speed_kmh">%1$d km/h</string>
     <string name="speed_mph">%1$d mph</string>
 
@@ -81,6 +91,8 @@
     <string name="dialog_cancel">Cancel</string>
     <string name="dialog_route_from_hold_title">Route from held location?</string>
     <string name="dialog_route_from_hold_body">Build a route from your held location to this stop and play it?</string>
+    <string name="dialog_route_from_me_title">Route from my location?</string>
+    <string name="dialog_route_from_me_body">Build a route from your real location to this stop and play it?</string>
     <string name="dialog_route_and_play">Route and play</string>
     <string name="dialog_save_title">Save route</string>
     <string name="dialog_save_name">Name</string>
@@ -99,6 +111,8 @@
     <string name="row_start_from_hold_cd">Start from the held location</string>
     <string name="row_start_from_route">Route start</string>
     <string name="row_start_from_route_cd">Start from the beginning of the route</string>
+    <string name="row_start_from_me">My location</string>
+    <string name="row_start_from_me_cd">Start from your real location</string>
     <string name="row_start_choice_cd">Choose where the drive starts</string>
     <string name="row_start_choice_title">Start the drive from</string>
     <string name="mode_picker_title">Travel mode</string>
@@ -136,6 +150,13 @@
     <string name="option_saved">Saved</string>
     <string name="option_routes">Saved routes</string>
     <string name="option_settings">All settings</string>
+    <string name="options_map_header">Map</string>
+    <string name="option_hold_centre">Hold my location at the map centre</string>
+    <string name="map_cd">Map. Tap to add a stop, long-press to hold your location there; the sheet below offers the same without gestures.</string>
+    <string name="thumbstick_nudge_north">Nudge north</string>
+    <string name="thumbstick_nudge_east">Nudge east</string>
+    <string name="thumbstick_nudge_south">Nudge south</string>
+    <string name="thumbstick_nudge_west">Nudge west</string>
 
     <!-- Routes tab (brief 2) -->
     <string name="routes_title">Saved routes</string>
@@ -156,7 +177,7 @@
     <string name="routes_rename_title">Rename route</string>
     <string name="routes_rename_name">Name</string>
     <string name="routes_empty_title">No saved routes yet</string>
-    <string name="routes_empty_body">Build a drive on the Map tab and save it here. Saved routes replay offline.</string>
+    <string name="routes_empty_body">Build a drive on the map and save it here. Saved routes replay offline.</string>
     <string name="routes_empty_cta">Plan a drive</string>
     <string name="routes_no_match_title">No routes match</string>
     <string name="routes_no_match_body">Try another keyword or clear the filter.</string>
@@ -196,11 +217,16 @@
     <string name="settings_mode_desc">Used for new routes</string>
     <string name="settings_server">Routing server</string>
     <string name="settings_server_desc">The public OSRM server only routes driving; your own unlocks walking and cycling</string>
+    <string name="settings_offroad">Off-road stops</string>
+    <string name="settings_offroad_desc">Follow roads as far as they go, then cut straight to a stop the road can\'t reach — shown as a dotted line</string>
+    <string name="settings_offroad_walk">Walk off-road stretches</string>
+    <string name="settings_offroad_walk_desc">Pause at the road\'s edge, then cross dotted connectors at walking pace</string>
     <string name="settings_server_title">Routing server</string>
     <string name="settings_server_hint">https://your-osrm-host:5000</string>
     <string name="settings_server_test">Test</string>
     <string name="settings_server_testing">Testing…</string>
     <string name="settings_server_ok">Server responded — routes work</string>
+    <string name="settings_server_failed">Server didn\'t respond — check the address</string>
     <string name="settings_server_use_public">Use public server</string>
     <string name="settings_about_body">Mockarr uses Android\'s built-in mock location testing feature. Nothing is patched, hooked or rooted.</string>
     <string name="settings_about_version">Version %1$s</string>
@@ -233,10 +259,42 @@
     <string name="setup_battery_action">Open battery settings</string>
 
     <!-- Map: first-run hint -->
-    <string name="hint_sheet_title">Pull up for more</string>
-    <string name="hint_sheet_body">Drag the sheet up, or tap its handle, for route options, saved routes and settings.</string>
+    <string name="hint_sheet_title">Plan your first drive</string>
+    <string name="hint_sheet_body">Tap the map to add stops — two make a route. Pull this sheet up for options, saved routes and settings.</string>
     <string name="hint_got_it">Got it</string>
 
     <!-- Map: transient feedback -->
     <string name="snack_dismiss">Dismiss</string>
+    <string name="snack_saved">Saved “%1$s”</string>
+    <string name="snack_released">Stopped — your real location is live again</string>
+    <string name="snack_location_permission">Location permission is needed before Mockarr can mock your location</string>
+    <string name="snack_locate_permission">Location permission is needed to show where you are</string>
+    <string name="snack_locate_failed">Couldn\'t find your location</string>
+    <string name="route_unnamed">Unnamed route</string>
+    <string name="route_name_default">Route %1$s</string>
+
+    <!-- Units and durations -->
+    <string name="unit_km">km</string>
+    <string name="unit_mi">mi</string>
+    <string name="unit_seconds_short">%1$d s</string>
+    <string name="unit_minutes_short">%1$d min</string>
+    <string name="unit_hours_short">%1$d h</string>
+    <string name="unit_hours_minutes_short">%1$d h %2$d min</string>
+    <string name="distance_value">%1$.1f %2$s</string>
+    <string name="distance_progress">%1$.1f / %2$.1f %3$s</string>
+
+    <!-- Foreground service -->
+    <string name="notification_channel">Mock location session</string>
+    <string name="notification_title_holding">Mockarr — holding location</string>
+    <string name="notification_title_driving">Mockarr — driving route</string>
+    <string name="notification_action_stop">Stop</string>
+    <string name="notification_action_pause">Pause</string>
+    <string name="notification_action_resume">Resume</string>
+    <string name="notification_time_left">%1$s left</string>
+    <string name="notification_paused">paused</string>
+    <string name="notification_waiting">waiting</string>
+    <string name="notification_separator">" · "</string>
+    <string name="error_mock_not_selected">Mockarr isn\'t selected as the mock location app — open the Setup checklist.</string>
+    <string name="error_mock_start">Could not start mocking: %1$s</string>
+    <string name="error_mock_permission">Mocking needs the location permission (Android requires it for background use): %1$s</string>
 </resources>

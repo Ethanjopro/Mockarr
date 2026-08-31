@@ -28,6 +28,9 @@ object Tokens {
 
     val touchTarget = 48.dp
 
+    /** Popover rows sit denser than sheet rows (DESIGN.md → Popover: 44dp min). */
+    val popoverRowHeight = 44.dp
+
     /** Soft lift for the floating stat card and the sheet (DESIGN.md → Soft Lift). */
     val cardElevation = 4.dp
     val sheetElevation = 8.dp
@@ -39,4 +42,10 @@ object Tokens {
 
     /** Full-width pill actions (Pause / Resume / Finish). */
     val pillHeight = 56.dp
+
+    /** The numbered stop disc, in the sheet and the popover (the map marker is 11dp radius + ring). */
+    val discSize = 28.dp
+
+    /** Material centres the sheet at this width (landscape/tablet); floating overlays match it. */
+    val sheetMaxWidth = 640.dp
 }

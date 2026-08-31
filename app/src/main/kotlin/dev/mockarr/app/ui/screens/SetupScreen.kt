@@ -40,6 +40,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
@@ -74,9 +75,13 @@ fun SetupScreen(
         onPauseOrDispose { }
     }
 
+    // Pinned bar that tints as the list scrolls under it (M3), so rows never just vanish at a hard edge.
+    val scrollBehavior = TopAppBarDefaults.pinnedScrollBehavior()
     Scaffold(
+        modifier = Modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
         topBar = {
             CenterAlignedTopAppBar(
+                scrollBehavior = scrollBehavior,
                 title = { Text(stringResource(R.string.setup_title)) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
@@ -86,8 +91,9 @@ fun SetupScreen(
                         )
                     }
                 },
-                colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
+                colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = MaterialTheme.colorScheme.surface,
+                    scrolledContainerColor = MaterialTheme.colorScheme.surfaceContainer,
                 ),
             )
         },
@@ -287,5 +293,5 @@ private fun Context.openSettings(action: String) {
     }
 }
 
-private val MARK_SIZE = 32.dp
+private val MARK_SIZE = Tokens.space8
 private val MARK_ICON = 20.dp

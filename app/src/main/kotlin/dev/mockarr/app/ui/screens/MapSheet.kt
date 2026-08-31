@@ -4,13 +4,16 @@ import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.requiredHeight
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.FilterChip
@@ -24,6 +27,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.CustomAccessibilityAction
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.customActions
 import androidx.compose.ui.semantics.semantics
@@ -34,9 +38,8 @@ import dev.mockarr.app.R
 import dev.mockarr.app.playback.HoldSource
 import dev.mockarr.app.playback.MockSessionState
 import dev.mockarr.app.ui.Motion.fadeThrough
-import dev.mockarr.app.ui.formatDistance
-import dev.mockarr.app.ui.formatDurationShort
 import dev.mockarr.app.ui.map.formatChipCountdown
+import dev.mockarr.app.ui.rememberFormatter
 import dev.mockarr.app.ui.theme.MockarrTheme
 import dev.mockarr.app.ui.theme.Tokens
 import dev.mockarr.core.model.DistanceUnits
@@ -45,7 +48,7 @@ import dev.mockarr.core.model.Route
 import dev.mockarr.core.model.progressOrZero
 import dev.mockarr.core.model.remainingSecondsOrNull
 import dev.mockarr.core.simulation.SimulationEngine
-import kotlin.math.roundToInt
+import kotlin.math.ceil
 
 /**
  * Strava's pause control: one full-width Pause pill that splits into Resume
@@ -109,32 +112,34 @@ fun PlaybackControls(
 @Composable
 fun SheetHandle(expanded: Boolean, onToggle: () -> Unit, modifier: Modifier = Modifier) {
     val label = stringResource(if (expanded) R.string.sheet_collapse_cd else R.string.sheet_expand_cd)
-    Box(
-        modifier = modifier
-            .fillMaxWidth()
-            // 36dp of layout (the row sits higher); the clickable still gets
-            // Compose's 48dp minimum interactive size.
-            .height(HANDLE_HEIGHT)
-            .clickable(onClick = onToggle)
-            .semantics {
-                contentDescription = label
-                customActions = listOf(
-                    CustomAccessibilityAction(label) {
-                        onToggle()
-                        true
-                    },
-                )
-            },
-        contentAlignment = Alignment.Center,
-    ) {
-        // Our own pill: the Material DragHandle carries ~22dp of vertical
-        // padding and got clipped inside the 36dp block (session 18).
+    // 36dp of layout (the row sits higher) around a full 48dp touch target:
+    // requiredHeight lets the clickable overflow the block by 6dp each side.
+    Box(modifier = modifier.fillMaxWidth().height(HANDLE_HEIGHT), contentAlignment = Alignment.Center) {
         Box(
             modifier = Modifier
-                .size(HANDLE_PILL_WIDTH, HANDLE_PILL_HEIGHT)
-                .clip(CircleShape)
-                .background(MaterialTheme.colorScheme.outlineVariant),
-        )
+                .fillMaxWidth()
+                .requiredHeight(Tokens.touchTarget)
+                .clickable(onClick = onToggle, role = Role.Button)
+                .semantics {
+                    contentDescription = label
+                    customActions = listOf(
+                        CustomAccessibilityAction(label) {
+                            onToggle()
+                            true
+                        },
+                    )
+                },
+            contentAlignment = Alignment.Center,
+        ) {
+            // Our own pill: the Material DragHandle carries ~22dp of vertical
+            // padding and got clipped inside the 36dp block (session 18).
+            Box(
+                modifier = Modifier
+                    .size(Tokens.space8, HANDLE_PILL_HEIGHT)
+                    .clip(CircleShape)
+                    .background(MaterialTheme.colorScheme.outlineVariant),
+            )
+        }
     }
 }
 
@@ -146,7 +151,8 @@ fun SpeedChips(
     modifier: Modifier = Modifier,
 ) {
     Row(
-        modifier = modifier.fillMaxWidth(),
+        // Scrolls: 4x must stay reachable at large font scales and 720px-wide displays.
+        modifier = modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
         horizontalArrangement = Arrangement.spacedBy(Tokens.space2),
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -178,7 +184,7 @@ fun StopDisc(number: Int, isStart: Boolean, isEnd: Boolean, modifier: Modifier =
     )
     val ink = Color(if (isEnd) palette.stopRing else palette.stopText)
     Box(
-        modifier = modifier.size(DISC_SIZE).background(fill, CircleShape),
+        modifier = modifier.size(Tokens.discSize).background(fill, CircleShape),
         contentAlignment = Alignment.Center,
     ) {
         Text(
@@ -199,9 +205,7 @@ val SPEED_PRESETS: List<Double> = listOf(
 
 private const val HALF_SPEED = 0.5
 private const val DOUBLE_SPEED = 2.0
-private val DISC_SIZE = 28.dp
 private val HANDLE_HEIGHT = 36.dp
-private val HANDLE_PILL_WIDTH = 32.dp
 private val HANDLE_PILL_HEIGHT = 4.dp
 
 internal enum class StripAction { FIX, RELEASE, CANCEL_MOVE }
@@ -216,9 +220,11 @@ internal data class StripModel(
 )
 
 /**
- * One line of state, highest-priority state wins. Null means "nothing to say
- * yet" (a hold whose place name is still resolving): the caller keeps showing
- * the previous line rather than raw coordinates.
+ * One line of state, highest-priority state wins — the card's single band,
+ * from the idle prompt through Ready, Driving, Arrived and Holding. Null means
+ * "nothing to say yet" (a hold whose place name is still resolving): the
+ * caller keeps showing the previous line rather than raw coordinates. The
+ * trio under the band says whether a route is loaded; the band never repeats it.
  */
 @Composable
 internal fun stripFor(
@@ -229,6 +235,7 @@ internal fun stripFor(
     builder: Boolean,
     setupReady: Boolean,
     movingStop: String? = null,
+    arrived: Boolean = false,
 ): StripModel? = when {
     playing -> playbackStrip(playbackState)
     movingStop != null -> StripModel(
@@ -236,6 +243,14 @@ internal fun stripFor(
         tone = StripTone.Neutral,
         actionLabel = stringResource(R.string.strip_cancel),
         action = StripAction.CANCEL_MOVE,
+    )
+    // The end of a drive gets its own moment before the band settles into Holding.
+    arrived -> StripModel(
+        text = holding?.placeName?.let { stringResource(R.string.strip_arrived_at, it) }
+            ?: stringResource(R.string.strip_arrived),
+        tone = StripTone.Ready,
+        actionLabel = if (holding != null) stringResource(R.string.strip_stop_hold) else null,
+        action = if (holding != null) StripAction.RELEASE else null,
     )
     holding != null -> holdingText(holding)?.let { text ->
         StripModel(
@@ -251,30 +266,20 @@ internal fun stripFor(
         actionLabel = stringResource(R.string.strip_fix),
         action = StripAction.FIX,
     )
-    state.errorMessage != null -> StripModel(state.errorMessage, StripTone.Error)
+    state.routingError != null -> StripModel(stringResource(state.routingError.stripRes()), StripTone.Error)
     state.isRouting -> StripModel(stringResource(R.string.strip_routing), StripTone.Neutral)
     builder && state.route != null -> StripModel(stringResource(R.string.strip_ready), StripTone.Ready)
     builder -> StripModel(stringResource(R.string.strip_building), StripTone.Neutral, hidden = true)
     state.route != null -> StripModel(stringResource(R.string.strip_route_loaded), StripTone.Ready)
-    else -> StripModel(stringResource(R.string.strip_plan), StripTone.Neutral, hidden = true)
+    // The empty card: the one instruction a cold start needs.
+    else -> StripModel(stringResource(R.string.strip_idle), StripTone.Neutral)
 }
 
-/**
- * The second line under a hold: the route's own state ("Ready to drive" /
- * "Route ready") stays visible while "Holding at X" takes the top band, so
- * holding never hides the fact that there is a drive to start.
- */
-@Composable
-internal fun secondaryStripFor(
-    state: MapViewModel.UiState,
-    holding: MockSessionState.Holding?,
-    playing: Boolean,
-    builder: Boolean,
-    movingStop: String? = null,
-): StripModel? = when {
-    holding == null || playing || movingStop != null || state.route == null -> null
-    builder -> StripModel(stringResource(R.string.strip_ready), StripTone.Ready)
-    else -> StripModel(stringResource(R.string.strip_route_loaded), StripTone.Ready)
+private fun RoutingError.stripRes(): Int = when (this) {
+    RoutingError.NO_ROUTE -> R.string.strip_routing_failed
+    RoutingError.BUSY -> R.string.strip_routing_busy
+    RoutingError.OFFLINE -> R.string.strip_routing_offline
+    RoutingError.OTHER -> R.string.strip_routing_failed
 }
 
 @Composable
@@ -282,11 +287,13 @@ private fun playbackStrip(playbackState: PlaybackState?): StripModel = when (pla
     is PlaybackState.Stopping -> StripModel(stringResource(R.string.strip_stopping), StripTone.Neutral)
     is PlaybackState.Paused -> StripModel(stringResource(R.string.strip_paused), StripTone.Hold)
     is PlaybackState.Dwelling -> {
-        val countdown = formatChipCountdown(playbackState.waitSecondsLeft.roundToInt())
-        val text = if (playbackState.isDestination) {
-            stringResource(R.string.strip_waiting_destination, countdown)
-        } else {
-            stringResource(R.string.strip_waiting, playbackState.waypointIndex + 1, countdown)
+        // Whole seconds rounded up, like the chip over the marker — the two never disagree.
+        val countdown = formatChipCountdown(ceil(playbackState.waitSecondsLeft).toInt())
+        val text = when {
+            playbackState.isDestination -> stringResource(R.string.strip_waiting_destination, countdown)
+            // A synthesized off-road pause carries no waypoint (index -1).
+            playbackState.waypointIndex < 0 -> stringResource(R.string.strip_offroad_pause, countdown)
+            else -> stringResource(R.string.strip_waiting, playbackState.waypointIndex + 1, countdown)
         }
         StripModel(text, StripTone.Hold)
     }
@@ -314,10 +321,11 @@ internal fun PlaybackStats(
     units: DistanceUnits,
     sessionViewModel: MockSessionViewModel,
 ) {
+    val formatter = rememberFormatter()
     val progress = playbackState.progressOrZero
     val total = route?.distanceMeters ?: 0.0
     val remainingMeters = (total * (1 - progress)).coerceAtLeast(0.0)
-    val timeLeft = playbackState.remainingSecondsOrNull?.let(::formatDurationShort)
+    val timeLeft = playbackState.remainingSecondsOrNull?.let(formatter::duration)
         ?: stringResource(R.string.stat_placeholder)
     // Only this composable follows every fix; the rest of the overlay stays still.
     val fix by sessionViewModel.latestFix.collectAsStateWithLifecycle()
@@ -326,7 +334,7 @@ internal fun PlaybackStats(
     StatTrio(
         cells = listOf(
             StatCell(stringResource(R.string.stat_time_left), timeLeft),
-            StatCell(stringResource(R.string.stat_distance_left), formatDistance(remainingMeters, units)),
+            StatCell(stringResource(R.string.stat_distance_left), formatter.distance(remainingMeters, units)),
             StatCell(stringResource(R.string.stat_speed), speed),
         ),
     )

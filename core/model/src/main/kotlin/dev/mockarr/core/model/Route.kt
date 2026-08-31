@@ -13,6 +13,8 @@ import kotlinx.serialization.Serializable
  * @property snappedWaypoints the requested waypoints snapped onto the road
  *   network by the router, aligned 1:1 with the request; empty when the
  *   backend provides none (e.g. straight-line fallback)
+ * @property offRoadSpans stretches of [points] that leave the road network
+ *   (straight connectors to a stop the router couldn't reach); rendered dotted
  */
 @Serializable
 data class Route(
@@ -27,7 +29,12 @@ data class Route(
      * (`legs.size + 1`) when non-empty; empty = no waits.
      */
     val waypointWaitsSeconds: List<Int> = emptyList(),
+    val offRoadSpans: List<OffRoadSpan> = emptyList(),
 )
+
+/** An off-road stretch of a [Route]: point indices [start]..[end], inclusive. */
+@Serializable
+data class OffRoadSpan(val start: Int, val end: Int)
 
 /**
  * Per-segment measurements for one leg of a [Route]. A segment is the stretch

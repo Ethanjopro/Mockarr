@@ -17,13 +17,18 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
+import dev.mockarr.app.R
 import dev.mockarr.app.ui.theme.MapPalette
 import dev.mockarr.core.model.LatLng
 import dev.mockarr.core.model.MapCamera
+import dev.mockarr.core.model.OffRoadSpan
 import dev.mockarr.core.model.Waypoint
 import org.maplibre.android.camera.CameraPosition
 import org.maplibre.android.camera.CameraUpdateFactory
@@ -41,11 +46,10 @@ import org.maplibre.android.style.sources.GeoJsonOptions
 import org.maplibre.android.style.sources.GeoJsonSource
 import org.maplibre.geojson.Feature
 import org.maplibre.geojson.FeatureCollection
-import org.maplibre.geojson.LineString
 import org.maplibre.geojson.Point
 import org.maplibre.android.geometry.LatLng as MapLibreLatLng
 
-private const val ROUTE_SOURCE = "route-source"
+internal const val ROUTE_SOURCE = "route-source"
 private const val ROUTE_LAYER = "route-layer"
 private const val ROUTE_CASING_LAYER = "route-casing-layer"
 private const val ROUTE_ARROW_LAYER = "route-arrow-layer"
@@ -53,8 +57,10 @@ private const val ROUTE_ARROW_ICON = "route-chevron"
 private const val ROUTE_ARROW_SPACING_DP = 72f
 private const val CHEVRON_SIZE_DP = 10f
 private const val CHEVRON_STROKE_DP = 2f
-private const val FALLBACK_SOURCE = "fallback-source"
+internal const val FALLBACK_SOURCE = "fallback-source"
 private const val FALLBACK_LAYER = "fallback-layer"
+internal const val OFF_ROAD_SOURCE = "off-road-source"
+private const val OFF_ROAD_LAYER = "off-road-layer"
 internal const val WAYPOINT_SOURCE = "waypoint-source"
 internal const val WAYPOINT_LAYER = "waypoint-layer"
 internal const val WAIT_CHIP_SOURCE = "wait-chip-source"
@@ -71,6 +77,9 @@ internal const val RANK_KEY = "rank"
 private const val FLAT_BUILDING_LAYER = "building"
 private const val EXTENDED_MAX_ZOOM = 24f
 
+// Gentle auto-pitch when 3D is toggled on; buildings stay the style's stock look.
+private const val ENTER_3D_TILT_DEGREES = 40.0
+
 /**
  * MapLibre map with waypoint markers, the route polyline, the hold pin, and
  * the live playback dot. Hosted ONCE behind the NavHost (see MockarrApp) so it
@@ -83,6 +92,7 @@ fun MockarrMap(
     waypoints: List<Waypoint>,
     routePoints: List<LatLng>,
     routeIsFallback: Boolean,
+    offRoadSpans: List<OffRoadSpan>,
     onMapTap: (LatLng) -> Unit,
     onWaypointTap: (Int) -> Unit,
     onWaypointDrag: (Int, LatLng) -> Unit,
@@ -106,6 +116,7 @@ fun MockarrMap(
     cameraFollow: Boolean = false,
     animateCamera: Boolean = true,
     dragEnabled: Boolean = true,
+    draggableWaypoint: Int? = null,
     modifier: Modifier = Modifier,
 ) {
     val context = LocalContext.current
@@ -188,6 +199,11 @@ fun MockarrMap(
                         MapCamera(LatLng(target.latitude, target.longitude), position.zoom),
                     )
                 }
+                // North-up always: rotate gestures are off, so MapLibre's default
+                // compass — which sat invisible behind the search bar and "popped
+                // up" after an accidental two-finger twist — can never appear.
+                libreMap.uiSettings.isRotateGesturesEnabled = false
+                libreMap.uiSettings.isCompassEnabled = false
                 map = libreMap
             }
         }
@@ -232,7 +248,10 @@ fun MockarrMap(
         }
     }
 
-    AndroidView(factory = { mapView }, modifier = modifier)
+    // The map view is a bare Android view to the accessibility tree: name it and
+    // say where the gesture-free path is (the sheet's rows).
+    val mapDescription = stringResource(R.string.map_cd)
+    AndroidView(factory = { mapView }, modifier = modifier.semantics { contentDescription = mapDescription })
 
     // One-shot cold-start restore, skipped if the user already panned away.
     LaunchedEffect(map) {
@@ -280,7 +299,10 @@ fun MockarrMap(
         val loadedStyle = style ?: return@LaunchedEffect
         updateWaypoints(loadedStyle, waypoints, selectedWaypoint, markerStyle)
     }
-    LaunchedEffect(dragHandler, dragEnabled) { dragHandler?.enabled = dragEnabled }
+    LaunchedEffect(dragHandler, dragEnabled, draggableWaypoint) {
+        dragHandler?.enabled = dragEnabled
+        dragHandler?.draggableIndex = draggableWaypoint
+    }
     // The selected marker's window position rides every camera frame so the
     // stop popover stays glued to it.
     val tracker = remember(map) { map?.let { MarkerTracker(it, mapView) { p -> currentOnSelectedWaypointScreen(p) } } }
@@ -295,9 +317,9 @@ fun MockarrMap(
         updateWaitChips(loadedStyle, waypoints, activeDwell, markerStyle, chipIcons)
     }
 
-    LaunchedEffect(style, routePoints, routeIsFallback) {
+    LaunchedEffect(style, routePoints, routeIsFallback, offRoadSpans) {
         val loadedStyle = style ?: return@LaunchedEffect
-        updateRoute(loadedStyle, routePoints, routeIsFallback)
+        updateRoute(loadedStyle, routePoints, routeIsFallback, offRoadSpans)
     }
 
     LaunchedEffect(style, pinPosition) {
@@ -381,6 +403,9 @@ private fun LatLng?.toFeatures(): FeatureCollection = this?.let {
  * 2D hides the style's building extrusions, extends the flat building-footprint
  * layer to all zooms (the style normally hands off to extrusions at z14, which
  * would leave 2D with no buildings at all), and flattens/locks the camera tilt.
+ * 3D pitches the camera by itself — before, the toggle looked identical to 2D
+ * until the user two-finger tilted, which nothing suggested doing. A tilt the
+ * user has already set by hand is left alone.
  */
 private fun applyMapMode(
     style: Style,
@@ -401,13 +426,17 @@ private fun applyMapMode(
     }
     val libreMap = map ?: return
     libreMap.uiSettings.isTiltGesturesEnabled = threeDimensional
-    if (!threeDimensional && libreMap.cameraPosition.tilt > 0.0) {
-        libreMap.animateCamera(
-            CameraUpdateFactory.newCameraPosition(
-                CameraPosition.Builder(libreMap.cameraPosition).tilt(0.0).build(),
-            ),
-        )
+    val tilt = libreMap.cameraPosition.tilt
+    val targetTilt = when {
+        threeDimensional && tilt == 0.0 -> ENTER_3D_TILT_DEGREES
+        !threeDimensional && tilt > 0.0 -> 0.0
+        else -> return
     }
+    libreMap.animateCamera(
+        CameraUpdateFactory.newCameraPosition(
+            CameraPosition.Builder(libreMap.cameraPosition).tilt(targetTilt).build(),
+        ),
+    )
 }
 
 private fun setUpLayers(style: Style, density: Float, palette: MapPalette) {
@@ -415,24 +444,19 @@ private fun setUpLayers(style: Style, density: Float, palette: MapPalette) {
     // 0.375, maxZoom 18) re-simplify the route client-side, visibly cutting
     // corners off the road when overzoomed past z18.
     val lineSourceOptions = GeoJsonOptions().withMaxZoom(22).withTolerance(0.0f)
-    listOf(ROUTE_SOURCE, FALLBACK_SOURCE)
+    listOf(ROUTE_SOURCE, FALLBACK_SOURCE, OFF_ROAD_SOURCE)
         .forEach { style.addSource(GeoJsonSource(it, lineSourceOptions)) }
     listOf(WAYPOINT_SOURCE, WAIT_CHIP_SOURCE, PIN_SOURCE, PLAYBACK_SOURCE)
         .forEach { style.addSource(GeoJsonSource(it)) }
-    val routeWidth = Expression.interpolate(
+    fun zoomWidth(z10: Float, z15: Float, z19: Float) = Expression.interpolate(
         Expression.exponential(1.5f),
         Expression.zoom(),
-        Expression.stop(10, 3f),
-        Expression.stop(15, 5f),
-        Expression.stop(19, 11f),
+        Expression.stop(10, z10),
+        Expression.stop(15, z15),
+        Expression.stop(19, z19),
     )
-    val casingWidth = Expression.interpolate(
-        Expression.exponential(1.5f),
-        Expression.zoom(),
-        Expression.stop(10, 5f),
-        Expression.stop(15, 8f),
-        Expression.stop(19, 15f),
-    )
+    val routeWidth = zoomWidth(3f, 5f, 11f)
+    val casingWidth = zoomWidth(5f, 8f, 15f)
     // Casing under the line: the route stays legible on any basemap tone.
     style.addLayer(
         LineLayer(ROUTE_CASING_LAYER, ROUTE_SOURCE).withProperties(
@@ -453,6 +477,14 @@ private fun setUpLayers(style: Style, density: Float, palette: MapPalette) {
         LineLayer(FALLBACK_LAYER, FALLBACK_SOURCE).withProperties(
             PropertyFactory.lineWidth(4f),
             PropertyFactory.lineDasharray(arrayOf(1.5f, 1.5f)),
+        ),
+    )
+    // Off-road connectors: dots at the road line's width so they read as route.
+    style.addLayer(
+        LineLayer(OFF_ROAD_LAYER, OFF_ROAD_SOURCE).withProperties(
+            PropertyFactory.lineWidth(routeWidth),
+            PropertyFactory.lineCap(Property.LINE_CAP_ROUND),
+            PropertyFactory.lineDasharray(arrayOf(0f, 2f)),
         ),
     )
     // Direction chevrons ride the line so a glance tells which way the drive goes.
@@ -479,6 +511,9 @@ private fun applyPalette(style: Style, palette: MapPalette, density: Float) {
     style.getLayer(ROUTE_LAYER)?.setProperties(PropertyFactory.lineColor(MapPalette.css(palette.route)))
     style.getLayer(FALLBACK_LAYER)?.setProperties(
         PropertyFactory.lineColor(MapPalette.css(palette.fallbackRoute)),
+    )
+    style.getLayer(OFF_ROAD_LAYER)?.setProperties(
+        PropertyFactory.lineColor(MapPalette.css(palette.offRoad)),
     )
     style.getLayer(PLAYBACK_LAYER)?.setProperties(
         PropertyFactory.circleColor(MapPalette.css(palette.position)),
@@ -551,17 +586,4 @@ private fun addPointLayers(style: Style) {
             PropertyFactory.circleStrokeWidth(3f),
         ),
     )
-}
-
-private fun updateRoute(style: Style, routePoints: List<LatLng>, isFallback: Boolean) {
-    val line = if (routePoints.size >= 2) {
-        FeatureCollection.fromFeature(
-            Feature.fromGeometry(LineString.fromLngLats(routePoints.map { it.toPoint() })),
-        )
-    } else {
-        FeatureCollection.fromFeatures(emptyList())
-    }
-    val empty = FeatureCollection.fromFeatures(emptyList())
-    style.getSourceAs<GeoJsonSource>(ROUTE_SOURCE)?.setGeoJson(if (isFallback) empty else line)
-    style.getSourceAs<GeoJsonSource>(FALLBACK_SOURCE)?.setGeoJson(if (isFallback) line else empty)
 }

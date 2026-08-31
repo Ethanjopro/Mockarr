@@ -21,9 +21,11 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -34,6 +36,7 @@ import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material3.BottomSheetScaffold
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -57,6 +60,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.boundsInParent
 import androidx.compose.ui.layout.boundsInWindow
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.onSizeChanged
@@ -66,8 +70,10 @@ import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.LifecycleResumeEffect
@@ -76,13 +82,13 @@ import dev.mockarr.app.R
 import dev.mockarr.app.playback.MockSessionState
 import dev.mockarr.app.ui.Motion
 import dev.mockarr.app.ui.Motion.fadeThrough
-import dev.mockarr.app.ui.formatDurationShort
 import dev.mockarr.app.ui.map.ActiveDwell
 import dev.mockarr.app.ui.map.MockarrMap
 import dev.mockarr.app.ui.map.NUDGE_TICK_MILLIS
 import dev.mockarr.app.ui.map.ThumbstickOverlay
 import dev.mockarr.app.ui.map.effectiveStyleUrl
 import dev.mockarr.app.ui.map.nudgeMeters
+import dev.mockarr.app.ui.rememberFormatter
 import dev.mockarr.app.ui.rememberSystemAnimationsEnabled
 import dev.mockarr.app.ui.theme.MapIconPill
 import dev.mockarr.app.ui.theme.MapPill
@@ -94,6 +100,7 @@ import dev.mockarr.core.model.LatLng
 import dev.mockarr.core.model.PlaybackState
 import dev.mockarr.core.model.Route
 import dev.mockarr.core.model.Waypoint
+import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.launch
 import kotlin.math.roundToInt
 
@@ -115,14 +122,20 @@ fun MapLayer(
     val followCamera by viewModel.followCamera.collectAsStateWithLifecycle()
     val cameraCommand by viewModel.cameraCommand.collectAsStateWithLifecycle()
     val selectedWaypoint by viewModel.interaction.selectedWaypoint.collectAsStateWithLifecycle()
+    val movingWaypoint by viewModel.interaction.movingWaypoint.collectAsStateWithLifecycle()
     val overlayBottomPx by viewModel.interaction.overlayBottomPx.collectAsStateWithLifecycle()
     val session by sessionViewModel.session.collectAsStateWithLifecycle()
     val latestFix by sessionViewModel.latestFix.collectAsStateWithLifecycle()
     val dwell by sessionViewModel.dwell.collectAsStateWithLifecycle()
+    val playbackState by sessionViewModel.playbackState.collectAsStateWithLifecycle()
     val focusManager = LocalFocusManager.current
     val context = LocalContext.current
 
     val playing = session is MockSessionState.Playing
+    // Natural arrival ends like Finish does: the driven route leaves the map (a
+    // stay-at-destination hold keeps holding). Hosted here, not in MapScreen —
+    // this layer stays composed while Routes/Settings cover the map.
+    ArrivalEffect(session, playbackState) { viewModel.clearWaypoints() }
     var holdAwaitingPermission by remember { mutableStateOf<LatLng?>(null) }
     val holdPermissionLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions(),
@@ -131,6 +144,8 @@ fun MapLayer(
         holdAwaitingPermission = null
         if (grants[Manifest.permission.ACCESS_FINE_LOCATION] == true && position != null) {
             sessionViewModel.hold(position)
+        } else {
+            sessionViewModel.reportPermissionDenied()
         }
     }
 
@@ -144,32 +159,41 @@ fun MapLayer(
         }
     }
 
-    val displayed = remember(state.waypoints, state.route, state.routeIsFallback) {
-        displayWaypoints(state.waypoints, state.route, state.routeIsFallback)
+    val displayed = remember(state.waypoints, state.route, state.routeIsFallback, state.routedFor) {
+        displayWaypoints(state.waypoints, state.route, state.routeIsFallback, state.routedFor)
     }
     MockarrMap(
         waypoints = displayed,
         routePoints = state.route?.points.orEmpty(),
         routeIsFallback = state.routeIsFallback,
+        offRoadSpans = state.route?.offRoadSpans.orEmpty(),
         onMapTap = { point ->
             focusManager.clearFocus()
-            // Dismiss-first: with a stop selected, a map tap deselects it rather
-            // than dropping a new stop. Read .value at click time (repo rule).
+            // Dismiss-first: with the search open or a stop selected, a map tap
+            // dismisses rather than dropping a new stop. Read .value at click
+            // time (repo rule).
             if (!playing) {
-                val moving = viewModel.interaction.takeMove()
-                when {
-                    // A pending Move owns the next tap (Strava's Move Point); the wait survives.
-                    moving != null -> viewModel.moveStop(moving, point, settled = true)
-                    viewModel.interaction.startChoiceRoute.value != null -> viewModel.interaction.clearStartChoice()
-                    viewModel.interaction.selectedWaypoint.value != null -> viewModel.interaction.select(null)
-                    // Building or idle: a stop lands (the first one opens the builder).
-                    else -> viewModel.addWaypoint(point)
+                if (viewModel.interaction.searchOwnsTaps.value) {
+                    // The search field/list is up: this tap only closes it.
+                    viewModel.interaction.requestSearchDismiss()
+                } else {
+                    when (val action = viewModel.interaction.tapAction()) {
+                        // A pending Move owns the next tap (Strava's Move Point); the wait survives.
+                        is TapAction.MoveStop -> viewModel.moveStop(action.index, point, settled = true)
+                        TapAction.DismissStartChoice -> viewModel.interaction.clearStartChoice()
+                        TapAction.DismissSelection -> viewModel.interaction.select(null)
+                        // Building or idle: a stop lands (the first one opens the builder).
+                        TapAction.AddStop -> viewModel.addWaypoint(point)
+                    }
                 }
+            } else if (viewModel.interaction.selectedWaypoint.value != null) {
+                // Playback: a map tap only ever dismisses the stop popover.
+                viewModel.interaction.select(null)
             }
         },
         onWaypointTap = { index ->
             focusManager.clearFocus()
-            if (!playing && viewModel.interaction.movingWaypoint.value == null) {
+            if (viewModel.interaction.movingWaypoint.value == null) {
                 val toggled = index.takeIf { it != viewModel.interaction.selectedWaypoint.value }
                 viewModel.interaction.select(toggled)
             }
@@ -204,6 +228,7 @@ fun MapLayer(
         cameraFollow = followCamera && playing,
         animateCamera = rememberSystemAnimationsEnabled(),
         dragEnabled = !playing,
+        draggableWaypoint = movingWaypoint,
         modifier = modifier,
     )
 }
@@ -268,12 +293,40 @@ fun MapScreen(
         if (grants[Manifest.permission.ACCESS_FINE_LOCATION] == true && route != null) {
             viewModel.setFollowCamera(true)
             sessionViewModel.play(route)
+        } else {
+            sessionViewModel.reportPermissionDenied()
         }
     }
     val locatePermissionLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission(),
     ) { granted ->
-        if (granted) viewModel.locateReal()
+        if (granted) viewModel.locateReal() else sessionViewModel.reportLocatePermissionDenied()
+    }
+    // The sheet's "Hold my location at the map centre": the same permission gate as a long-press.
+    var holdCentreAwaitingPermission by remember { mutableStateOf<LatLng?>(null) }
+    val holdCentreLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestMultiplePermissions(),
+    ) { grants ->
+        val position = holdCentreAwaitingPermission
+        holdCentreAwaitingPermission = null
+        if (grants[Manifest.permission.ACCESS_FINE_LOCATION] == true && position != null) {
+            sessionViewModel.hold(position)
+        } else {
+            sessionViewModel.reportPermissionDenied()
+        }
+    }
+
+    fun mapCentre(): LatLng? = viewModel.camera.value?.target
+
+    fun holdAtCentre() {
+        val centre = mapCentre() ?: return
+        val needed = context.missingMockPermissions()
+        if (needed.isEmpty()) {
+            sessionViewModel.hold(centre)
+        } else {
+            holdCentreAwaitingPermission = centre
+            holdCentreLauncher.launch(needed.toTypedArray())
+        }
     }
 
     fun requestPlay(route: Route) {
@@ -306,32 +359,81 @@ fun MapScreen(
         }
     }
 
-    // Play while holding: the action row splits into "from held spot / from
-    // route start" (Strava's Pause → Resume/Finish move). All session reads
-    // happen AT CLICK TIME via .value — never from composition-captured vals —
-    // so the choice appears no matter which order route and hold were created
-    // in (a stale capture previously ate the prompt).
+    // Play while holding (or idle away from the route start): the action row
+    // splits into "from held spot / from route start" — or "My location", the
+    // same move for an unmocked device (Strava's Pause → Resume/Finish move).
+    // All session reads happen AT CLICK TIME via .value — never from
+    // composition-captured vals — so the choice appears no matter which order
+    // route and hold were created in (a stale capture previously ate the prompt).
     var showRouteFromHoldPrompt by remember { mutableStateOf(false) }
+    var routeFromMePosition by remember { mutableStateOf<LatLng?>(null) }
     var playWhenRouteReady by remember { mutableStateOf(false) }
+    var pendingRealStart by remember { mutableStateOf<LatLng?>(null) }
+    var locatingStart by remember { mutableStateOf(false) }
 
     fun currentHold(): MockSessionState.Holding? =
         sessionViewModel.session.value as? MockSessionState.Holding
+
+    // One in-flight read at a time; the Start button shows a spinner meanwhile.
+    fun resolveRealLocation(onResolved: (LatLng?) -> Unit) {
+        if (locatingStart) return
+        scope.launch {
+            locatingStart = true
+            val real = viewModel.realLocation()
+            locatingStart = false
+            onResolved(real)
+        }
+    }
+
+    // Idle with a route: offer the device's real position as the origin when it
+    // is away from the route start — while a session runs, "real" reads would
+    // return the mocked fix, so this path exists only for an unmocked device.
+    fun askStartFromReal(route: Route) {
+        if (!context.hasPermission(Manifest.permission.ACCESS_FINE_LOCATION)) {
+            // First run: requestPlay's own permission flow asks for location.
+            requestPlay(route)
+            return
+        }
+        resolveRealLocation { real ->
+            val current = viewModel.uiState.value.route ?: return@resolveRealLocation
+            if (real == null || startsNear(current.points.first(), real)) {
+                requestPlay(current)
+            } else {
+                pendingRealStart = real
+                viewModel.interaction.requestStartChoice(current)
+            }
+        }
+    }
+
+    // One stop and no hold: routing from the real position needs the permission
+    // first; the locate launcher's grant pans to the user, and a second Start
+    // continues here with the permission in hand.
+    fun askRouteFromReal() {
+        if (!context.hasPermission(Manifest.permission.ACCESS_FINE_LOCATION)) {
+            locatePermissionLauncher.launch(Manifest.permission.ACCESS_FINE_LOCATION)
+            return
+        }
+        resolveRealLocation { real ->
+            if (real != null) routeFromMePosition = real else sessionViewModel.reportLocateFailed()
+        }
+    }
 
     fun playOrAskStart() {
         val hold = currentHold()
         val ui = viewModel.uiState.value
         val route = ui.route
+        pendingRealStart = null
         when {
-            route != null -> {
-                val startsAtHold = hold != null &&
-                    GeoMath.distanceMeters(route.points.first(), hold.position) <= START_FROM_HOLD_METERS
-                if (hold != null && !startsAtHold) {
-                    viewModel.interaction.requestStartChoice(route)
-                } else {
+            route != null && hold != null -> {
+                if (startsNear(route.points.first(), hold.position)) {
                     requestPlay(route)
+                } else {
+                    viewModel.interaction.requestStartChoice(route)
                 }
             }
+            route != null -> askStartFromReal(route)
             ui.waypoints.size == 1 && hold != null -> showRouteFromHoldPrompt = true
+            ui.waypoints.size == 1 -> askRouteFromReal()
             else -> Unit
         }
     }
@@ -346,22 +448,47 @@ fun MapScreen(
     }
 
     val startChoice = startChoiceRoute?.let { pendingRoute ->
+        val realStart = pendingRealStart
         StartChoice(
-            onFromHold = {
+            origin = if (realStart != null) StartOrigin.MY_LOCATION else StartOrigin.HELD_SPOT,
+            onFromOrigin = {
                 viewModel.interaction.clearStartChoice()
-                currentHold()?.position?.let { viewModel.addWaypoint(it, atStart = true) }
+                val origin = realStart ?: currentHold()?.position
+                pendingRealStart = null
+                origin?.let { viewModel.addWaypoint(it, atStart = true) }
                 playWhenRouteReady = true
             },
             onFromRouteStart = {
                 viewModel.interaction.clearStartChoice()
+                pendingRealStart = null
                 requestPlay(pendingRoute)
             },
         )
     }
-    // Back unwinds the transient map states before anything else.
-    BackHandler(enabled = startChoice != null || movingWaypoint != null || selectedWaypoint != null) {
+    // Back unwinds the transient map states before anything else; the search
+    // overlay is topmost — without this, Back under an open list left the app.
+    val searchOpen = searchState.results.isNotEmpty() || searchState.status != MapSearchViewModel.Status.IDLE
+    // The map layer (behind the NavHost) can't see this ViewModel: mirror
+    // "search owns the next tap" onto the shared interaction object, and close
+    // the search when the map reports it swallowed a tap for us.
+    val searchOwnsTaps = searchOpen || searchState.fieldFocused
+    LaunchedEffect(searchOwnsTaps) { viewModel.interaction.setSearchOwnsTaps(searchOwnsTaps) }
+    LaunchedEffect(Unit) {
+        viewModel.interaction.searchDismissTicks.drop(1).collect {
+            focusManager.clearFocus()
+            searchViewModel.clearResults()
+        }
+    }
+    BackHandler(enabled = searchOpen || startChoice != null || movingWaypoint != null || selectedWaypoint != null) {
         when {
-            startChoice != null -> viewModel.interaction.clearStartChoice()
+            searchOpen -> {
+                focusManager.clearFocus()
+                searchViewModel.clearResults()
+            }
+            startChoice != null -> {
+                pendingRealStart = null
+                viewModel.interaction.clearStartChoice()
+            }
             movingWaypoint != null -> viewModel.interaction.cancelMove()
             else -> viewModel.interaction.select(null)
         }
@@ -377,6 +504,16 @@ fun MapScreen(
                 }
             },
             onDismiss = { showRouteFromHoldPrompt = false },
+        )
+    }
+    routeFromMePosition?.let { realPosition ->
+        RouteFromMeDialog(
+            onConfirm = {
+                routeFromMePosition = null
+                viewModel.addWaypoint(realPosition, atStart = true)
+                playWhenRouteReady = true
+            },
+            onDismiss = { routeFromMePosition = null },
         )
     }
 
@@ -424,6 +561,8 @@ fun MapScreen(
             initialSeconds = state.waypoints.getOrNull(index)?.waitSeconds ?: 0,
             onConfirm = { seconds ->
                 viewModel.setWaypointWait(index, seconds)
+                // Also lands on the running engine mid-drive (a no-op otherwise).
+                sessionViewModel.setWaypointWait(index, seconds)
                 waitEditIndex = null
             },
             onDismiss = { waitEditIndex = null },
@@ -450,11 +589,15 @@ fun MapScreen(
         snackbarHostState.showSnackbar(message, actionLabel = dismissLabel)
         sessionViewModel.consumeError()
     }
-    LaunchedEffect(state.savedConfirmation) {
-        val message = state.savedConfirmation ?: return@LaunchedEffect
-        viewModel.consumeSavedConfirmation()
-        snackbarHostState.showSnackbar(message)
+    val savedTemplate = stringResource(R.string.snack_saved)
+    LaunchedEffect(state.savedName) {
+        val name = state.savedName ?: return@LaunchedEffect
+        // Consume first, but show from the screen's scope: consuming restarts
+        // this effect, which used to cancel the snackbar before it appeared.
+        viewModel.consumeSavedName()
+        scope.launch { snackbarHostState.showSnackbar(savedTemplate.format(name)) }
     }
+    ReleaseSnackbar(session = session, snackbarHostState = snackbarHostState)
     val expanded = sheetState.currentValue == SheetValue.Expanded
     var peekHeightPx by remember { mutableIntStateOf(0) }
     // Until the peek block has been measured (first frame, and again after a
@@ -473,6 +616,7 @@ fun MapScreen(
 
     // The strip never shows raw coordinates: while a hold's name resolves,
     // stripFor returns null and the previous line stays on screen.
+    val arrived = rememberArrived(session = session, playbackState = playbackState)
     val nextStrip = stripFor(
         state = state,
         playbackState = playbackState,
@@ -481,13 +625,7 @@ fun MapScreen(
         builder = builderMode,
         setupReady = setupStatus?.readyToMock != false,
         movingStop = movingWaypoint?.let { stopName(it, state.waypoints.size) },
-    )
-    val secondaryStrip = secondaryStripFor(
-        state = state,
-        holding = holding,
-        playing = playing,
-        builder = builderMode,
-        movingStop = movingWaypoint?.let { stopName(it, state.waypoints.size) },
+        arrived = arrived,
     )
     var lastStrip by remember { mutableStateOf(nextStrip ?: StripModel("", StripTone.Neutral, hidden = true)) }
     val strip = nextStrip ?: lastStrip
@@ -508,15 +646,39 @@ fun MapScreen(
     val overlayBottomPx = with(LocalDensity.current) { overlayBottom.roundToPx() }
     LaunchedEffect(overlayBottomPx) { viewModel.interaction.setOverlayBottom(overlayBottomPx) }
 
+    // The card rides the sheet: as the sheet expands (options, stops) the card
+    // lifts with it, so the trio stays readable and a hold's Stop is never
+    // buried. Capped so it stops short of the top chrome. Read in the layout
+    // phase (offset lambda), never composed.
+    var scaffoldHeightPx by remember { mutableIntStateOf(0) }
+    var topChromeBottomPx by remember { mutableIntStateOf(0) }
+    val mapEdgePx = with(LocalDensity.current) { Tokens.mapEdge.roundToPx() }
+    fun sheetLiftPx(): Int {
+        val sheetTop = runCatching { sheetState.requireOffset() }.getOrNull() ?: return 0
+        val peekTop = scaffoldHeightPx - peekHeightPx
+        val lift = (peekTop - sheetTop).roundToInt().coerceAtLeast(0)
+        val cardTopAtPeek = peekTop - mapEdgePx - cardHeightPx
+        val maxLift = (cardTopAtPeek - topChromeBottomPx - mapEdgePx).coerceAtLeast(0)
+        return lift.coerceAtMost(maxLift)
+    }
+
     BottomSheetScaffold(
+        modifier = Modifier.onSizeChanged { scaffoldHeightPx = it.height },
         scaffoldState = scaffoldState,
         sheetPeekHeight = peekHeight,
+        sheetMaxWidth = Tokens.sheetMaxWidth,
         sheetShape = Tokens.sheetShape,
         sheetContainerColor = MaterialTheme.colorScheme.surfaceContainerLow,
         sheetShadowElevation = Tokens.sheetElevation,
         sheetDragHandle = null,
         containerColor = Color.Transparent,
-        snackbarHost = { SnackbarHost(snackbarHostState) },
+        // Above the floating card, never on it: a confirmation must not garble the trio.
+        snackbarHost = {
+            SnackbarHost(
+                snackbarHostState,
+                modifier = Modifier.padding(bottom = cardBlock + toolsHeight),
+            )
+        },
         sheetContent = {
             fun toggleSheet() {
                 // Using the handle proves the point the hint makes.
@@ -534,11 +696,17 @@ fun MapScreen(
                         .background(MaterialTheme.colorScheme.surfaceContainerLow)
                         .navigationBarsPadding(),
                 ) {
-                    SheetHandle(
-                        expanded = expanded,
-                        onToggle = ::toggleSheet,
-                        modifier = Modifier.onGloballyPositioned { handleAnchor = it.boundsInWindow().topCenter },
-                    )
+                    // No grab pill while driving: the sheet has nothing to expand
+                    // to, so the affordance (and its TalkBack action) would lie.
+                    if (!playing) {
+                        SheetHandle(
+                            expanded = expanded,
+                            onToggle = ::toggleSheet,
+                            modifier = Modifier.onGloballyPositioned {
+                                handleAnchor = it.boundsInWindow().topCenter
+                            },
+                        )
+                    }
                     val peekMode = when {
                         playing -> PeekMode.PLAYING
                         builderMode -> PeekMode.BUILDER
@@ -564,7 +732,6 @@ fun MapScreen(
                             )
                             PeekMode.BUILDER -> BuilderPeek(
                                 state = state,
-                                units = units,
                                 onDone = { viewModel.setBuilderMode(false) },
                                 onClose = {
                                     if (state.waypoints.isEmpty()) {
@@ -576,8 +743,8 @@ fun MapScreen(
                             )
                             PeekMode.RECORD -> RecordPeek(
                                 state = state,
-                                holdActive = holding != null,
                                 choice = startChoice,
+                                locating = locatingStart,
                                 onPickMode = { showModePicker = true },
                                 onStart = ::playOrAskStart,
                                 onEditRoute = { viewModel.setBuilderMode(true) },
@@ -595,19 +762,21 @@ fun MapScreen(
                         .coerceAtLeast(0f)
                         .toDp()
                 }
+                // A hairline where the detail list slides under the peek: the
+                // scrolled-away rows end at a visible edge, not a hard clip.
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
                 Column(
                     modifier = Modifier
                         .heightIn(max = maxDetailHeight)
                         .verticalScroll(rememberScrollState())
-                        .padding(bottom = Tokens.space4),
+                        .padding(bottom = Tokens.space4)
+                        .navigationBarsPadding(),
                 ) {
-                    if (playing) {
-                        SpeedChips(
-                            speedMultiplier = speedMultiplier,
-                            onSpeedChange = sessionViewModel::setSpeedMultiplier,
-                            modifier = Modifier.padding(horizontal = Tokens.inset),
-                        )
-                    } else if (builderMode) {
+                    // Nothing during playback: with zero detail height the
+                    // Expanded anchor collapses onto the peek, so the sheet
+                    // cannot expand while driving (the speed presets moved to
+                    // the run box's popover).
+                    if (!playing && builderMode) {
                         BuilderDetails(
                             state = state,
                             selectedWaypoint = selectedWaypoint,
@@ -619,7 +788,7 @@ fun MapScreen(
                             onRemoveStop = viewModel::removeWaypoint,
                             onMoveStop = viewModel.interaction::beginMove,
                         )
-                    } else {
+                    } else if (!playing) {
                         OptionsList(
                             settings = options,
                             saveState = when {
@@ -629,6 +798,7 @@ fun MapScreen(
                             },
                             saving = naming,
                             onSaveRoute = ::beginSave,
+                            onHoldAtCentre = ::holdAtCentre,
                             followCamera = followCamera,
                             onFollowChange = viewModel::setFollowCamera,
                             onStayChange = optionsViewModel::setStayAtDestination,
@@ -648,7 +818,8 @@ fun MapScreen(
                     .align(Alignment.TopCenter)
                     .fillMaxWidth()
                     .padding(Tokens.mapEdge)
-                    .imePadding(),
+                    .imePadding()
+                    .onGloballyPositioned { topChromeBottomPx = it.boundsInParent().bottom.roundToInt() },
             ) {
                 AnimatedVisibility(
                     visible = !playing,
@@ -660,7 +831,7 @@ fun MapScreen(
                         units = units,
                         onQueryChange = searchViewModel::setQuery,
                         onSearch = searchViewModel::submit,
-                        onFocus = searchViewModel::showRecents,
+                        onFocusChange = searchViewModel::setFieldFocused,
                         onResultSelected = {
                             focusManager.clearFocus()
                             searchViewModel.clearResults()
@@ -700,28 +871,39 @@ fun MapScreen(
                 )
             }
 
-            // Strava's "run box": floats above the sheet and rides its top edge.
-            // Builder mode keeps its trio inside the sheet, so the card is
-            // strip-only there; at rest with nothing loaded it is strip-only too.
+            // Strava's "run box": floats above the sheet and rides its top edge,
+            // in every state — building, ready, driving, holding. With nothing
+            // loaded it is strip-only: the idle prompt is the empty card.
             val speedText = formatMultiplier(speedMultiplier)
             val speedDescription = stringResource(R.string.sheet_speed_cd, speedText)
-            // While driving the strip's trailing slot is the speed chip, which
-            // also opens the sheet; otherwise the strip is copy alone.
+            var speedPopupOpen by remember { mutableStateOf(false) }
+            var speedPillAnchor by remember { mutableStateOf(Offset.Zero) }
+            LaunchedEffect(playing) { if (!playing) speedPopupOpen = false }
+            // While driving the strip's trailing slot is the speed pill, which
+            // opens the preset popover above the card; otherwise copy alone.
             val speedPill: (@Composable () -> Unit)? = if (playing) {
                 {
                     FilterChip(
-                        selected = expanded,
-                        onClick = {
-                            scope.launch { if (expanded) sheetState.partialExpand() else sheetState.expand() }
-                        },
+                        selected = speedPopupOpen,
+                        onClick = { speedPopupOpen = true },
                         label = { Text(stringResource(R.string.sheet_speed_value, speedText)) },
-                        modifier = Modifier.semantics { contentDescription = speedDescription },
+                        modifier = Modifier
+                            .onGloballyPositioned { speedPillAnchor = it.boundsInWindow().topCenter }
+                            .semantics { contentDescription = speedDescription },
                     )
                 }
             } else {
                 null
             }
-            val recordCells = if (builderMode) null else recordCells(state, units)
+            if (speedPopupOpen && playing && speedPillAnchor != Offset.Zero) {
+                SpeedPopover(
+                    anchor = speedPillAnchor,
+                    speedMultiplier = speedMultiplier,
+                    onSpeedChange = sessionViewModel::setSpeedMultiplier,
+                    onDismiss = { speedPopupOpen = false },
+                )
+            }
+            val recordCells = recordCells(state, units)
             val stats: (@Composable () -> Unit)? = when {
                 playing -> {
                     { PlaybackStats(playbackState, state.route, units, sessionViewModel) }
@@ -731,26 +913,40 @@ fun MapScreen(
                 }
                 else -> null
             }
-            // Idle prompts ("Plan a drive", "Building a route") show no card at all.
+            // Only "Building a route" (one stop, nothing to count) shows no card at all.
             AnimatedVisibility(
                 visible = !strip.hidden,
                 enter = Motion.floatingEnter,
                 exit = Motion.floatingExit,
                 modifier = Modifier
                     .align(Alignment.BottomCenter)
+                    .widthIn(max = Tokens.sheetMaxWidth)
+                    .offset { IntOffset(0, -sheetLiftPx()) }
                     .padding(horizontal = Tokens.mapEdge)
                     .padding(bottom = peekHeight + Tokens.mapEdge),
             ) {
+                // The loaded route's trio doubles as its edit-route entry; the
+                // in-drive stats stay inert (the drive's shape is fixed).
+                val statsClick = if (!playing && recordCells != null) {
+                    {
+                        viewModel.setBuilderMode(true)
+                        if (sheetHintPending) optionsViewModel.markSheetHintSeen()
+                        scope.launch { sheetState.expand() }
+                        Unit
+                    }
+                } else {
+                    null
+                }
                 StatCard(
                     strip = shownStrip,
                     stats = stats,
-                    secondary = secondaryStrip,
                     onStripAction = when (shownStrip.action) {
                         StripAction.FIX -> onOpenSetup
                         StripAction.RELEASE -> sessionViewModel::release
                         StripAction.CANCEL_MOVE -> viewModel.interaction::cancelMove
                         null -> null
                     },
+                    onStatsClick = statsClick,
                     trailing = speedPill,
                     modifier = Modifier.onSizeChanged { cardHeightPx = it.height },
                 )
@@ -770,7 +966,7 @@ fun MapScreen(
                     popoverAnchor?.let { anchor -> Triple(index, waypoint, anchor) }
                 }
             }
-            if (popover != null && !playing && movingWaypoint == null) {
+            if (popover != null && movingWaypoint == null) {
                 val (index, waypoint, anchor) = popover
                 StopPopover(
                     index = index,
@@ -778,6 +974,7 @@ fun MapScreen(
                     count = state.waypoints.size,
                     anchor = anchor,
                     stayAtDestination = options.stayAtDestination,
+                    playing = playing,
                     onSetWait = {
                         waitEditIndex = index
                         viewModel.interaction.select(null)
@@ -793,6 +990,8 @@ fun MapScreen(
                 exit = Motion.floatingExit,
                 modifier = Modifier
                     .align(Alignment.BottomCenter)
+                    .widthIn(max = Tokens.sheetMaxWidth)
+                    .offset { IntOffset(0, -sheetLiftPx()) }
                     .padding(bottom = peekHeight + cardHeight + Tokens.mapEdge * 2),
             ) {
                 BuilderTools(
@@ -810,9 +1009,11 @@ fun MapScreen(
                 )
             }
             // Only while holding: the nudge control is chrome that must recede
-            // (design brief) rather than sit dimmed on every map state.
+            // (design brief) rather than sit dimmed on every map state. It also
+            // yields to the builder's pills/card and hides behind an expanded
+            // sheet instead of floating dead on top of either.
             AnimatedVisibility(
-                visible = holding != null && !playing,
+                visible = holding != null && !playing && !builderMode && !expanded,
                 enter = Motion.floatingEnter,
                 exit = Motion.floatingExit,
                 modifier = Modifier
@@ -849,8 +1050,8 @@ fun MapScreen(
 @Composable
 private fun RecordPeek(
     state: MapViewModel.UiState,
-    holdActive: Boolean,
     choice: StartChoice?,
+    locating: Boolean,
     onPickMode: () -> Unit,
     onStart: () -> Unit,
     onEditRoute: () -> Unit,
@@ -858,12 +1059,15 @@ private fun RecordPeek(
     val route = state.route
     ActionRow(
         profile = state.profile,
-        canStart = route != null || (state.waypoints.size == 1 && holdActive),
+        // One stop is startable too: routed from the held spot, or from the
+        // device's real position when nothing is mocked.
+        canStart = route != null || state.waypoints.size == 1,
         routeLoaded = route != null || state.waypoints.isNotEmpty(),
         onPickMode = onPickMode,
         onStart = onStart,
         onEditRoute = onEditRoute,
         choice = choice,
+        locating = locating,
     )
 }
 
@@ -903,7 +1107,7 @@ private fun BuilderDetails(
         }
     }
     val rows = if (count > STOP_LIST_VISIBLE_ROWS) STOP_LIST_PEEK_ROWS else STOP_LIST_VISIBLE_ROWS.toFloat()
-    val cap = Tokens.touchTarget * rows + if (selectedWaypoint != null) STOP_ACTIONS_HEIGHT else 0.dp
+    val cap = Tokens.touchTarget * rows + if (selectedWaypoint != null) Tokens.touchTarget else 0.dp
     val hidden by remember(count) {
         derivedStateOf {
             val info = listState.layoutInfo
@@ -955,7 +1159,7 @@ private fun StopRow(
         modifier = Modifier
             .fillMaxWidth()
             .background(background)
-            .clickable(onClick = onClick)
+            .clickable(onClick = onClick, role = Role.Button)
             .padding(horizontal = Tokens.inset),
     ) {
         // Fixed row heights keep "three rows" true for the list cap.
@@ -968,7 +1172,7 @@ private fun StopRow(
                     Text(
                         text = stringResource(
                             R.string.sheet_waits,
-                            formatDurationShort(waypoint.waitSeconds.toDouble()),
+                            rememberFormatter().duration(waypoint.waitSeconds.toDouble()),
                         ),
                         style = MaterialTheme.typography.bodySmall,
                         color = MockarrTheme.colors.hold,
@@ -983,7 +1187,7 @@ private fun StopRow(
             // On-sheet equivalent of the marker popover (TalkBack path).
             Row(
                 horizontalArrangement = Arrangement.spacedBy(Tokens.space2),
-                modifier = Modifier.height(STOP_ACTIONS_HEIGHT),
+                modifier = Modifier.height(Tokens.touchTarget),
             ) {
                 val stays = stopStays(index, count, stayAtDestination)
                 TextButton(onClick = onSetWait, enabled = !stays) {
@@ -1056,11 +1260,14 @@ private fun MapControls(
 
 private enum class PeekMode { RECORD, BUILDER, PLAYING }
 
+/** True when [origin] is so close to [routeStart] that offering a choice would be noise. */
+internal fun startsNear(routeStart: LatLng, origin: LatLng): Boolean =
+    GeoMath.distanceMeters(routeStart, origin) <= START_FROM_HOLD_METERS
+
 private const val START_FROM_HOLD_METERS = 30.0
 private const val SHEET_MAX_FRACTION = 0.6f
 private const val STOP_LIST_VISIBLE_ROWS = 3
 private const val STOP_LIST_PEEK_ROWS = 3.5f
-private val STOP_ACTIONS_HEIGHT = 40.dp
 private const val DEFAULT_NUDGE_ZOOM = 15.0
 private const val MILLIS_PER_SECOND = 1_000.0
 private val PEEK_FALLBACK_HEIGHT = 200.dp

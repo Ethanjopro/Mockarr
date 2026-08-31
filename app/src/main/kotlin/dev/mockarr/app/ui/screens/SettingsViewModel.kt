@@ -25,7 +25,9 @@ class SettingsViewModel @Inject constructor(
         data object Idle : TestState
         data object Testing : TestState
         data object Success : TestState
-        data class Failure(val message: String) : TestState
+
+        /** [message] is the transport's own detail, when it gave one; the screen words the rest. */
+        data class Failure(val message: String?) : TestState
     }
 
     val settings = repository.settings
@@ -66,6 +68,14 @@ class SettingsViewModel @Inject constructor(
         viewModelScope.launch { repository.setTrafficSimEnabled(value) }
     }
 
+    fun setOffRoadEnabled(value: Boolean) {
+        viewModelScope.launch { repository.setOffRoadEnabled(value) }
+    }
+
+    fun setOffRoadWalkEnabled(value: Boolean) {
+        viewModelScope.launch { repository.setOffRoadWalkEnabled(value) }
+    }
+
     /** Fires a tiny fixed route request against the given server. */
     fun testConnection(url: String) {
         _testState.value = TestState.Testing
@@ -77,7 +87,7 @@ class SettingsViewModel @Inject constructor(
             provider.route(TEST_WAYPOINTS, RoutingProfile.DRIVING).fold(
                 onSuccess = { _testState.value = TestState.Success },
                 onFailure = { error ->
-                    _testState.value = TestState.Failure(error.message ?: "Unknown error")
+                    _testState.value = TestState.Failure(error.message)
                 },
             )
         }

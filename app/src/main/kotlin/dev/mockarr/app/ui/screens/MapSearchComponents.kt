@@ -18,6 +18,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -34,6 +35,7 @@ import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
@@ -43,7 +45,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import dev.mockarr.app.R
-import dev.mockarr.app.ui.formatDistance
+import dev.mockarr.app.ui.rememberFormatter
 import dev.mockarr.app.ui.theme.Tokens
 import dev.mockarr.core.model.DistanceUnits
 import dev.mockarr.core.routing.GeocodingResult
@@ -61,7 +63,7 @@ fun MapSearchBar(
     units: DistanceUnits,
     onQueryChange: (String) -> Unit,
     onSearch: () -> Unit,
-    onFocus: () -> Unit,
+    onFocusChange: (Boolean) -> Unit,
     onResultSelected: (GeocodingResult) -> Unit,
     onClearRecents: () -> Unit,
     onDismiss: () -> Unit,
@@ -91,16 +93,27 @@ fun MapSearchBar(
             ),
             modifier = Modifier
                 .fillMaxWidth()
-                .onFocusChanged { if (it.isFocused) onFocus() },
+                .onFocusChanged { onFocusChange(it.isFocused) },
         )
         val recentsOnly = state.query.isBlank() && state.results.isNotEmpty() && state.results.all { it.recent }
         if (state.results.isNotEmpty() || state.status != MapSearchViewModel.Status.IDLE) {
             Spacer(Modifier.height(Tokens.space1))
-            Card(shape = Tokens.cardShape) {
+            // The popover family: lowest surface, floating (DESIGN.md → Search).
+            Card(
+                shape = Tokens.cardShape,
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLowest),
+                elevation = CardDefaults.cardElevation(defaultElevation = Tokens.popoverElevation),
+            ) {
                 Column {
                     if (recentsOnly) RecentsHeader(onClearRecents)
                     SearchNotice(state.status)
-                    LazyColumn(modifier = Modifier.heightIn(max = RESULTS_MAX_HEIGHT)) {
+                    // A long list ends in a fade, so the cut reads as "more below", not a clipped row.
+                    val overflows = state.results.size > RESULTS_ROWS_BEFORE_FADE
+                    LazyColumn(
+                        modifier = Modifier
+                            .heightIn(max = RESULTS_MAX_HEIGHT)
+                            .bottomFade(visible = overflows, height = Tokens.touchTarget / 2),
+                    ) {
                         items(state.results) { suggestion ->
                             SearchResultRow(suggestion, state.query, units) { onResultSelected(suggestion.result) }
                             HorizontalDivider()
@@ -160,7 +173,7 @@ private fun SearchResultRow(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable(onClick = onClick)
+            .clickable(onClick = onClick, role = Role.Button)
             .heightIn(min = Tokens.touchTarget)
             .padding(horizontal = Tokens.inset, vertical = Tokens.space2),
         verticalAlignment = Alignment.CenterVertically,
@@ -192,7 +205,7 @@ private fun SearchResultRow(
         suggestion.distanceMeters?.let { meters ->
             Spacer(Modifier.width(Tokens.space2))
             Text(
-                text = formatDistance(meters, units),
+                text = rememberFormatter().distance(meters, units),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -222,3 +235,4 @@ internal fun highlightMatch(name: String, query: String): AnnotatedString {
 }
 
 private val RESULTS_MAX_HEIGHT = 280.dp
+private const val RESULTS_ROWS_BEFORE_FADE = 4

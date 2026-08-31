@@ -22,6 +22,9 @@ class SetupViewModel @Inject constructor(
         statusHolder.refresh()
     }
 
+    /** A fresh probe: can mocking work right now? */
+    fun readyNow(): Boolean = statusHolder.refresh().readyToMock
+
     /** True exactly once: the very first app launch shows the setup checklist. */
     suspend fun isFirstRun(): Boolean = !settingsRepository.awaitLoaded().setupSeen
 

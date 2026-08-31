@@ -1,6 +1,7 @@
 package dev.mockarr.core.data
 
 import dev.mockarr.core.model.LatLng
+import dev.mockarr.core.model.OffRoadSpan
 import dev.mockarr.core.model.Route
 import dev.mockarr.core.model.RouteLeg
 import dev.mockarr.core.model.RoutingProfile
@@ -32,6 +33,9 @@ class SavedRoutesRepository(
                 waypointWaitsJson = route.waypointWaitsSeconds
                     .takeIf { waits -> waits.any { it > 0 } }
                     ?.let { json.encodeToString(it) },
+                offRoadSpansJson = route.offRoadSpans
+                    .takeIf { it.isNotEmpty() }
+                    ?.let { json.encodeToString(it) },
             ),
         )
 
@@ -54,6 +58,9 @@ class SavedRoutesRepository(
             ?.let { runCatching { json.decodeFromString<List<Int>>(it) }.getOrNull() }
             ?.takeIf { it.size == waypoints.size }
             .orEmpty()
+        val spans = entity.offRoadSpansJson
+            ?.let { runCatching { json.decodeFromString<List<OffRoadSpan>>(it) }.getOrNull() }
+            .orEmpty()
         return Route(
             points = points,
             legs = json.decodeFromString<List<RouteLeg>>(entity.legsJson),
@@ -62,9 +69,18 @@ class SavedRoutesRepository(
             altitudes = altitudes,
             snappedWaypoints = waypoints,
             waypointWaitsSeconds = waits,
+            offRoadSpans = spans,
         )
     }
 
     fun profileOf(entity: SavedRouteEntity): RoutingProfile =
         RoutingProfile.fromNameOrDefault(entity.profile)
+
+    /** Driving time plus every stop's wait — what the builder quoted when the route was saved. */
+    fun totalDurationSeconds(entity: SavedRouteEntity): Double {
+        val waits = entity.waypointWaitsJson
+            ?.let { runCatching { json.decodeFromString<List<Int>>(it) }.getOrNull() }
+            .orEmpty()
+        return entity.durationSeconds + waits.sum()
+    }
 }

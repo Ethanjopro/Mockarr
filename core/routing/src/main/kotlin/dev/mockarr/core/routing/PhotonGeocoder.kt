@@ -29,11 +29,19 @@ data class GeocodingResult(
     val city: String? = null,
 )
 
-/** What a coordinate reverse-geocodes to: a local name (POI/street) and its city. */
+/** What a coordinate reverse-geocodes to: a local name (POI/street), the street itself, and its city. */
 data class PlaceInfo(
     val name: String?,
     val city: String?,
-)
+    val street: String? = null,
+    val kind: PlaceKind = PlaceKind.OTHER,
+) {
+    /**
+     * The name a person would give the spot: a POI's street rather than the
+     * shop itself ("Budget to Rue La Fayette" read as a bug in a route title).
+     */
+    fun routeEndpointName(): String? = if (kind == PlaceKind.POI) street ?: name else name
+}
 
 /**
  * Typeahead place search backed by the public Photon (komoot) geocoder —
@@ -91,7 +99,12 @@ class PhotonGeocoder(
         }
         return request {
             val properties = api.search(url).features.firstOrNull()?.properties
-            PlaceInfo(name = properties?.run { name ?: street }, city = properties?.city)
+            PlaceInfo(
+                name = properties?.run { name ?: street },
+                city = properties?.city,
+                street = properties?.street,
+                kind = properties?.kind() ?: PlaceKind.OTHER,
+            )
         }
     }
 
@@ -154,7 +167,7 @@ class PhotonGeocoder(
             return parts.take(MAX_SECONDARY_PARTS).takeIf { it.isNotEmpty() }?.joinToString(", ")
         }
 
-        private fun kind(): PlaceKind = when {
+        fun kind(): PlaceKind = when {
             housenumber != null -> PlaceKind.ADDRESS
             osmKey == "highway" -> PlaceKind.STREET
             osmKey == "place" && osmValue in SETTLEMENT_VALUES -> PlaceKind.CITY
