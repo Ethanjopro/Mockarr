@@ -485,11 +485,8 @@ long-press to hold". **Status strip** on top: a 48dp-min band of bold Title copy
 when alone, with an optional trailing text action (Fix / Stop) or the speed chip while
 driving. Container and content colours crossfade between the five tones (neutral / ready
 / accent / hold / error) — a colour animation on one surface, never a swap of components.
-**Two bands in exactly one case:** a hold over a loaded route stacks the route's own line —
-amber "Holding at ‹place› · Stop" on top, green "Ready to drive" / "Route ready" under it —
-so holding never hides that there is a drive to start. The second band never repeats the
-first and never carries an action; everywhere else the trio under the band is what says a
-route is loaded. The end of a drive is its own line — "Arrived at ‹place› · Stop"
+**One band, never two:** the card never stacks a second strip; the trio under it is what
+says a route is loaded. The end of a drive is its own line — "Arrived at ‹place› · Stop"
 (ready tone, one haptic tick, ~4 s) before the band settles into "Holding at ‹place› ·
 Stop". Below the strip the **Stat Trio** when there is something to count — while
 building too (the builder's peek holds only the hint and the Done row). The card **rides

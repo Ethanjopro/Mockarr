@@ -1224,5 +1224,10 @@ start as a start-time choice.
   trust a partial dump.
 - **Follow-up, untouched**: the peek column and the detail column both apply
   `navigationBarsPadding()`, so an expanded idle sheet carries a doubled bottom inset.
+- **Stacked band reverted** (Ethan, after seeing it: "let's go back to the combined
+  banner" = the single band). `029c3a4` reverted in full — `StatCard` has no `secondary`,
+  `secondaryStripRes` / `visibleSecondary` / `StatCardStripsTest` are gone, DESIGN.md is
+  back to "One band, never two": while holding, the card shows the amber "Holding at X ·
+  Stop" band with the trio under it. Do not bring the stack back unasked.
 - Final build left installed on the emulator (running) for Ethan to test.
 
