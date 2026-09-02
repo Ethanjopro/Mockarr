@@ -137,6 +137,7 @@
     <string name="strip_cancel">Cancel</string>
     <string name="strip_building">Building a route</string>
     <string name="strip_route_loaded">Route ready</string>
+    <string name="strip_add_stop">Add stop</string>
     <string name="stat_placeholder">—</string>
     <string name="options_header">Options</string>
     <string name="option_follow">Follow camera</string>

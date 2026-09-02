@@ -1231,3 +1231,57 @@ start as a start-time choice.
   Stop" band with the trio under it. Do not bring the stack back unasked.
 - Final build left installed on the emulator (running) for Ethan to test.
 
+
+### 2026-09-02 — Session 31 (planned round: 5 items — search pin, sheet cap, peek rhythm, 3D tilt, dialog pills)
+
+- **Plan first** (`~/.claude/plans/toasty-wobbling-pumpkin.md`): three Explore agents mapped
+  the code, every item was reproduced on the emulator before design, and Ethan picked
+  the approach for the three judgement calls (pin **+ band action**, dialogs **restyled
+  in place**, tilt **30°**). One commit for the round — C/D/E all touch `MapScreen.kt`.
+- **3D tilt** — `ENTER_3D_TILT_DEGREES` 40 → 30 (`MockarrMap.kt`); DESIGN.md's stale "55°
+  and 1.5× taller extrusions" claim corrected (the extrusions are the style's stock look).
+- **Dialog family** — every dialog already went through `MockarrDialog`, so one wrapper
+  change restyles all seven: `usePlatformDefaultWidth = false` + the card's `mapEdge` side
+  margins (capped at new `Tokens.dialogMaxWidth` 420dp), and the actions are the sheet's
+  two-up 56dp pill row. `ActionPill` moved from `MapActionRow.kt` to new
+  `ui/theme/Pills.kt` (`iconRes` now optional) with a sibling `OutlinedActionPill`;
+  `MapActionRow.kt` 9 → 8 top-level functions. DESIGN.md → Dialog rewritten. Verified:
+  Discard (light + dark), Save (IME open, field intact).
+- **Peek rhythm** — `StartChoiceRow` lost the 120dp `ROW_HEIGHT` box (natural height,
+  `space3` under the pills); the playback pills get `inset` above / `space3` below (no
+  handle there); `BuilderPeek` only keeps its 12dp spacer when a hint is showing. The
+  doubled navigation-bar inset (PROGRESS follow-up) is fixed without touching the peek's
+  own inset: the divider + detail column ride `Modifier.offset { -min(rawLift, navInset) }`
+  (layout phase, like the card), so collapsed they sit under the blank inset band and
+  expanded they start right under the peek content, leaving one inset at the bottom. A
+  first attempt (inset once on the outer column) showed the detail's first rows through
+  the nav band while collapsed — do not retry that shape. DESIGN.md → Bottom sheet has the
+  "Peek rhythm" rule.
+- **Card never under the sheet** — the lift capped the card's *top* under the chrome but
+  nothing capped the sheet's *top*, so the fully expanded options list rose over the trio.
+  `maxDetailHeight` is now `min(60 % of the scaffold − peek, room)` with `room` =
+  scaffold − peek − topChromeBottom − mapEdge − (card + mapEdge) − tools; it uses
+  `scaffoldHeightPx` (the window height was a status bar too tall). Verified route-loaded
+  and builder (tools row) fully expanded: the whole card + `mapEdge` gap stay visible.
+- **Search pin + Add stop** — `MapViewModel.searchedPlace` (cleared when it becomes a stop,
+  a new pick replaces it, the builder closes, a saved route loads or the stops clear);
+  `selectSearchResult` issues `CameraCommand.Center(padded = true)` at `searchZoomFor(kind)`
+  (17 place/address, 16 street, 13 city, 10 region — `MapSearchLogic.kt`, tested). New
+  `ui/map/SearchPin.kt`: teardrop bitmap (selection fill, ground ring + dot, baked shadow),
+  `SEARCH_PIN_SOURCE/LAYER` between the stop discs and the mocked-location layers,
+  `hitSearchPin` (48dp-wide target, 8dp slack under the tip; `SearchPinHitTest`), and the
+  map click listener routes a pin hit to `onSearchPinTap` → `addSearchedPlaceAsStop()`.
+  `stripFor` gains `searchedPlace` → Accent band "‹name› · Add stop" (`StripAction.ADD_STOP`,
+  new `strip_add_stop`), below "Ready to drive" in priority. **Gotcha:** a padded centre
+  must hand MapLibre the margins as *camera padding* (`CameraPosition.Builder.padding`);
+  the camera keeps the padding of its last `getCameraForLatLngBounds` fit, so a manual
+  latitude shift stacked on top and parked the pin under the search bar. Verified: pin
+  centred in the visible band at z17, band tap → stop 1 on the point, pin tap → stop 1 on
+  the point, "Lyon" → z13 band "Lyon", dark-theme pin re-tinted, ✕ + Discard clears it.
+- `MapViewModel` hit detekt's 26-function class threshold: `undoWaypoint`/`redoWaypoint`
+  merged into `stepHistory(redo)` and `loadSavedRoute` inlined into its only caller (24).
+- **Emulator gotchas this round:** Gboard's stylus onboarding sheet steals the first tap
+  on the search field (tap its Cancel, then `emu.sh type` works); scripted swipes must
+  start *on the sheet* — its top edge moves with the peek state, and a swipe that starts
+  on the card or map pans the map instead (two "sheet won't collapse" scares were this).
+- Final build left installed on the emulator (running) for Ethan to test.

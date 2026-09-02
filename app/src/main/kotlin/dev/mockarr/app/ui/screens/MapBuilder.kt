@@ -61,7 +61,8 @@ fun BuilderPeek(
             1 -> BuilderHint(R.string.sheet_one_stop_title, R.string.sheet_one_stop_body)
             else -> Unit
         }
-        Spacer(Modifier.height(Tokens.space3))
+        // The gap belongs to the hint: with two stops the row sits right under the handle (peek rhythm).
+        if (state.waypoints.size < 2) Spacer(Modifier.height(Tokens.space3))
         Row(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(Tokens.space2),

@@ -48,4 +48,7 @@ object Tokens {
 
     /** Material centres the sheet at this width (landscape/tablet); floating overlays match it. */
     val sheetMaxWidth = 640.dp
+
+    /** A dialog is the stat card floated to the centre: `mapEdge` side margins on a phone, capped on a tablet. */
+    val dialogMaxWidth = 420.dp
 }

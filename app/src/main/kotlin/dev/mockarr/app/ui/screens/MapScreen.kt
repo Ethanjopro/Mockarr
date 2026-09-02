@@ -15,11 +15,13 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
@@ -121,6 +123,7 @@ fun MapLayer(
     val map3d by viewModel.map3dEnabled.collectAsStateWithLifecycle()
     val followCamera by viewModel.followCamera.collectAsStateWithLifecycle()
     val cameraCommand by viewModel.cameraCommand.collectAsStateWithLifecycle()
+    val searchedPlace by viewModel.searchedPlace.collectAsStateWithLifecycle()
     val selectedWaypoint by viewModel.interaction.selectedWaypoint.collectAsStateWithLifecycle()
     val movingWaypoint by viewModel.interaction.movingWaypoint.collectAsStateWithLifecycle()
     val overlayBottomPx by viewModel.interaction.overlayBottomPx.collectAsStateWithLifecycle()
@@ -224,6 +227,8 @@ fun MapLayer(
         cameraCommand = cameraCommand,
         bottomObstructionPx = overlayBottomPx,
         pinPosition = (session as? MockSessionState.Holding)?.position,
+        searchedPlace = searchedPlace?.position,
+        onSearchPinTap = viewModel::addSearchedPlaceAsStop,
         playbackPosition = if (playing) latestFix?.position else null,
         cameraFollow = followCamera && playing,
         animateCamera = rememberSystemAnimationsEnabled(),
@@ -253,6 +258,7 @@ fun MapScreen(
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val builderMode by viewModel.builderMode.collectAsStateWithLifecycle()
+    val searchedPlace by viewModel.searchedPlace.collectAsStateWithLifecycle()
     val canUndo by viewModel.canUndo.collectAsStateWithLifecycle()
     val canRedo by viewModel.canRedo.collectAsStateWithLifecycle()
     val options by optionsViewModel.settings.collectAsStateWithLifecycle()
@@ -600,12 +606,17 @@ fun MapScreen(
     ReleaseSnackbar(session = session, snackbarHostState = snackbarHostState)
     val expanded = sheetState.currentValue == SheetValue.Expanded
     var peekHeightPx by remember { mutableIntStateOf(0) }
+    val density = LocalDensity.current
+    // The peek carries the navigation-bar inset (the resting sheet needs it);
+    // as the sheet lifts, the detail slides up over that blank band so the
+    // expanded sheet shows one inset, at its bottom (session 31).
+    val navInsetPx = WindowInsets.navigationBars.getBottom(density)
     // Until the peek block has been measured (first frame, and again after a
     // configuration change) fall back to a plausible height: snapping to a
     // zero-height anchor parks the sheet off-screen for good.
     val peekMeasured = peekHeightPx > 0
     val peekHeight = if (peekMeasured) {
-        with(LocalDensity.current) { peekHeightPx.toDp() }
+        with(density) { peekHeightPx.toDp() }
     } else {
         PEEK_FALLBACK_HEIGHT
     }
@@ -626,6 +637,7 @@ fun MapScreen(
         setupReady = setupStatus?.readyToMock != false,
         movingStop = movingWaypoint?.let { stopName(it, state.waypoints.size) },
         arrived = arrived,
+        searchedPlace = searchedPlace?.name,
     )
     var lastStrip by remember { mutableStateOf(nextStrip ?: StripModel("", StripTone.Neutral, hidden = true)) }
     val strip = nextStrip ?: lastStrip
@@ -653,10 +665,13 @@ fun MapScreen(
     var scaffoldHeightPx by remember { mutableIntStateOf(0) }
     var topChromeBottomPx by remember { mutableIntStateOf(0) }
     val mapEdgePx = with(LocalDensity.current) { Tokens.mapEdge.roundToPx() }
-    fun sheetLiftPx(): Int {
+    fun rawLiftPx(): Int {
         val sheetTop = runCatching { sheetState.requireOffset() }.getOrNull() ?: return 0
+        return (scaffoldHeightPx - peekHeightPx - sheetTop).roundToInt().coerceAtLeast(0)
+    }
+    fun sheetLiftPx(): Int {
+        val lift = rawLiftPx()
         val peekTop = scaffoldHeightPx - peekHeightPx
-        val lift = (peekTop - sheetTop).roundToInt().coerceAtLeast(0)
         val cardTopAtPeek = peekTop - mapEdgePx - cardHeightPx
         val maxLift = (cardTopAtPeek - topChromeBottomPx - mapEdgePx).coerceAtLeast(0)
         return lift.coerceAtMost(maxLift)
@@ -731,7 +746,13 @@ fun MapScreen(
                                     sessionViewModel.stopPlayback()
                                     viewModel.clearWaypoints()
                                 },
-                                modifier = Modifier.padding(horizontal = Tokens.inset, vertical = Tokens.space2),
+                                // No handle here, so the pill takes the handle's room under the sheet edge.
+                                modifier = Modifier.padding(
+                                    start = Tokens.inset,
+                                    top = Tokens.inset,
+                                    end = Tokens.inset,
+                                    bottom = Tokens.space3,
+                                ),
                             )
                             PeekMode.BUILDER -> BuilderPeek(
                                 state = state,
@@ -758,12 +779,21 @@ fun MapScreen(
                 // Always composed: the sheet's Expanded anchor comes from its content
                 // height, so an empty detail column left nothing to drag towards and
                 // a slow drag did not move the sheet at all (session 15i).
-                // The whole expanded sheet stops at 60% of the window: a long stop
-                // list scrolls inside it instead of burying the map.
-                val maxDetailHeight = with(LocalDensity.current) {
-                    (LocalWindowInfo.current.containerSize.height * SHEET_MAX_FRACTION - peekHeightPx)
-                        .coerceAtLeast(0f)
-                        .toDp()
+                // The whole expanded sheet stops at 60% of the scaffold: a long stop
+                // list scrolls inside it instead of burying the map. It also stops
+                // under the card: the lift caps the card's top under the chrome, so
+                // without this the sheet rose over the trio (session 31).
+                val maxDetailHeight = with(density) {
+                    val scaffoldPx = if (scaffoldHeightPx > 0) {
+                        scaffoldHeightPx
+                    } else {
+                        LocalWindowInfo.current.containerSize.height
+                    }
+                    val fraction = scaffoldPx * SHEET_MAX_FRACTION - peekHeightPx
+                    val cardPx = if (strip.hidden) 0 else cardHeightPx + mapEdgePx
+                    val room = scaffoldPx - peekHeightPx - topChromeBottomPx - mapEdgePx - cardPx -
+                        toolsHeight.roundToPx()
+                    minOf(fraction, room.toFloat()).coerceAtLeast(0f).toDp()
                 }
                 // Nothing during playback: swipe is off above, and this block
                 // measures zero (no hairline, no padding, no inset) so the
@@ -771,49 +801,50 @@ fun MapScreen(
                 // moved to the run box's popover).
                 // A hairline where the detail list slides under the peek: the
                 // scrolled-away rows end at a visible edge, not a hard clip.
-                if (!playing) HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-                val detailInsets = if (playing) {
-                    Modifier
-                } else {
-                    Modifier.padding(bottom = Tokens.space4).navigationBarsPadding()
-                }
-                Column(
-                    modifier = Modifier
-                        .heightIn(max = maxDetailHeight)
-                        .verticalScroll(rememberScrollState())
-                        .then(detailInsets),
-                ) {
-                    if (!playing && builderMode) {
-                        BuilderDetails(
-                            state = state,
-                            selectedWaypoint = selectedWaypoint,
-                            stayAtDestination = options.stayAtDestination,
-                            listScrollEnabled = expanded,
-                            onSelectWaypoint = { viewModel.interaction.select(it, showPopover = false) },
-                            onSetWait = { waitEditIndex = it },
-                            onClearWait = { viewModel.setWaypointWait(it, 0) },
-                            onRemoveStop = viewModel::removeWaypoint,
-                            onMoveStop = viewModel.interaction::beginMove,
-                        )
-                    } else if (!playing) {
-                        OptionsList(
-                            settings = options,
-                            saveState = when {
-                                state.route == null || state.routeIsFallback -> SaveRowState.HIDDEN
-                                state.routeSaved -> SaveRowState.SAVED
-                                else -> SaveRowState.UNSAVED
-                            },
-                            saving = naming,
-                            onSaveRoute = ::beginSave,
-                            onHoldAtCentre = ::holdAtCentre,
-                            followCamera = followCamera,
-                            onFollowChange = viewModel::setFollowCamera,
-                            onStayChange = optionsViewModel::setStayAtDestination,
-                            onTrafficChange = optionsViewModel::setTrafficSimEnabled,
-                            onWobbleChange = optionsViewModel::setJitterEnabled,
-                            onOpenRoutes = onOpenRoutes,
-                            onOpenSettings = onOpenSettings,
-                        )
+                val detailInsets = if (playing) Modifier else Modifier.padding(bottom = Tokens.space4)
+                // Slides up over the peek's inset during the first inset-worth of lift
+                // (layout phase, like the card): collapsed, it sits below the band;
+                // expanded, it starts right under the peek content.
+                Column(modifier = Modifier.offset { IntOffset(0, -minOf(rawLiftPx(), navInsetPx)) }) {
+                    if (!playing) HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                    Column(
+                        modifier = Modifier
+                            .heightIn(max = maxDetailHeight)
+                            .verticalScroll(rememberScrollState())
+                            .then(detailInsets),
+                    ) {
+                        if (!playing && builderMode) {
+                            BuilderDetails(
+                                state = state,
+                                selectedWaypoint = selectedWaypoint,
+                                stayAtDestination = options.stayAtDestination,
+                                listScrollEnabled = expanded,
+                                onSelectWaypoint = { viewModel.interaction.select(it, showPopover = false) },
+                                onSetWait = { waitEditIndex = it },
+                                onClearWait = { viewModel.setWaypointWait(it, 0) },
+                                onRemoveStop = viewModel::removeWaypoint,
+                                onMoveStop = viewModel.interaction::beginMove,
+                            )
+                        } else if (!playing) {
+                            OptionsList(
+                                settings = options,
+                                saveState = when {
+                                    state.route == null || state.routeIsFallback -> SaveRowState.HIDDEN
+                                    state.routeSaved -> SaveRowState.SAVED
+                                    else -> SaveRowState.UNSAVED
+                                },
+                                saving = naming,
+                                onSaveRoute = ::beginSave,
+                                onHoldAtCentre = ::holdAtCentre,
+                                followCamera = followCamera,
+                                onFollowChange = viewModel::setFollowCamera,
+                                onStayChange = optionsViewModel::setStayAtDestination,
+                                onTrafficChange = optionsViewModel::setTrafficSimEnabled,
+                                onWobbleChange = optionsViewModel::setJitterEnabled,
+                                onOpenRoutes = onOpenRoutes,
+                                onOpenSettings = onOpenSettings,
+                            )
+                        }
                     }
                 }
             }
@@ -951,6 +982,7 @@ fun MapScreen(
                         StripAction.FIX -> onOpenSetup
                         StripAction.RELEASE -> sessionViewModel::release
                         StripAction.CANCEL_MOVE -> viewModel.interaction::cancelMove
+                        StripAction.ADD_STOP -> viewModel::addSearchedPlaceAsStop
                         null -> null
                     },
                     onStatsClick = statsClick,
@@ -1008,8 +1040,8 @@ fun MapScreen(
                     canUndo = canUndo,
                     canRedo = canRedo,
                     canReverse = state.waypoints.size >= 2,
-                    onUndo = viewModel::undoWaypoint,
-                    onRedo = viewModel::redoWaypoint,
+                    onUndo = { viewModel.stepHistory(redo = false) },
+                    onRedo = { viewModel.stepHistory(redo = true) },
                     onReverse = viewModel::reverseWaypoints,
                     onSave = ::beginSave,
                     onClearAll = { showClearAll = true },

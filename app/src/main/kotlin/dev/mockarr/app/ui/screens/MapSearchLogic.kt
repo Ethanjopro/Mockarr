@@ -4,6 +4,7 @@ import dev.mockarr.core.data.RecentSearch
 import dev.mockarr.core.model.GeoMath
 import dev.mockarr.core.model.LatLng
 import dev.mockarr.core.routing.GeocodingResult
+import dev.mockarr.core.routing.PlaceKind
 
 /**
  * The pure half of place search (`docs/research/search-rnd.md` §4): which
@@ -35,6 +36,23 @@ fun biasZoom(cameraZoom: Double?): Double? = cameraZoom?.coerceIn(MIN_BIAS_ZOOM,
 
 private const val MIN_BIAS_ZOOM = 8.0
 private const val MAX_BIAS_ZOOM = 12.0
+
+/**
+ * How close a search pick lands: a building at street level, a street with
+ * its block, a town as a whole. Photon's `extent` is not parsed, so the place
+ * kind stands in for its size.
+ */
+fun searchZoomFor(kind: PlaceKind): Double = when (kind) {
+    PlaceKind.REGION -> REGION_ZOOM
+    PlaceKind.CITY -> CITY_ZOOM
+    PlaceKind.STREET -> STREET_ZOOM
+    PlaceKind.POI, PlaceKind.ADDRESS, PlaceKind.OTHER -> PLACE_ZOOM
+}
+
+private const val PLACE_ZOOM = 17.0
+private const val STREET_ZOOM = 16.0
+private const val CITY_ZOOM = 13.0
+private const val REGION_ZOOM = 10.0
 
 /**
  * Results for shorter spellings of the current query, filtered client-side:

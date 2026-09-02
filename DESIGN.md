@@ -359,7 +359,13 @@ the sheet (and by pushed screens). There is no navigation bar.
   swipe alone is neither discoverable nor accessible. **While driving (Playing, Paused,
   Waiting) the sheet is inert**: swipe is disabled and the detail block measures zero, so
   the peek — Pause, or Resume + Finish — is the whole sheet and a drag never lifts it into
-  an empty band. The strip carries no expand glyph
+  an empty band. **Peek rhythm:** content sits under the 36dp handle (or, with no handle
+  while driving, `{spacing.inset}` under the sheet edge) and ends `space3` above the
+  navigation-bar inset, which the sheet applies once for peek and detail together; only
+  the three-slot action row has a fixed height — the start-choice pills and the playback
+  pills take their natural height. The fully expanded sheet stops at 60% of the scaffold
+  **and** `map-edge` under the stat card at its highest lift, so the trio is never eaten.
+  The strip carries no expand glyph
   (Ethan, session 16): its trailing slot is the speed chip while driving and nothing else.
 - **Top overlays** sit `{spacing.map-edge}` from the edges: the search field full-width,
   then the FAB stack aligned to the right edge (3D toggle, locate / follow), 8dp apart —
@@ -399,9 +405,9 @@ ring in the ground colour; the selected marker gains an outer ring in `map-selec
 Direction chevrons on the route are 10dp, 2dp stroke, drawn in the casing colour.
 Off-road connectors (a stop the road network can't reach, off-road setting on) and the
 straight-line fallback draw as the same dotted `map-route-fallback` line; the road part
-of a route stays solid. 3D mode pitches the camera itself (55°) and draws building
-extrusions earlier, solider and 1.5× taller than the style's defaults — the toggle must
-read instantly, not only after a manual two-finger tilt.
+of a route stays solid. 3D mode pitches the camera itself (a gentle 30°, `MockarrMap`'s
+`ENTER_3D_TILT_DEGREES`) and shows the style's stock building extrusions — the toggle
+must read instantly, not only after a manual two-finger tilt; a hand-set tilt is left alone.
 
 ## Components
 
@@ -419,12 +425,16 @@ read instantly, not only after a manual two-finger tilt.
 - **Disabled:** Material's 38% alpha; never hidden to signal disabled.
 
 ### Dialog
-- **Container:** `MockarrDialog` (`ui/theme/Dialogs.kt`) — the stat card's 16dp corner on
-  `surface-container-lowest`, floating at `popoverElevation`, 20dp inset; title
-  `titleMedium` bold, body `bodyMedium` on `onSurfaceVariant`.
-- **Actions:** one filled pill primary (the verb: Save, Set, Discard) beside one outlined
-  **Cancel** — the same pairing everywhere, never two flat text buttons. A tertiary verb
-  (Use public server) stays a text button inside the body.
+- **Container:** `MockarrDialog` (`ui/theme/Dialogs.kt`) — the stat card floated to the
+  centre: its 16dp corner on `surface-container-lowest` at `popoverElevation`, the card's
+  own `map-edge` side margins (never the platform dialog width; capped at
+  `Tokens.dialogMaxWidth` on tablets), 20dp inset; title `titleMedium` bold, body
+  `bodyMedium` on `onSurfaceVariant`.
+- **Actions:** the sheet's two-up **56dp pill row** (`ActionPill` / `OutlinedActionPill`,
+  `ui/theme/Pills.kt`, equal weights): one filled primary (the verb: Save, Set, Discard)
+  beside one outlined **Cancel** — the same row as Resume · Finish, never two small
+  right-aligned buttons and never two flat text buttons. A tertiary verb (Use public
+  server) stays a text button inside the body.
 - **Destructive:** the primary wears `error` / `onError` (Discard); the label is the plain
   verb, not a warning.
 
@@ -491,9 +501,11 @@ says a route is loaded. The end of a drive is its own line — "Arrived at ‹pl
 Stop". Below the strip the **Stat Trio** when there is something to count — while
 building too (the builder's peek holds only the hint and the Done row). The card **rides
 the sheet**: as the sheet expands (speed chips, options, stops) the card and the builder
-pills lift with it, capped under the top chrome, so the trio stays readable while its
-speed changes and a hold's Stop is never buried. The only state with no card is a single
-placed stop ("Building a route"). With a route loaded (not driving) the **stats block is
+pills lift with it, capped under the top chrome — and the sheet in turn stops `map-edge`
+under the card — so the trio stays readable while its speed changes and a hold's Stop is
+never buried. The only state with no card is a single
+placed stop ("Building a route") — unless a search pin is up, when the band names the
+place in the accent tone with *Add stop* as its action. With a route loaded (not driving) the **stats block is
 tappable** — it opens the expanded sheet's stop list (`Role.Button`, "Edit the route");
 the in-drive stats are inert.
 
@@ -551,6 +563,12 @@ are undefined (nothing loaded).
   flips to whichever ink contrasts. Tapping one opens the stop popover; **dragging one
   moves it** (the map does not pan; the route refetches on drop). The popover's wait row
   reads the current value ("Wait · 5 min").
+- **Search pin:** a teardrop in `map-selection` with the stop disc's head (11dp + ring) and
+  a small ground-colour dot, its tip on the exact geocoded point of the last search pick,
+  over the stop discs and under the mocked location. It centres in the *visible* map
+  (between the top chrome and the card/sheet stack), at z17 for a place or address, z16
+  for a street, z13 for a city. Tapping it, or the band's *Add stop*, drops a stop exactly
+  there; it leaves when it becomes a stop, a new pick replaces it, or the builder closes.
 - **Position:** 8dp `map-position` circle with a 3dp ground-colour ring. **Hold pin:** 9dp
   `map-hold-pin` circle, same ring. **Wait chip:** amber rounded pill, 11dp bold countdown
   with a clock glyph, above the one stop playback is dwelling at — the amount shows only

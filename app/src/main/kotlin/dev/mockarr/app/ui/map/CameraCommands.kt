@@ -1,6 +1,7 @@
 package dev.mockarr.app.ui.map
 
 import dev.mockarr.core.model.LatLng
+import org.maplibre.android.camera.CameraPosition
 import org.maplibre.android.camera.CameraUpdate
 import org.maplibre.android.camera.CameraUpdateFactory
 import org.maplibre.android.geometry.LatLngBounds
@@ -34,13 +35,33 @@ internal class FitPadding(density: Float, bottomObstructionPx: Int) {
 
 internal fun applyCameraCommand(map: MapLibreMap, command: CameraCommand, padding: FitPadding, animate: Boolean) {
     when (command) {
-        is CameraCommand.Center -> map.move(
-            CameraUpdateFactory.newLatLngZoom(command.target.toMapLibre(), command.zoom),
-            animate,
-        )
+        is CameraCommand.Center -> centerOn(map, command, padding, animate)
         is CameraCommand.FitRoute -> fitRoute(map, command.points, padding, animate)
         is CameraCommand.EnsureVisible -> ensureVisible(map, command.points, padding, animate)
     }
+}
+
+/**
+ * A padded centre hands MapLibre the fit margins as camera padding, so the
+ * point lands in the middle of the visible map (between the top chrome and
+ * the card/sheet stack). Never shift the target by hand: the camera keeps the
+ * padding of its last fit, and a manual offset stacked on top of it.
+ */
+private fun centerOn(map: MapLibreMap, command: CameraCommand.Center, padding: FitPadding, animate: Boolean) {
+    val target = command.target.toMapLibre()
+    val update = if (command.padded) {
+        val side = padding.side.toDouble()
+        CameraUpdateFactory.newCameraPosition(
+            CameraPosition.Builder(map.cameraPosition)
+                .target(target)
+                .zoom(command.zoom)
+                .padding(side, padding.top.toDouble(), side, padding.bottom.toDouble())
+                .build(),
+        )
+    } else {
+        CameraUpdateFactory.newLatLngZoom(target, command.zoom)
+    }
+    map.move(update, animate)
 }
 
 /** Honour the system "Remove animations" setting: MapLibre doesn't read it. */

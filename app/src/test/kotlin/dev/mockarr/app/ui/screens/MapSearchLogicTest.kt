@@ -32,6 +32,15 @@ class MapSearchLogicTest {
     }
 
     @Test
+    fun `search zoom lands on a building for places and on the whole town for cities`() {
+        assertEquals(17.0, searchZoomFor(PlaceKind.POI))
+        assertEquals(17.0, searchZoomFor(PlaceKind.ADDRESS))
+        assertEquals(16.0, searchZoomFor(PlaceKind.STREET))
+        assertEquals(13.0, searchZoomFor(PlaceKind.CITY))
+        assertEquals(10.0, searchZoomFor(PlaceKind.REGION))
+    }
+
+    @Test
     fun `prefix cache narrows the longest cached prefix to names still matching`() {
         val cache = PrefixCache()
         val starbucks = GeocodingResult("Starbucks", mountainView)

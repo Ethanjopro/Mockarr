@@ -15,9 +15,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
-import androidx.compose.foundation.text.TextAutoSize
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonColors
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -36,13 +33,12 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import dev.mockarr.app.R
 import dev.mockarr.app.ui.Motion.fadeThrough
+import dev.mockarr.app.ui.theme.ActionPill
 import dev.mockarr.app.ui.theme.MockarrTheme
 import dev.mockarr.app.ui.theme.Tokens
 import dev.mockarr.core.model.RoutingProfile
@@ -107,13 +103,14 @@ fun ActionRow(
 @Composable
 private fun StartChoiceRow(choice: StartChoice) {
     val description = stringResource(R.string.row_start_choice_cd)
+    // Natural height, not the three-slot row's 120dp box: a caption and one
+    // pill row, ending space3 above the inset like every other peek (session 31).
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .height(ROW_HEIGHT)
             .padding(horizontal = Tokens.inset)
+            .padding(bottom = Tokens.space3)
             .semantics { contentDescription = description },
-        verticalArrangement = Arrangement.Center,
     ) {
         // Say what the two pills are for (Ethan): a centred section-header caption.
         Text(
@@ -249,39 +246,6 @@ private fun ActionSlots(
     }
 }
 
-/** A 56dp pill filling its share of a row: Pause / Resume / Finish and the Start choice. */
-@Composable
-internal fun RowScope.ActionPill(
-    label: String,
-    iconRes: Int,
-    enabled: Boolean,
-    onClick: () -> Unit,
-    colors: ButtonColors = ButtonDefaults.buttonColors(),
-    contentDescription: String? = null,
-) {
-    val semantics = if (contentDescription != null) {
-        Modifier.semantics { this.contentDescription = contentDescription }
-    } else {
-        Modifier
-    }
-    Button(
-        onClick = onClick,
-        enabled = enabled,
-        colors = colors,
-        modifier = Modifier.weight(1f).height(Tokens.pillHeight).then(semantics),
-    ) {
-        Icon(painterResource(iconRes), contentDescription = null)
-        Spacer(Modifier.width(Tokens.space2))
-        // One line always: at large font scales the label shrinks rather than wrapping.
-        Text(
-            text = label,
-            style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
-            maxLines = 1,
-            autoSize = TextAutoSize.StepBased(minFontSize = PILL_MIN_FONT, maxFontSize = PILL_MAX_FONT),
-        )
-    }
-}
-
 @Composable
 private fun RowSlot(
     label: String,
@@ -367,8 +331,6 @@ fun ModePickerSheet(
 private val ROW_HEIGHT = 120.dp
 private val ROW_MAX_WIDTH = 320.dp
 private val SPINNER_STROKE = 3.dp
-private val PILL_MIN_FONT = 12.sp
-private val PILL_MAX_FONT = 16.sp
 
 // Strava's Record row (hud-048), measured: side circles ≈ 58pt with ≈ 28pt
 // glyphs, Start ≈ 68pt, 15pt labels. Ours run a step larger — the M3 24dp

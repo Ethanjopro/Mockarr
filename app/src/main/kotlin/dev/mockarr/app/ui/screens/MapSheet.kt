@@ -40,6 +40,7 @@ import dev.mockarr.app.playback.MockSessionState
 import dev.mockarr.app.ui.Motion.fadeThrough
 import dev.mockarr.app.ui.map.formatChipCountdown
 import dev.mockarr.app.ui.rememberFormatter
+import dev.mockarr.app.ui.theme.ActionPill
 import dev.mockarr.app.ui.theme.MockarrTheme
 import dev.mockarr.app.ui.theme.Tokens
 import dev.mockarr.core.model.DistanceUnits
@@ -208,7 +209,7 @@ private const val DOUBLE_SPEED = 2.0
 private val HANDLE_HEIGHT = 36.dp
 private val HANDLE_PILL_HEIGHT = 4.dp
 
-internal enum class StripAction { FIX, RELEASE, CANCEL_MOVE }
+internal enum class StripAction { FIX, RELEASE, CANCEL_MOVE, ADD_STOP }
 
 internal data class StripModel(
     val text: String,
@@ -236,6 +237,7 @@ internal fun stripFor(
     setupReady: Boolean,
     movingStop: String? = null,
     arrived: Boolean = false,
+    searchedPlace: String? = null,
 ): StripModel? = when {
     playing -> playbackStrip(playbackState)
     movingStop != null -> StripModel(
@@ -269,6 +271,13 @@ internal fun stripFor(
     state.routingError != null -> StripModel(stringResource(state.routingError.stripRes()), StripTone.Error)
     state.isRouting -> StripModel(stringResource(R.string.strip_routing), StripTone.Neutral)
     builder && state.route != null -> StripModel(stringResource(R.string.strip_ready), StripTone.Ready)
+    // The searched place, until it is a stop: its name and the verb that drops it there.
+    searchedPlace != null -> StripModel(
+        text = searchedPlace,
+        tone = StripTone.Accent,
+        actionLabel = stringResource(R.string.strip_add_stop),
+        action = StripAction.ADD_STOP,
+    )
     builder -> StripModel(stringResource(R.string.strip_building), StripTone.Neutral, hidden = true)
     state.route != null -> StripModel(stringResource(R.string.strip_route_loaded), StripTone.Ready)
     // The empty card: the one instruction a cold start needs.

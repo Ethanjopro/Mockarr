@@ -8,23 +8,23 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.material3.BasicAlertDialog
-import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.window.DialogProperties
 
 /**
- * The app's dialog: the stat card's 16dp lowest surface floating at popover
- * elevation, a bold title, free content, then a filled primary beside an
- * outlined Cancel — the same family as every other floating object (DESIGN.md).
+ * The app's dialog: the stat card floated to the centre — its 16dp lowest
+ * surface at popover elevation, the card's `mapEdge` side margins (capped at
+ * [Tokens.dialogMaxWidth] on tablets), a bold title, free content, then the
+ * sheet's two-up 56dp pill row: outlined Cancel beside the filled verb (DESIGN.md).
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -36,11 +36,17 @@ fun MockarrDialog(
     dismiss: DialogAction? = null,
     content: @Composable ColumnScope.() -> Unit,
 ) {
-    BasicAlertDialog(onDismissRequest = onDismissRequest, modifier = modifier) {
+    BasicAlertDialog(
+        onDismissRequest = onDismissRequest,
+        // Not the platform's dialog width: the card's own margins, like every other floating object.
+        modifier = modifier.padding(horizontal = Tokens.mapEdge).widthIn(max = Tokens.dialogMaxWidth),
+        properties = DialogProperties(usePlatformDefaultWidth = false),
+    ) {
         Surface(
             shape = Tokens.cardShape,
             color = MaterialTheme.colorScheme.surfaceContainerLowest,
             shadowElevation = Tokens.popoverElevation,
+            modifier = Modifier.fillMaxWidth(),
         ) {
             Column(modifier = Modifier.padding(Tokens.inset)) {
                 Text(
@@ -76,14 +82,15 @@ fun MockarrDialog(
     }
 }
 
+/** Resume / Finish, Held spot / Route start — and Cancel / Discard: the same equal-weight pill row. */
 @Composable
 private fun DialogActions(confirm: DialogAction, dismiss: DialogAction?) {
     Row(
         modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(Tokens.space2, Alignment.End),
+        horizontalArrangement = Arrangement.spacedBy(Tokens.space2),
     ) {
         if (dismiss != null) {
-            OutlinedButton(onClick = dismiss.onClick, enabled = dismiss.enabled) { Text(dismiss.label) }
+            OutlinedActionPill(label = dismiss.label, enabled = dismiss.enabled, onClick = dismiss.onClick)
         }
         val colors = if (confirm.destructive) {
             ButtonDefaults.buttonColors(
@@ -93,6 +100,6 @@ private fun DialogActions(confirm: DialogAction, dismiss: DialogAction?) {
         } else {
             ButtonDefaults.buttonColors()
         }
-        Button(onClick = confirm.onClick, enabled = confirm.enabled, colors = colors) { Text(confirm.label) }
+        ActionPill(label = confirm.label, enabled = confirm.enabled, onClick = confirm.onClick, colors = colors)
     }
 }

@@ -78,7 +78,7 @@ private const val FLAT_BUILDING_LAYER = "building"
 private const val EXTENDED_MAX_ZOOM = 24f
 
 // Gentle auto-pitch when 3D is toggled on; buildings stay the style's stock look.
-private const val ENTER_3D_TILT_DEGREES = 40.0
+private const val ENTER_3D_TILT_DEGREES = 30.0
 
 /**
  * MapLibre map with waypoint markers, the route polyline, the hold pin, and
@@ -112,6 +112,8 @@ fun MockarrMap(
     cameraCommand: CameraCommand? = null,
     bottomObstructionPx: Int = 0,
     pinPosition: LatLng? = null,
+    searchedPlace: LatLng? = null,
+    onSearchPinTap: () -> Unit = {},
     playbackPosition: LatLng? = null,
     cameraFollow: Boolean = false,
     animateCamera: Boolean = true,
@@ -125,6 +127,8 @@ fun MockarrMap(
     val currentOnWaypointDrag by rememberUpdatedState(onWaypointDrag)
     val currentOnWaypointDrop by rememberUpdatedState(onWaypointDrop)
     val currentOnLongPress by rememberUpdatedState(onMapLongPress)
+    val currentSearchedPlace by rememberUpdatedState(searchedPlace)
+    val currentOnSearchPinTap by rememberUpdatedState(onSearchPinTap)
     val currentOnCameraIdle by rememberUpdatedState(onCameraIdle)
     val currentOnCameraMove by rememberUpdatedState(onCameraMove)
     val currentOnUserGesture by rememberUpdatedState(onUserGesture)
@@ -167,10 +171,12 @@ fun MockarrMap(
                 libreMap.addOnMapClickListener { p ->
                     if (currentVisible) {
                         val tapped = hitTest(p)
-                        if (tapped != null) {
-                            currentOnWaypointTap(tapped)
-                        } else {
-                            currentOnTap(LatLng(p.latitude, p.longitude))
+                        val pin = currentSearchedPlace
+                        when {
+                            tapped != null -> currentOnWaypointTap(tapped)
+                            // The searched place's pin: the stop lands on the exact geocoded point.
+                            pin != null && libreMap.searchPinAt(p, pin, density) -> currentOnSearchPinTap()
+                            else -> currentOnTap(LatLng(p.latitude, p.longitude))
                         }
                     }
                     currentVisible
@@ -326,6 +332,10 @@ fun MockarrMap(
         val loadedStyle = style ?: return@LaunchedEffect
         loadedStyle.getSourceAs<GeoJsonSource>(PIN_SOURCE)?.setGeoJson(pinPosition.toFeatures())
     }
+    LaunchedEffect(style, searchedPlace) {
+        val loadedStyle = style ?: return@LaunchedEffect
+        loadedStyle.getSourceAs<GeoJsonSource>(SEARCH_PIN_SOURCE)?.setGeoJson(searchedPlace.toFeatures())
+    }
 
     // Keep a nudged hold pin in view: when it crosses into the outer margin of
     // the viewport, ease the camera back onto it. A stationary pin never
@@ -446,7 +456,7 @@ private fun setUpLayers(style: Style, density: Float, palette: MapPalette) {
     val lineSourceOptions = GeoJsonOptions().withMaxZoom(22).withTolerance(0.0f)
     listOf(ROUTE_SOURCE, FALLBACK_SOURCE, OFF_ROAD_SOURCE)
         .forEach { style.addSource(GeoJsonSource(it, lineSourceOptions)) }
-    listOf(WAYPOINT_SOURCE, WAIT_CHIP_SOURCE, PIN_SOURCE, PLAYBACK_SOURCE)
+    listOf(WAYPOINT_SOURCE, WAIT_CHIP_SOURCE, SEARCH_PIN_SOURCE, PIN_SOURCE, PLAYBACK_SOURCE)
         .forEach { style.addSource(GeoJsonSource(it)) }
     fun zoomWidth(z10: Float, z15: Float, z19: Float) = Expression.interpolate(
         Expression.exponential(1.5f),
@@ -524,6 +534,7 @@ private fun applyPalette(style: Style, palette: MapPalette, density: Float) {
         PropertyFactory.circleStrokeColor(MapPalette.css(palette.positionRing)),
     )
     style.addImage(ROUTE_ARROW_ICON, chevronBitmap(palette.routeCasing, density))
+    style.addImage(SEARCH_PIN_ICON, searchPinBitmap(MarkerStyle(density, palette)))
 }
 
 /** A ">" pointing along +x; MapLibre rotates it to the line's bearing. */
@@ -570,6 +581,16 @@ private fun addPointLayers(style: Style) {
             PropertyFactory.iconIgnorePlacement(true),
             PropertyFactory.iconAnchor(Property.ICON_ANCHOR_BOTTOM),
             PropertyFactory.iconOffset(arrayOf(0f, -WAIT_CHIP_LIFT_DP)),
+        ),
+    )
+    // The searched place: a teardrop whose tip is the geocoded point, over the
+    // stop discs (a stop dropped on it hides it anyway) and under the mocked location.
+    style.addLayer(
+        SymbolLayer(SEARCH_PIN_LAYER, SEARCH_PIN_SOURCE).withProperties(
+            PropertyFactory.iconImage(SEARCH_PIN_ICON),
+            PropertyFactory.iconAllowOverlap(true),
+            PropertyFactory.iconIgnorePlacement(true),
+            PropertyFactory.iconAnchor(Property.ICON_ANCHOR_BOTTOM),
         ),
     )
     // The mocked location is the top of the stack: the hold pin and the live

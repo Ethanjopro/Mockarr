@@ -48,6 +48,11 @@ emulator binary yourself.
   handle up (`swipe 540 2100 540 600`) to reach the options list (ending in
   Saved routes / All settings), the stop list and the speed chips. Search, 3D
   and the action row hide during playback by design; the card stays.
+- Start every sheet swipe ON the sheet: its top edge moves with the peek state
+  (`find` the handle or a peek label first) — a swipe that starts on the card or
+  map pans the map and looks like "the sheet won't move". If a typed search
+  lands nowhere, Gboard's "Try out your stylus" sheet has the focus:
+  `tapon Cancel`, then `type` again.
 - Text fields: `scripts/emu.sh type "text"` (spaces handled); focus the field
   with a tap first.
 - Verify mock state empirically when it matters:

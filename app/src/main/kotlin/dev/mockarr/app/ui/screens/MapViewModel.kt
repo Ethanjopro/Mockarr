@@ -96,6 +96,13 @@ class MapViewModel @Inject constructor(
     private val _builderMode = MutableStateFlow(false)
     val builderMode: StateFlow<Boolean> = _builderMode.asStateFlow()
 
+    /**
+     * The last search pick, pinned on the map until it becomes a stop, a new pick replaces it,
+     * or the builder closes.
+     */
+    private val _searchedPlace = MutableStateFlow<GeocodingResult?>(null)
+    val searchedPlace: StateFlow<GeocodingResult?> = _searchedPlace.asStateFlow()
+
     val tileStyleUrl: StateFlow<String> = settingsRepository.settings
         .map { it.tileStyleUrl }
         .stateIn(
@@ -153,7 +160,32 @@ class MapViewModel @Inject constructor(
             routeHandoff.pending.collect { loaded ->
                 if (loaded != null) {
                     routeHandoff.clear()
-                    loadSavedRoute(loaded.route, loaded.profile)
+                    // A saved route arrives loaded, not built: builder closed,
+                    // history gone, camera framing it (was loadSavedRoute).
+                    _builderMode.value = false
+                    _searchedPlace.value = null
+                    history.clear()
+                    routeJob?.cancel()
+                    profileTouched = true
+                    val route = loaded.route
+                    val anchors = route.snappedWaypoints
+                        .ifEmpty { listOf(route.points.first(), route.points.last()) }
+                    val waits = route.waypointWaitsSeconds
+                    _uiState.update {
+                        it.copy(
+                            waypoints = anchors.mapIndexed { i, p -> Waypoint(p, waits.getOrElse(i) { 0 }) },
+                            profile = loaded.profile,
+                            route = route,
+                            routeIsFallback = false,
+                            routedFor = anchors,
+                            isRouting = false,
+                            routingError = null,
+                            routeSaved = true,
+                            trafficFactor = settingsRepository.currentTrafficFactor(),
+                        )
+                    }
+                    _cameraCommand.value = CameraCommand.FitRoute(route.points, seq = cameraSeq++)
+                    enrichWithElevations(route)
                 }
             }
         }
@@ -213,17 +245,17 @@ class MapViewModel @Inject constructor(
         mutate { if (atStart) listOf(Waypoint(point)) + it else it + Waypoint(point) }
     }
 
-    fun undoWaypoint() {
+    /** Undo, or redo with [redo]: the builder's history, one step. */
+    fun stepHistory(redo: Boolean) {
         val current = _uiState.value.waypoints
-        history.undo(current)?.let { mutate(refetch = !current.samePlaces(it), record = false) { _ -> it } }
+        val target = if (redo) history.redo(current) else history.undo(current)
+        target?.let { mutate(refetch = !current.samePlaces(it), record = false) { _ -> it } }
     }
 
-    fun redoWaypoint() {
-        val current = _uiState.value.waypoints
-        history.redo(current)?.let { mutate(refetch = !current.samePlaces(it), record = false) { _ -> it } }
+    fun clearWaypoints() {
+        _searchedPlace.value = null
+        mutate { emptyList() }
     }
-
-    fun clearWaypoints() = mutate { emptyList() }
 
     fun removeWaypoint(index: Int) {
         if (index !in _uiState.value.waypoints.indices) return
@@ -375,16 +407,36 @@ class MapViewModel @Inject constructor(
         }
     }
 
-    /** A search result: fly there and open the builder so the next tap places a stop. */
+    /**
+     * A search result: pin the exact point, centre it in the visible map at a
+     * zoom for its kind, and open the builder. The band's *Add stop* (or a tap
+     * on the pin) drops the stop there; a map tap elsewhere still places freely.
+     */
     fun selectSearchResult(result: GeocodingResult) {
-        _cameraCommand.value = CameraCommand.Center(result.position, SEARCH_ZOOM, seq = cameraSeq++)
+        _searchedPlace.value = result
+        _cameraCommand.value = CameraCommand.Center(
+            target = result.position,
+            zoom = searchZoomFor(result.kind),
+            seq = cameraSeq++,
+            padded = true,
+        )
         _builderMode.value = true
+    }
+
+    /** The searched place becomes a stop at its geocoded coordinate; the pin leaves with it. */
+    fun addSearchedPlaceAsStop() {
+        val place = _searchedPlace.value ?: return
+        _searchedPlace.value = null
+        addWaypoint(place.position)
     }
 
     /** Builder mode: map taps place stops; the sheet shows the route under construction. */
     fun setBuilderMode(active: Boolean) {
         interaction.reset()
-        if (!active) history.clear()
+        if (!active) {
+            history.clear()
+            _searchedPlace.value = null
+        }
         _builderMode.value = active
     }
 
@@ -392,31 +444,6 @@ class MapViewModel @Inject constructor(
     fun reverseWaypoints() {
         if (_uiState.value.waypoints.size < 2) return
         mutate { it.asReversed() }
-    }
-
-    private fun loadSavedRoute(route: Route, profile: RoutingProfile) {
-        _builderMode.value = false
-        history.clear()
-        routeJob?.cancel()
-        profileTouched = true
-        val anchors = route.snappedWaypoints
-            .ifEmpty { listOf(route.points.first(), route.points.last()) }
-        val waits = route.waypointWaitsSeconds
-        _uiState.update {
-            it.copy(
-                waypoints = anchors.mapIndexed { i, p -> Waypoint(p, waits.getOrElse(i) { 0 }) },
-                profile = profile,
-                route = route,
-                routeIsFallback = false,
-                routedFor = anchors,
-                isRouting = false,
-                routingError = null,
-                routeSaved = true,
-                trafficFactor = settingsRepository.currentTrafficFactor(),
-            )
-        }
-        _cameraCommand.value = CameraCommand.FitRoute(route.points, seq = cameraSeq++)
-        enrichWithElevations(route)
     }
 
     /** Fetches terrain elevations for [route] and attaches them once resolved. */
@@ -500,7 +527,6 @@ class MapViewModel @Inject constructor(
     private companion object {
         const val DEBOUNCE_MILLIS = 500L
         const val CAMERA_SAVE_DEBOUNCE_MILLIS = 1_000L
-        const val SEARCH_ZOOM = 16.0
         const val LOCATE_ZOOM = 15.0
         const val LOCATE_REFINE_METERS = 50.0
         const val NAME_TIMEOUT_MILLIS = 4_000L

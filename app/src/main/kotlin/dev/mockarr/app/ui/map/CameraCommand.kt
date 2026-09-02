@@ -6,11 +6,16 @@ import dev.mockarr.core.model.LatLng
 sealed interface CameraCommand {
     val seq: Long
 
-    /** Center on a point at a fixed zoom (locate, search). */
+    /**
+     * Center on a point at a fixed zoom (locate, search). [padded] centres it in
+     * the visible map — between the top chrome and the card/sheet stack — rather
+     * than the viewport's geometric centre, which sits behind the bottom overlays.
+     */
     data class Center(
         val target: LatLng,
         val zoom: Double,
         override val seq: Long,
+        val padded: Boolean = false,
     ) : CameraCommand
 
     /** Frame a whole route (saved-route load). */
