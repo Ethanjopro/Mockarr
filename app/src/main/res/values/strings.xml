@@ -132,6 +132,7 @@
     <string name="stop_menu_stays">Stays at destination</string>
     <string name="stop_menu_move">Move stop</string>
     <string name="stop_menu_delete">Delete stop</string>
+    <string name="stop_popover_cd">%1$s options</string>
     <string name="strip_moving_stop">Drag %1$s or tap the map to move it</string>
     <string name="strip_cancel">Cancel</string>
     <string name="strip_building">Building a route</string>

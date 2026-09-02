@@ -1,37 +1,39 @@
 package dev.mockarr.app.ui.screens
 
-import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.graphics.vector.rememberVectorPainter
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.isTraversalGroup
+import androidx.compose.ui.semantics.semantics
 import dev.mockarr.app.R
 import dev.mockarr.app.ui.rememberFormatter
 import dev.mockarr.app.ui.theme.MapPopover
 import dev.mockarr.app.ui.theme.MockarrTheme
-import dev.mockarr.app.ui.theme.PopoverRow
 import dev.mockarr.app.ui.theme.Tokens
 import dev.mockarr.core.model.Waypoint
 
 /**
- * Strava's tap-a-point callout, over the marker: the stop's name and wait,
- * then Wait (or a greyed "Stays at destination" on the last stop while that option is on)
- * · Move · Delete. While [playing] only the Wait row shows — mid-drive the
- * route's shape is fixed, but a coming stop's wait can still change. [anchor]
- * is the marker's window position, fed by the map every camera frame so the
- * card rides along.
+ * Strava's tap-a-point callout over the marker, as symbols only: Move
+ * (four-way arrows) · Wait (clock — hold-tinted once a wait is set, greyed
+ * on the last stop while "Stay at destination" is on) · Delete (trash, error
+ * ink). No header: the selected disc says which stop, and the words live in
+ * the buttons' descriptions for TalkBack ("Wait · 5 min"). While [playing]
+ * only the clock shows — mid-drive the route's shape is fixed, but a coming
+ * stop's wait can still change. [anchor] is the marker's window position,
+ * fed by the map every camera frame so the card rides along.
  */
 @Composable
 internal fun StopPopover(
@@ -46,60 +48,57 @@ internal fun StopPopover(
     onDelete: () -> Unit,
     onDismiss: () -> Unit,
 ) {
-    val isEnd = index == count - 1 && count >= 2
     val hasWait = waypoint.waitSeconds > 0
     val waitLabel = rememberFormatter().duration(waypoint.waitSeconds.toDouble())
+    val stays = stopStays(index, count, stayAtDestination)
+    val groupLabel = stringResource(R.string.stop_popover_cd, stopName(index, count))
+    val waitDescription = when {
+        stays -> stringResource(R.string.stop_menu_stays)
+        hasWait -> stringResource(R.string.stop_menu_wait_set, waitLabel)
+        else -> stringResource(R.string.stop_menu_wait)
+    }
+    val scheme = MaterialTheme.colorScheme
+    val waitInk = if (hasWait) MockarrTheme.colors.hold else scheme.onSurface
     MapPopover(anchor = anchor, onDismiss = onDismiss, modal = false) {
         Row(
-            modifier = Modifier.padding(horizontal = Tokens.space3, vertical = Tokens.space2),
-            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier
+                .padding(Tokens.space1)
+                .semantics {
+                    contentDescription = groupLabel
+                    isTraversalGroup = true
+                },
+            horizontalArrangement = Arrangement.spacedBy(Tokens.space1),
         ) {
-            StopDisc(number = index + 1, isStart = index == 0, isEnd = isEnd)
-            Spacer(Modifier.width(Tokens.space3))
-            Column {
-                Text(
-                    text = stopName(index, count),
-                    style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
-                )
-                if (hasWait) {
-                    Text(
-                        text = stringResource(R.string.sheet_waits, waitLabel),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MockarrTheme.colors.hold,
+            if (!playing) {
+                IconButton(onClick = onMove, modifier = Modifier.size(Tokens.touchTarget)) {
+                    Icon(
+                        painterResource(R.drawable.ic_open_with),
+                        contentDescription = stringResource(R.string.stop_menu_move),
                     )
                 }
             }
-        }
-        val stays = stopStays(index, count, stayAtDestination)
-        PopoverRow(
-            label = when {
-                stays -> stringResource(R.string.stop_menu_stays)
-                hasWait -> stringResource(R.string.stop_menu_wait_set, waitLabel)
-                else -> stringResource(R.string.stop_menu_wait)
-            },
-            icon = painterResource(R.drawable.ic_schedule),
-            enabled = !stays,
-            onClick = onSetWait,
-            // The header/action boundary reads through spacing; hairlines only separate actions.
-            divider = false,
-        )
-        if (!playing) {
-            PopoverRow(
-                label = stringResource(R.string.stop_menu_move),
-                icon = painterResource(R.drawable.ic_target),
-                onClick = onMove,
-            )
-            PopoverRow(
-                label = stringResource(R.string.stop_menu_delete),
-                icon = rememberVectorPainter(Icons.Filled.Delete),
-                destructive = true,
-                onClick = onDelete,
-            )
+            IconButton(
+                onClick = onSetWait,
+                enabled = !stays,
+                colors = IconButtonDefaults.iconButtonColors(contentColor = waitInk),
+                modifier = Modifier.size(Tokens.touchTarget),
+            ) {
+                Icon(painterResource(R.drawable.ic_schedule), contentDescription = waitDescription)
+            }
+            if (!playing) {
+                IconButton(
+                    onClick = onDelete,
+                    colors = IconButtonDefaults.iconButtonColors(contentColor = scheme.error),
+                    modifier = Modifier.size(Tokens.touchTarget),
+                ) {
+                    Icon(Icons.Filled.Delete, contentDescription = stringResource(R.string.stop_menu_delete))
+                }
+            }
         }
     }
 }
 
-/** The last stop's wait is moot while "Stay at destination" parks the drive there (greyed row). */
+/** The last stop's wait is moot while "Stay at destination" parks the drive there (greyed button). */
 internal fun stopStays(index: Int, count: Int, stayAtDestination: Boolean): Boolean =
     stayAtDestination && index == count - 1 && count >= 2
 

@@ -457,11 +457,14 @@ anchor and flipping below when there is no room. The card hugs its widest row (i
 width, 280dp cap). Rows (`PopoverRow`) are label-left, glyph-right, 44dp min, hairline
 dividers between actions only — never directly under a header; a destructive row uses the
 error role and comes last. The **stop popover** (`StopPopover`) rides the selected marker
-on every camera frame: header = disc + "Stop 2" + its wait, then *Wait here…* (not on the
-destination) · *Move stop* · *Delete stop*. While a drive is playing only the Wait row
-shows — the route's shape is fixed mid-drive, but a coming stop's wait can still change.
-Outside tap and Back dismiss. Move puts the strip in "Tap the map to move Stop 2 — Cancel"
-and the next map tap relocates the stop.
+on every camera frame and is **symbols only**: one row of three 48dp icon buttons —
+*Move* (four-way arrows, `ic_open_with`) · *Wait* (clock; hold-tinted once a wait is set,
+greyed on the destination while "Stay at destination" is on) · *Delete* (trash in the
+error role, last). No header: the selected disc says which stop, and the buttons'
+descriptions carry the words ("Wait · 5 min", "Stop 2 options") for TalkBack. While a
+drive is playing only the clock shows — the route's shape is fixed mid-drive, but a coming
+stop's wait can still change. Outside tap and Back dismiss. Move puts the strip in "Drag
+Stop 2 or tap the map to move it — Cancel"; the next map tap or a drag relocates it.
 
 ### Motion (one authored moment)
 Play is the only choreographed transition, built from three reusable pieces in
