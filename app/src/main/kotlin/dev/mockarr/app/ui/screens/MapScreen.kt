@@ -671,6 +671,9 @@ fun MapScreen(
         sheetContainerColor = MaterialTheme.colorScheme.surfaceContainerLow,
         sheetShadowElevation = Tokens.sheetElevation,
         sheetDragHandle = null,
+        // Inert while driving: the peek is the whole sheet (Pause / Resume +
+        // Finish), so a swipe must not lift it into an empty band.
+        sheetSwipeEnabled = !playing,
         containerColor = Color.Transparent,
         // Above the floating card, never on it: a confirmation must not garble the trio.
         snackbarHost = {
@@ -762,20 +765,24 @@ fun MapScreen(
                         .coerceAtLeast(0f)
                         .toDp()
                 }
+                // Nothing during playback: swipe is off above, and this block
+                // measures zero (no hairline, no padding, no inset) so the
+                // Expanded anchor collapses onto the peek (the speed presets
+                // moved to the run box's popover).
                 // A hairline where the detail list slides under the peek: the
                 // scrolled-away rows end at a visible edge, not a hard clip.
-                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                if (!playing) HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                val detailInsets = if (playing) {
+                    Modifier
+                } else {
+                    Modifier.padding(bottom = Tokens.space4).navigationBarsPadding()
+                }
                 Column(
                     modifier = Modifier
                         .heightIn(max = maxDetailHeight)
                         .verticalScroll(rememberScrollState())
-                        .padding(bottom = Tokens.space4)
-                        .navigationBarsPadding(),
+                        .then(detailInsets),
                 ) {
-                    // Nothing during playback: with zero detail height the
-                    // Expanded anchor collapses onto the peek, so the sheet
-                    // cannot expand while driving (the speed presets moved to
-                    // the run box's popover).
                     if (!playing && builderMode) {
                         BuilderDetails(
                             state = state,

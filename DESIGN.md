@@ -354,9 +354,12 @@ the sheet (and by pushed screens). There is no navigation bar.
   while driving, measured at runtime and never assumed — and *expanded* — the same plus a
   scrollable options list — *Save route* first when a road route is loaded (reads *Saved*
   once it is), the drive switches, then *Saved routes ›* and *All settings ›*. The peek is
-  the screen's resting state. The sheet is always draggable from anywhere on it, the
+  the screen's resting state. The sheet is draggable from anywhere on it, the
   handle (36dp of layout, 48dp of touch) toggles peek ↔ expanded — two ways in, because a
-  swipe alone is neither discoverable nor accessible. The strip carries no expand glyph
+  swipe alone is neither discoverable nor accessible. **While driving (Playing, Paused,
+  Waiting) the sheet is inert**: swipe is disabled and the detail block measures zero, so
+  the peek — Pause, or Resume + Finish — is the whole sheet and a drag never lifts it into
+  an empty band. The strip carries no expand glyph
   (Ethan, session 16): its trailing slot is the speed chip while driving and nothing else.
 - **Top overlays** sit `{spacing.map-edge}` from the edges: the search field full-width,
   then the FAB stack aligned to the right edge (3D toggle, locate / follow), 8dp apart —
