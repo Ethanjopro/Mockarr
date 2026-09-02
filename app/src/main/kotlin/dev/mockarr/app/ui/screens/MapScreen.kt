@@ -627,6 +627,14 @@ fun MapScreen(
         movingStop = movingWaypoint?.let { stopName(it, state.waypoints.size) },
         arrived = arrived,
     )
+    // A hold over a loaded route stacks the route's own line under it.
+    val secondaryStrip = secondaryStripRes(
+        holding = holding != null,
+        playing = playing,
+        moving = movingWaypoint != null,
+        hasRoute = state.route != null,
+        builder = builderMode,
+    )?.let { StripModel(stringResource(it), StripTone.Ready) }
     var lastStrip by remember { mutableStateOf(nextStrip ?: StripModel("", StripTone.Neutral, hidden = true)) }
     val strip = nextStrip ?: lastStrip
     SideEffect { if (nextStrip != null) lastStrip = nextStrip }
@@ -947,6 +955,7 @@ fun MapScreen(
                 StatCard(
                     strip = shownStrip,
                     stats = stats,
+                    secondary = secondaryStrip,
                     onStripAction = when (shownStrip.action) {
                         StripAction.FIX -> onOpenSetup
                         StripAction.RELEASE -> sessionViewModel::release

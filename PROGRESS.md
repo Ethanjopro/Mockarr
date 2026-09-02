@@ -1167,3 +1167,62 @@ start as a start-time choice.
   popover + stat-card sections updated to match. Sessions 22–27 landed as one
   commit on 2026-09-01 when Ethan gave the go (the sessions overlapped too many
   files to slice cleanly — don't let the backlog grow this long again).
+
+### 2026-09-02 — Session 30 (reset to c24156f; sheet gate, symbols popover, stacked hold band rebuilt)
+
+- **Reset.** A first pass this session restored session 28's work and the rollback's
+  survivors from the tag `backup/2026-09-02-ui-pass-and-rollback` (cherry-pick + net
+  diff). Ethan: other features regressed again, "the mocked location to route pipeline is
+  now glitchy" — the same reason main had been wiped to `c24156f` before; "the source you
+  got it from was flawed (the backup)". Main was `git reset --hard c24156f` (nothing had
+  been pushed) and the three asks were rebuilt from scratch, one commit each, each
+  verified on the emulator together with the hold → route flow (long-press hold → route →
+  Start → "Held spot" → Driving → Finish → Holding → Stop → providers removed). Nothing in
+  this session reads from the backup tag; the UI-pass layouts, layered Back, attribution
+  margins, launcher icon and `emu.sh` switches were NOT brought back. Rule going forward
+  (memory + this note): rebuild from the last good commit, never restore from rolled-back
+  history.
+- **Baseline first**: c24156f installed and the pipeline exercised before any change —
+  healthy (pills "Held spot · Route start", drive from the pin, Finish → "Holding at …").
+  Gotcha: Ethan had wiped the AVD data, so the first-run "Plan your first drive" popover
+  was up and swallowed the first long-press — dismiss "Got it" before scripting.
+- **Sheet stays put while driving** (`c0e5f20`) — Ethan: "after Pause you can still drag
+  up the menu". Reproduced first: paused, a swipe lifted the sheet ≈90 px into an empty
+  band under Resume + Finish. Not pause-specific: `MockSessionState` has no Paused value,
+  so `playing` stays true and the `!playing` guards already emptied the detail column —
+  but the always-composed detail block still measured a hairline + `space4` bottom padding
+  + a second `navigationBarsPadding()`, so the Expanded anchor never collapsed onto the
+  peek, and `BottomSheetScaffold` was never told `sheetSwipeEnabled`. Fix in
+  `MapScreen.kt`: `sheetSwipeEnabled = !playing`; hairline / padding / inset compose only
+  when `!playing` (outer detail `Column` stays always-composed — session 15i). DESIGN.md
+  Bottom sheet bullet updated. Verified: swipe while Driving and while Paused leaves the
+  sheet in place; after Finish + Stop it expands into the options list again.
+- **Stop popover as three symbols** (`e3afa5b`) — `StopPopover` is one row of three 48dp
+  `IconButton`s: Move (new `ic_open_with.xml`, Material "open_with") · Wait
+  (`ic_schedule`, hold-tinted once a wait is set, disabled when `stopStays`) · Delete
+  (`Icons.Filled.Delete`, error ink). No header; the row carries `stop_popover_cd`
+  ("Stop 2 options", new string) + `isTraversalGroup`, buttons reuse `stop_menu_*` as
+  content descriptions. Playing → only the clock. `PopoverRow` stays (sheet hint).
+  DESIGN.md Popover section rewritten. Verified: three icons + caret, no header (light and
+  dark); clock greyed on the destination with stay-on; 5-min wait → amber clock + marker
+  badge; Move → "Drag Stop 3 or tap the map to move it", map tap relocates and the wait
+  survives; trash → 1 stop, Undo restores; hold → Start → Held spot → Driving → Finish →
+  Stop clean.
+- **"Holding at X" stacks over the route band** — `StatCard(secondary =)` renders a
+  second, action-less `StatusStrip` under the primary (latched through its exit; never
+  the primary's text via pure `visibleSecondary`); pure `secondaryStripRes(holding,
+  playing, moving, hasRoute, builder)` → `strip_ready` in the builder / `strip_route_loaded`
+  otherwise / null. Both helpers live in `MapStatCard.kt` (6 → 8 top-level functions;
+  `MapSheet.kt` stays at 9). `MapScreen` passes it next to `stripFor`. New
+  `StatCardStripsTest` (6 cases). DESIGN.md Stat Card: "One band, never two" → "Two bands
+  in exactly one case". Verified: amber "Holding at École Saint-Exupéry · Stop" over green
+  "Ready to drive" in the builder and over "Route ready" after Done (both in the `ui` dump
+  at once); Stop → single green band; hold with no route → single amber band; hold →
+  Start → Held spot → Driving (sheet locked) → Finish → "Holding at …" → Stop → providers
+  removed; logcat clean. Gotcha: the headless emulator dropped offline for ~30 s mid-pass
+  (`adb: device offline`) and `emu.sh boot` recovered it — re-run the lost steps, don't
+  trust a partial dump.
+- **Follow-up, untouched**: the peek column and the detail column both apply
+  `navigationBarsPadding()`, so an expanded idle sheet carries a doubled bottom inset.
+- Final build left installed on the emulator (running) for Ethan to test.
+

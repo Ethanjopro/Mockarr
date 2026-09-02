@@ -21,7 +21,11 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
@@ -47,9 +51,11 @@ enum class StripTone { Neutral, Ready, Accent, Hold, Error }
 
 /**
  * Strava's Record "run box": a card floating over the map above the sheet —
- * one status strip on top (the session's single band: idle prompt, ready,
- * driving, arrived, holding, error) and the stat trio (with progress) below
- * when there is something to count. [stats] null hides the trio: undefined
+ * the status strip on top (idle prompt, ready, driving, arrived, holding,
+ * error), an optional [secondary] band under it (the route's own "Ready to
+ * drive" while a hold takes the top band, so holding never hides that there
+ * is a drive to start) and the stat trio (with progress) below when there is
+ * something to count. [stats] null hides the trio: undefined
  * numbers are never shown as placeholders. The slot is its own recomposition
  * scope, so a per-fix speed cell does not redraw the whole overlay.
  */
@@ -58,10 +64,16 @@ internal fun StatCard(
     strip: StripModel,
     stats: (@Composable () -> Unit)?,
     modifier: Modifier = Modifier,
+    secondary: StripModel? = null,
     onStripAction: (() -> Unit)? = null,
     onStatsClick: (() -> Unit)? = null,
     trailing: (@Composable () -> Unit)? = null,
 ) {
+    // The second band keeps its last line through the exit animation and
+    // never repeats the top band (a null-latched primary would echo it).
+    val shownSecondary = visibleSecondary(strip, secondary)
+    var lastSecondary by remember { mutableStateOf(shownSecondary) }
+    SideEffect { if (shownSecondary != null) lastSecondary = shownSecondary }
     Surface(
         modifier = modifier.fillMaxWidth(),
         shape = Tokens.cardShape,
@@ -76,6 +88,10 @@ internal fun StatCard(
                 onAction = onStripAction,
                 trailing = trailing,
             )
+            AnimatedVisibility(visible = shownSecondary != null) {
+                val second = shownSecondary ?: lastSecondary?.let { visibleSecondary(strip, it) }
+                if (second != null) StatusStrip(text = second.text, tone = second.tone)
+            }
             AnimatedVisibility(visible = stats != null) {
                 // Only the stats block is tappable — the strip keeps its own action.
                 val editLabel = stringResource(R.string.stat_trio_edit_cd)
@@ -92,6 +108,27 @@ internal fun StatCard(
             }
         }
     }
+}
+
+/** The second band never repeats the first: a null-latched primary would otherwise echo it. */
+internal fun visibleSecondary(primary: StripModel, secondary: StripModel?): StripModel? =
+    secondary?.takeIf { it.text != primary.text }
+
+/**
+ * The route's own line under a hold: "Ready to drive" in the builder, "Route
+ * ready" otherwise; nothing while driving, while moving a stop, or without a
+ * route to start.
+ */
+internal fun secondaryStripRes(
+    holding: Boolean,
+    playing: Boolean,
+    moving: Boolean,
+    hasRoute: Boolean,
+    builder: Boolean,
+): Int? = when {
+    !holding || playing || moving || !hasRoute -> null
+    builder -> R.string.strip_ready
+    else -> R.string.strip_route_loaded
 }
 
 /**
