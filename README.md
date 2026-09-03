@@ -30,7 +30,8 @@ Android's Developer Options include **"Select mock location app"** — an OS-san
 
 ## Install
 
-- **From source** (below) — the project is pre-release; a distribution channel is still to be decided
+- **Google Play** — in preparation (ADR 0002; runbook in `docs/release/play-launch.md`)
+- **From source** (below)
 
 ## Building
 

@@ -194,6 +194,26 @@ case "${1:-help}" in
     ( cd "$root" && perl -e 'alarm shift; exec @ARGV' "${INSTALL_TIMEOUT_S:-300}" scripts/gradle -q :app:installDebug ) \
       || { echo "install failed or timed out" >&2; exit 1; }
     ;;
+  # Release-build verification: R8 breakage only shows in the minified APK.
+  # An unsigned APK (no keystore.properties) is signed with the debug key so
+  # the emulator accepts it; the store bundle is signed for real at upload.
+  installapk)
+    root="$(cd "$(dirname "$0")/.." && pwd)"
+    apk="${2:-$root/app/build/outputs/apk/release/app-release-unsigned.apk}"
+    [ -f "$apk" ] || { echo "no APK at $apk — run scripts/gradle :app:assembleRelease" >&2; exit 1; }
+    if [ "$("$ADB" devices | awk '/^emulator-/ { print $2; exit }')" != "device" ]; then
+      echo "no online emulator — run scripts/emu.sh boot first" >&2; exit 1
+    fi
+    case "$apk" in
+      *unsigned*)
+        signer="$(ls -d "$SDK"/build-tools/*/apksigner | sort -V | tail -1)"
+        signed="${TMPDIR:-/tmp}/mockarr-release-debugsigned.apk"
+        "$signer" sign --ks "$HOME/.android/debug.keystore" --ks-pass pass:android \
+          --ks-key-alias androiddebugkey --key-pass pass:android --out "$signed" "$apk"
+        apk="$signed" ;;
+    esac
+    "$ADB" install -r "$apk"
+    ;;
   launch)    "$ADB" shell am start -n dev.mockarr.app/.MainActivity ;;
   mockallow) "$ADB" shell settings put global development_settings_enabled 1 && "$ADB" shell appops set dev.mockarr.app android:mock_location allow ;;
   mockdeny)  "$ADB" shell appops set dev.mockarr.app android:mock_location deny ;;
@@ -208,6 +228,7 @@ usage: scripts/emu.sh <command> [args]
   kill                       shut the emulator down
   launch                     start the Mockarr main activity
   install                    :app:installDebug via scripts/gradle (refuses while Gradle is busy)
+  installapk [apk]           install a release APK (default: the unsigned assembleRelease output, debug-signed on the fly)
   mockallow | mockdeny       grant/revoke the mock-location appop
   tap X Y | swipe X1 Y1 X2 Y2 [ms] | key CODE | home | back | drawer
   type "text"                type into the focused field (spaces ok)

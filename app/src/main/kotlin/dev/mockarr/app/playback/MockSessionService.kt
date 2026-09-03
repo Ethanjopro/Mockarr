@@ -25,8 +25,8 @@ import dev.mockarr.core.model.Route
 import dev.mockarr.core.model.SimulatedFix
 import dev.mockarr.core.model.progressOrZero
 import dev.mockarr.core.model.remainingSecondsOrNull
-import dev.mockarr.core.routing.OpenMeteoElevationClient
-import dev.mockarr.core.routing.PhotonGeocoder
+import dev.mockarr.core.routing.ElevationProvider
+import dev.mockarr.core.routing.Geocoder
 import dev.mockarr.core.simulation.SimClock
 import dev.mockarr.core.simulation.SimulationEngine
 import dev.mockarr.core.simulation.SimulationParams
@@ -64,10 +64,10 @@ class MockSessionService : Service() {
     lateinit var settingsRepository: SettingsRepository
 
     @Inject
-    lateinit var elevationClient: OpenMeteoElevationClient
+    lateinit var elevationClient: ElevationProvider
 
     @Inject
-    lateinit var geocoder: PhotonGeocoder
+    lateinit var geocoder: Geocoder
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     private var sessionJob: Job? = null

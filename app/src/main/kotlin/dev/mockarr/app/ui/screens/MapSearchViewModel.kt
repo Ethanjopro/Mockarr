@@ -10,8 +10,8 @@ import dev.mockarr.core.data.RecentSearchesStore
 import dev.mockarr.core.data.SettingsRepository
 import dev.mockarr.core.model.LatLng
 import dev.mockarr.core.model.MapCamera
+import dev.mockarr.core.routing.Geocoder
 import dev.mockarr.core.routing.GeocodingResult
-import dev.mockarr.core.routing.PhotonGeocoder
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -29,7 +29,7 @@ import javax.inject.Inject
  */
 @HiltViewModel
 class MapSearchViewModel @Inject constructor(
-    private val geocoder: PhotonGeocoder,
+    private val geocoder: Geocoder,
     private val locationManager: LocationManager,
     private val sessionRepository: MockSessionRepository,
     private val settingsRepository: SettingsRepository,

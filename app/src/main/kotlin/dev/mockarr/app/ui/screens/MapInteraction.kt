@@ -56,6 +56,14 @@ class MapInteraction(private val isStop: (Int) -> Boolean) {
         _overlayBottomPx.value = px
     }
 
+    /** Bottom edge in px of the top chrome (search field + FAB stack); the map's attribution rides under it. */
+    private val _topChromeBottomPx = MutableStateFlow(0)
+    val topChromeBottomPx: StateFlow<Int> = _topChromeBottomPx.asStateFlow()
+
+    fun setTopChromeBottom(px: Int) {
+        _topChromeBottomPx.value = px
+    }
+
     /**
      * True while the search UI owns the next map tap (field focused or its
      * list open): that tap dismisses the search instead of placing a stop.

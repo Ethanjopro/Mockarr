@@ -1,0 +1,6 @@
+First Google Play release:
+• Road-route playback with realistic driving simulation and wait times at stops
+• Place search, route builder with undo/redo, saved routes with offline replay
+• Pin mode with thumbstick nudging
+• Background playback with notification controls
+• Configurable routing server, map style and realism settings

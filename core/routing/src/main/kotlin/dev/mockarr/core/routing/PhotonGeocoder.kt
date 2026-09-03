@@ -17,32 +17,6 @@ import java.io.IOException
 import java.net.URLEncoder
 import kotlin.math.roundToInt
 
-/** What kind of place a search hit is — drives the row glyph. */
-enum class PlaceKind { POI, STREET, ADDRESS, CITY, REGION, OTHER }
-
-/** A place found by free-text search: a primary name and a "where" line. */
-data class GeocodingResult(
-    val name: String,
-    val position: LatLng,
-    val secondary: String? = null,
-    val kind: PlaceKind = PlaceKind.OTHER,
-    val city: String? = null,
-)
-
-/** What a coordinate reverse-geocodes to: a local name (POI/street), the street itself, and its city. */
-data class PlaceInfo(
-    val name: String?,
-    val city: String?,
-    val street: String? = null,
-    val kind: PlaceKind = PlaceKind.OTHER,
-) {
-    /**
-     * The name a person would give the spot: a POI's street rather than the
-     * shop itself ("Budget to Rue La Fayette" read as a bug in a route title).
-     */
-    fun routeEndpointName(): String? = if (kind == PlaceKind.POI) street ?: name else name
-}
-
 /**
  * Typeahead place search backed by the public Photon (komoot) geocoder —
  * OSM-based, built for autocomplete, and supports biasing results toward a
@@ -52,7 +26,7 @@ data class PlaceInfo(
 class PhotonGeocoder(
     userAgent: String,
     private val baseUrl: String = DEFAULT_BASE_URL,
-) {
+) : Geocoder {
 
     private interface PhotonApi {
         @GET
@@ -74,22 +48,20 @@ class PhotonGeocoder(
         .create(PhotonApi::class.java)
 
     /**
-     * [bias] is the point results rank around; [zoom] is the camera zoom, which
-     * sets how tightly they cluster (Photon's default 12 suits a city view;
-     * 16 pulls street-level hits up — `docs/research/search-rnd.md`).
+     * Photon's default zoom 12 suits a city view; 16 pulls street-level hits
+     * up — `docs/research/search-rnd.md`.
      */
-    suspend fun search(
+    override suspend fun search(
         query: String,
-        bias: LatLng? = null,
-        zoom: Double? = null,
-        limit: Int = DEFAULT_LIMIT,
+        bias: LatLng?,
+        zoom: Double?,
+        limit: Int,
     ): Result<List<GeocodingResult>> {
         val url = searchUrl(baseUrl, query, bias, zoom, limit)
         return request { api.search(url).features.mapNotNull { it.toResultOrNull() }.dedupe() }
     }
 
-    /** Local name + city for a coordinate ("what street/place is this?"). */
-    suspend fun reverse(position: LatLng): Result<PlaceInfo> {
+    override suspend fun reverse(position: LatLng): Result<PlaceInfo> {
         val url = buildString {
             append(baseUrl.trimEnd('/'))
             append("/reverse?lat=")
@@ -186,7 +158,6 @@ class PhotonGeocoder(
         const val DEFAULT_BASE_URL = "https://photon.komoot.io"
         private const val FALLBACK_BASE_URL = "$DEFAULT_BASE_URL/"
         private const val MIN_REQUEST_INTERVAL_MILLIS = 250L
-        private const val DEFAULT_LIMIT = 8
         private const val MAX_SECONDARY_PARTS = 3
 
         /** Two hits closer than this with the same name are one place (subway entrances, POI + node). */

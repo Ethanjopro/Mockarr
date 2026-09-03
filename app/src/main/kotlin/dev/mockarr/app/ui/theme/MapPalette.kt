@@ -29,6 +29,8 @@ data class MapPalette(
     val chipText: Int,
     val chipActive: Int,
     val chipActiveText: Int,
+    /** Tint of MapLibre's attribution "i" (the only stock map control left on). */
+    val attribution: Int,
 ) {
     companion object {
         /** MapLibre colour properties take CSS strings; keep this free of android.graphics. */

@@ -1,1 +1,1 @@
-Mock your location along realistic road routes, using Android's built-in mock location feature.
+Play back realistic road routes with Android's built-in mock location feature.

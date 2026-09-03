@@ -18,6 +18,11 @@ a free non-OSS API is acceptable when it noticeably improves the app (ADR 0001 a
 - Emulator: drive it ONLY through `scripts/emu.sh` (run it bare for usage).
   Always `settle` after `launch`; one emulator per machine. Never call bare
   `adb` — it is not on PATH in non-login shells. Details: `emulator-verify` skill.
+- Release build: R8 is on for `release` (`app/proguard-rules.pro`); verify R8-sensitive flows
+  (search, routing, playback, saved routes) with `scripts/gradle :app:assembleRelease` +
+  `scripts/emu.sh installapk`, never only the debug build. Upload key = git-ignored
+  `keystore.properties` / `MOCKARR_UPLOAD_*` env; never commit a keystore. Store paperwork and
+  the launch runbook live in `docs/release/` (ADR 0002).
 - CI: after every push,
   `gh run watch $(gh run list -b main -L1 --json databaseId -q '.[0].databaseId') --exit-status`;
   a round is done only when it is green.

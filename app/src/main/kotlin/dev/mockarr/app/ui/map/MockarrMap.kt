@@ -4,6 +4,7 @@ import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.graphics.Paint
 import android.graphics.Path
+import android.view.Gravity
 import android.view.ViewConfiguration
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -26,6 +27,7 @@ import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import dev.mockarr.app.R
 import dev.mockarr.app.ui.theme.MapPalette
+import dev.mockarr.app.ui.theme.Tokens
 import dev.mockarr.core.model.LatLng
 import dev.mockarr.core.model.MapCamera
 import dev.mockarr.core.model.OffRoadSpan
@@ -47,6 +49,7 @@ import org.maplibre.android.style.sources.GeoJsonSource
 import org.maplibre.geojson.Feature
 import org.maplibre.geojson.FeatureCollection
 import org.maplibre.geojson.Point
+import kotlin.math.roundToInt
 import org.maplibre.android.geometry.LatLng as MapLibreLatLng
 
 internal const val ROUTE_SOURCE = "route-source"
@@ -111,6 +114,7 @@ fun MockarrMap(
     activeDwell: ActiveDwell? = null,
     cameraCommand: CameraCommand? = null,
     bottomObstructionPx: Int = 0,
+    topObstructionPx: Int = 0,
     pinPosition: LatLng? = null,
     searchedPlace: LatLng? = null,
     onSearchPinTap: () -> Unit = {},
@@ -273,6 +277,25 @@ fun MockarrMap(
     // (Re)load the style whenever the URL changes; sources/layers must be re-added after each load.
     var appliedStyleUrl by remember { mutableStateOf<String?>(null) }
     var flatBuildingMaxZoom by remember { mutableStateOf<Float?>(null) }
+    // Attribution "i" (ODbL / OpenFreeMap terms want it visible) lives top-left
+    // under the search field, mirroring the FAB stack; MapLibre's default
+    // bottom-left corner sits under the sheet. The logo is a courtesy, not a
+    // licence term, and would only add chrome.
+    LaunchedEffect(map, topObstructionPx, palette) {
+        val libreMap = map ?: return@LaunchedEffect
+        with(libreMap.uiSettings) {
+            isLogoEnabled = false
+            setAttributionGravity(Gravity.TOP or Gravity.START)
+            setAttributionMargins(
+                (Tokens.mapEdge.value * density).roundToInt(),
+                topObstructionPx + (Tokens.space2.value * density).roundToInt(),
+                0,
+                0,
+            )
+            setAttributionTintColor(palette.attribution)
+        }
+    }
+
     LaunchedEffect(map, styleUrl) {
         val libreMap = map ?: return@LaunchedEffect
         if (appliedStyleUrl != styleUrl) {

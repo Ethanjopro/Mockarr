@@ -63,8 +63,10 @@ Realism is the feature; honesty is the trust story.
 - Zero-leak mock ownership: hold/stop transitions must never let the real location leak.
 - Terminology: *stop* (a waypoint), *hold* / *holding* (pinned location), *wait* (pause at a
   stop), *Play / Pause / Stop* for playback, *Following* (camera tracks the position).
-- Undecided: distribution channel (F-Droid + GitHub Releases planned; Play not excluded),
-  licence, monetisation model, iOS scope. Repo private until the licence is chosen.
+- Decided (ADR 0002, provisional): Google Play is the primary channel via a personal developer
+  account; free core with a one-time Pro unlock later, no ads. Backend provider choice is open
+  until the production rollout (ADR 0003). Undecided: licence, iOS scope. Repo private until the
+  licence is chosen. Release paperwork lives in `docs/release/`.
 
 ## Visual Baseline
 Strava iOS (Mobbin, Jul 2026) is the UX/UI reference, translated into Material 3 — sheet

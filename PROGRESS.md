@@ -1285,3 +1285,47 @@ start as a start-time choice.
   start *on the sheet* — its top edge moves with the peek state, and a swipe that starts
   on the card or map pans the map instead (two "sheet won't collapse" scares were this).
 - Final build left installed on the emulator (running) for Ethan to test.
+
+### 2026-09-03 — Session 32 (Play Store readiness: ADR 0002, release build, store paperwork, backend seams)
+- **Decisions (Ethan, via plan-mode questions):** personal Play developer account, LLC deferred
+  ("seems more difficult and I probably won't make a lot of money"); free v1 with a one-time Pro
+  unlock later, no ads; backend/API provider choice left open until the production rollout —
+  his main concern was staying flexible post-launch. Texas. Recorded in `docs/adr/0002-…` (provisional).
+- **Docs:** `docs/release/play-launch.md` (checkbox runbook, personal-account path, LLC path as
+  appendix, tester brief), `play-store-recommendations.md` (the plain-text honest-notes doc he
+  asked for: account choice, LLC triggers + Texas steps, Pro model, backend options table with
+  quotas/terms as of today, what gets mock-location apps rejected, what I'm unsure about),
+  `privacy-policy.md` (providers named *by role*; current names only in the final list),
+  `data-safety.md` (form answers — location collected + shared + ephemeral), `fgs-declaration.md`
+  (location FGS text + video steps). PRODUCT.md "Undecided" list, README Install, ADR index updated.
+- **Release build:** `AndroidApplicationConventionPlugin` now enables R8 + resource shrinking for
+  `release` (`app/proguard-rules.pro`: kotlinx-serialization, Retrofit generics, OkHttp dontwarns)
+  and signs with an upload key from git-ignored `keystore.properties` or `MOCKARR_UPLOAD_*` env
+  vars (unsigned when absent so clean clones build). `AndroidConfig.versionCode("0.2.0")` → 200;
+  app is 0.2.0. Manifest gains `dataExtractionRules`/`fullBackupContent` (DB + DataStore only;
+  tile cache excluded). `.gitignore`: keystore/secrets files.
+- **Backend seams:** new `Geocoder` (with `PlaceKind`/`GeocodingResult`/`PlaceInfo` moved out of
+  `PhotonGeocoder.kt`) and `ElevationProvider` interfaces in `core:routing`; `RoutingModule`
+  binds the Photon/Open-Meteo clients to them; `MapViewModel`, `MapSearchViewModel`,
+  `MockSessionService` depend on the interfaces. A provider swap is one class + one binding.
+- **Attribution fix (found by looking at the release build):** MapLibre's attribution "i" and
+  logo sat under the bottom sheet at bottom-left — never visible, which breaks OSM/OpenFreeMap
+  terms. The "i" now rides top-left under the top chrome (`MapInteraction.topChromeBottomPx`
+  hoisted from `MapScreen`'s `onGloballyPositioned`, `MockarrMap(topObstructionPx)`), tinted by
+  new `MapPalette.attribution` (onSurfaceVariant per theme); logo off. DESIGN.md → Layout has the
+  rule. Verified light + dark; the dialog lists OpenFreeMap / © OpenMapTiles / OpenStreetMap.
+  Follow-up: the dialog is MapLibre's stock Material dialog, not `MockarrDialog`.
+- **Store assets:** copy rewritten (no open-source/no-tracking/no-ads claims, no third-party app
+  names, fair-use note; short description 78 chars), `changelogs/1.txt` → `200.txt`, four fresh
+  1080×2400 screenshots (builder, driving, setup, settings) and a placeholder 1024×500 feature
+  graphic composed with PIL from the driving shot. 512 icon is a Studio Image-Asset step for
+  Ethan (icon is an undecided brand asset).
+- **Tooling:** `scripts/emu.sh installapk [apk]` installs a release APK (debug-signs the unsigned
+  `assembleRelease` output via apksigner). CLAUDE.md: release-build verification rule.
+- **Verified on the emulator with the R8 build:** search (Photon), route (OSRM, 0.5 mi), Play →
+  "Driving" stat card, notification Pause → Resume → Stop (actions only appear once the
+  notification is expanded — tap its chevron first in scripted runs), hold-at-destination band,
+  Settings, Setup checklist. No R8 warnings, no crashes in logcat.
+- **Open for Ethan:** generate the upload keystore, open the Play account, host the privacy page,
+  decide the backend provider before production (ADR 0003), 512 icon, real-phone check of the
+  Play-signed build.

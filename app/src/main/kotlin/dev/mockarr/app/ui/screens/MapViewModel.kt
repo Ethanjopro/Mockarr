@@ -18,10 +18,10 @@ import dev.mockarr.core.model.MapCamera
 import dev.mockarr.core.model.Route
 import dev.mockarr.core.model.RoutingProfile
 import dev.mockarr.core.model.Waypoint
+import dev.mockarr.core.routing.ElevationProvider
 import dev.mockarr.core.routing.ElevationSampling
+import dev.mockarr.core.routing.Geocoder
 import dev.mockarr.core.routing.GeocodingResult
-import dev.mockarr.core.routing.OpenMeteoElevationClient
-import dev.mockarr.core.routing.PhotonGeocoder
 import dev.mockarr.core.routing.RouteProvider
 import dev.mockarr.core.routing.RoutingException
 import dev.mockarr.core.routing.StraightLineRouteProvider
@@ -51,8 +51,8 @@ import kotlin.coroutines.resume
 @HiltViewModel
 class MapViewModel @Inject constructor(
     private val routeProvider: RouteProvider,
-    private val geocoder: PhotonGeocoder,
-    private val elevationClient: OpenMeteoElevationClient,
+    private val geocoder: Geocoder,
+    private val elevationClient: ElevationProvider,
     private val locationManager: LocationManager,
     private val settingsRepository: SettingsRepository,
     private val savedRoutesRepository: SavedRoutesRepository,

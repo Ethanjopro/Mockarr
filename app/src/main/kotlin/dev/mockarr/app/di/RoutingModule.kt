@@ -8,6 +8,8 @@ import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
 import dev.mockarr.app.ui.map.RouteThumbnails
 import dev.mockarr.core.data.SettingsRepository
+import dev.mockarr.core.routing.ElevationProvider
+import dev.mockarr.core.routing.Geocoder
 import dev.mockarr.core.routing.OpenMeteoElevationClient
 import dev.mockarr.core.routing.OsrmRouteProvider
 import dev.mockarr.core.routing.PhotonGeocoder
@@ -15,8 +17,12 @@ import dev.mockarr.core.routing.RouteProvider
 import kotlinx.coroutines.CoroutineScope
 import javax.inject.Singleton
 
-/** Routing/geocoding clients and route-thumbnail rendering, split out of
- * [AppModule] to stay under detekt's per-object function threshold. */
+/**
+ * Routing/geocoding/elevation providers and route-thumbnail rendering, split out
+ * of [AppModule] to stay under detekt's per-object function threshold. The app
+ * only ever sees the interfaces — swapping a backend is one class + one binding
+ * here (ADR 0002).
+ */
 @Module
 @InstallIn(SingletonComponent::class)
 object RoutingModule {
@@ -30,11 +36,11 @@ object RoutingModule {
 
     @Provides
     @Singleton
-    fun provideGeocoder(): PhotonGeocoder = PhotonGeocoder(userAgent = USER_AGENT)
+    fun provideGeocoder(): Geocoder = PhotonGeocoder(userAgent = USER_AGENT)
 
     @Provides
     @Singleton
-    fun provideElevationClient(): OpenMeteoElevationClient =
+    fun provideElevationProvider(): ElevationProvider =
         OpenMeteoElevationClient(userAgent = USER_AGENT)
 
     @Provides

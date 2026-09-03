@@ -78,4 +78,5 @@ private fun testPalette(route: Int) = MapPalette(
     chipText = 0xFFFFFFFF.toInt(),
     chipActive = 0xFFF0A422.toInt(),
     chipActiveText = 0xFF2B1A00.toInt(),
+    attribution = 0xFF45464F.toInt(),
 )

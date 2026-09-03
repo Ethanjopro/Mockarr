@@ -1,0 +1,54 @@
+package dev.mockarr.core.routing
+
+import dev.mockarr.core.model.LatLng
+
+/** What kind of place a search hit is — drives the row glyph. */
+enum class PlaceKind { POI, STREET, ADDRESS, CITY, REGION, OTHER }
+
+/** A place found by free-text search: a primary name and a "where" line. */
+data class GeocodingResult(
+    val name: String,
+    val position: LatLng,
+    val secondary: String? = null,
+    val kind: PlaceKind = PlaceKind.OTHER,
+    val city: String? = null,
+)
+
+/** What a coordinate reverse-geocodes to: a local name (POI/street), the street itself, and its city. */
+data class PlaceInfo(
+    val name: String?,
+    val city: String?,
+    val street: String? = null,
+    val kind: PlaceKind = PlaceKind.OTHER,
+) {
+    /**
+     * The name a person would give the spot: a POI's street rather than the
+     * shop itself ("Budget to Rue La Fayette" read as a bug in a route title).
+     */
+    fun routeEndpointName(): String? = if (kind == PlaceKind.POI) street ?: name else name
+}
+
+/**
+ * Place search and reverse lookup, provider-neutral. The app depends on this,
+ * never on a concrete client, so the search backend can change with one new
+ * implementation and one DI binding (ADR 0002 — backend flexibility).
+ */
+interface Geocoder {
+    /**
+     * [bias] is the point results rank around; [zoom] is the camera zoom, which
+     * sets how tightly they cluster (a city view vs. street-level hits).
+     */
+    suspend fun search(
+        query: String,
+        bias: LatLng? = null,
+        zoom: Double? = null,
+        limit: Int = DEFAULT_LIMIT,
+    ): Result<List<GeocodingResult>>
+
+    /** Local name + city for a coordinate ("what street/place is this?"). */
+    suspend fun reverse(position: LatLng): Result<PlaceInfo>
+
+    companion object {
+        const val DEFAULT_LIMIT = 8
+    }
+}

@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    Android 12+ backup/transfer scope: saved routes (Room) and settings
+    (DataStore) travel with the user; the MapLibre tile cache and other
+    regenerable files do not. Nothing here is sensitive — no accounts, no
+    tokens (docs/release/privacy-policy.md).
+-->
+<data-extraction-rules>
+    <cloud-backup>
+        <include domain="database" path="." />
+        <include domain="file" path="datastore/" />
+    </cloud-backup>
+    <device-transfer>
+        <include domain="database" path="." />
+        <include domain="file" path="datastore/" />
+    </device-transfer>
+</data-extraction-rules>

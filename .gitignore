@@ -6,6 +6,12 @@ build/
 # Local configuration
 local.properties
 
+# Release secrets — never committed (docs/release/play-launch.md)
+keystore.properties
+secrets.properties
+*.jks
+*.keystore
+
 # IDE
 .idea/
 *.iml

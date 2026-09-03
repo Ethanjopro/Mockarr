@@ -21,7 +21,7 @@ import java.util.Locale
 class OpenMeteoElevationClient(
     userAgent: String,
     private val baseUrl: String = DEFAULT_BASE_URL,
-) {
+) : ElevationProvider {
 
     private interface ElevationApi {
         @GET
@@ -42,8 +42,7 @@ class OpenMeteoElevationClient(
         .build()
         .create(ElevationApi::class.java)
 
-    /** Elevation in meters for each input coordinate, in order. */
-    suspend fun elevations(coordinates: List<LatLng>): Result<List<Double>> {
+    override suspend fun elevations(coordinates: List<LatLng>): Result<List<Double>> {
         if (coordinates.isEmpty()) return Result.success(emptyList())
         return try {
             val result = coordinates.chunked(MAX_COORDS_PER_REQUEST).flatMap { chunk ->

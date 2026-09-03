@@ -127,6 +127,7 @@ fun MapLayer(
     val selectedWaypoint by viewModel.interaction.selectedWaypoint.collectAsStateWithLifecycle()
     val movingWaypoint by viewModel.interaction.movingWaypoint.collectAsStateWithLifecycle()
     val overlayBottomPx by viewModel.interaction.overlayBottomPx.collectAsStateWithLifecycle()
+    val topChromeBottomPx by viewModel.interaction.topChromeBottomPx.collectAsStateWithLifecycle()
     val session by sessionViewModel.session.collectAsStateWithLifecycle()
     val latestFix by sessionViewModel.latestFix.collectAsStateWithLifecycle()
     val dwell by sessionViewModel.dwell.collectAsStateWithLifecycle()
@@ -226,6 +227,7 @@ fun MapLayer(
             ?.let { ActiveDwell(it.waypointIndex, it.secondsLeft) },
         cameraCommand = cameraCommand,
         bottomObstructionPx = overlayBottomPx,
+        topObstructionPx = topChromeBottomPx,
         pinPosition = (session as? MockSessionState.Holding)?.position,
         searchedPlace = searchedPlace?.position,
         onSearchPinTap = viewModel::addSearchedPlaceAsStop,
@@ -664,6 +666,7 @@ fun MapScreen(
     // phase (offset lambda), never composed.
     var scaffoldHeightPx by remember { mutableIntStateOf(0) }
     var topChromeBottomPx by remember { mutableIntStateOf(0) }
+    LaunchedEffect(topChromeBottomPx) { viewModel.interaction.setTopChromeBottom(topChromeBottomPx) }
     val mapEdgePx = with(LocalDensity.current) { Tokens.mapEdge.roundToPx() }
     fun rawLiftPx(): Int {
         val sheetTop = runCatching { sheetState.requireOffset() }.getOrNull() ?: return 0
