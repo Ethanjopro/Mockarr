@@ -8,10 +8,14 @@
     <!-- Map: status strip -->
     <string name="strip_not_set_up">Mocking isn\'t set up — playback won\'t move your location</string>
     <string name="strip_fix">Fix</string>
-    <string name="strip_plan">Plan a drive</string>
+    <string name="strip_plan">Plan a route</string>
     <string name="strip_ready">Ready to drive</string>
+    <string name="strip_ready_walk">Ready to walk</string>
+    <string name="strip_ready_cycle">Ready to ride</string>
     <string name="strip_routing">Finding a road route…</string>
     <string name="strip_driving">Driving</string>
+    <string name="strip_walking">Walking</string>
+    <string name="strip_cycling">Cycling</string>
     <string name="strip_paused">Paused</string>
     <string name="strip_stopping">Stopping…</string>
     <string name="strip_waiting">Waiting at stop %1$d · %2$s</string>
@@ -113,8 +117,8 @@
     <string name="row_start_from_route_cd">Start from the beginning of the route</string>
     <string name="row_start_from_me">My location</string>
     <string name="row_start_from_me_cd">Start from your real location</string>
-    <string name="row_start_choice_cd">Choose where the drive starts</string>
-    <string name="row_start_choice_title">Start the drive from</string>
+    <string name="row_start_choice_cd">Choose where to start</string>
+    <string name="row_start_choice_title">Start from</string>
     <string name="mode_picker_title">Travel mode</string>
     <string name="mode_locked">Not available in this build</string>
     <string name="builder_done">Done</string>
@@ -267,17 +271,22 @@
     <!-- Units and durations -->
     <string name="unit_km">km</string>
     <string name="unit_mi">mi</string>
+    <string name="unit_m">m</string>
+    <string name="unit_ft">ft</string>
     <string name="unit_seconds_short">%1$d s</string>
     <string name="unit_minutes_short">%1$d min</string>
     <string name="unit_hours_short">%1$d h</string>
     <string name="unit_hours_minutes_short">%1$d h %2$d min</string>
     <string name="distance_value">%1$.1f %2$s</string>
     <string name="distance_progress">%1$.1f / %2$.1f %3$s</string>
+    <!-- Under a tenth of a km / mi the copy switches to whole metres / feet (rounded to 10). -->
+    <string name="distance_small">%1$d %2$s</string>
+    <string name="distance_progress_small">%1$d / %2$d %3$s</string>
 
     <!-- Foreground service -->
     <string name="notification_channel">Mock location session</string>
     <string name="notification_title_holding">Mockarr — holding location</string>
-    <string name="notification_title_driving">Mockarr — driving route</string>
+    <string name="notification_title_driving">Mockarr — route in progress</string>
     <string name="notification_action_stop">Stop</string>
     <string name="notification_action_pause">Pause</string>
     <string name="notification_action_resume">Resume</string>

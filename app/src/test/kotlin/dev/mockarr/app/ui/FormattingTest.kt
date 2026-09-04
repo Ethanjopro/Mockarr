@@ -1,7 +1,9 @@
 package dev.mockarr.app.ui
 
+import dev.mockarr.core.model.DistanceUnits
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertIs
 
 class FormattingTest {
 
@@ -28,5 +30,24 @@ class FormattingTest {
     @Test
     fun `fractional seconds round up`() {
         assertEquals(DurationParts(seconds = 46, hours = 0, minutes = 0), durationParts(45.2))
+    }
+
+    @Test
+    fun `short distances read in whole feet or metres, rounded to ten`() {
+        // The 80 m building route that showed "0.0 mi".
+        assertEquals(DistanceParts.Small(260), distanceParts(80.0, DistanceUnits.MILES))
+        assertEquals(DistanceParts.Small(80), distanceParts(80.0, DistanceUnits.KILOMETERS))
+        assertEquals(DistanceParts.Small(150), distanceParts(45.0, DistanceUnits.MILES))
+        assertEquals(DistanceParts.Small(50), distanceParts(45.0, DistanceUnits.KILOMETERS))
+        assertEquals(DistanceParts.Small(0), distanceParts(0.0, DistanceUnits.MILES))
+    }
+
+    @Test
+    fun `a tenth of the headline unit switches back to the decimal form`() {
+        assertEquals(DistanceParts.Small(520), distanceParts(160.0, DistanceUnits.MILES))
+        assertIs<DistanceParts.Large>(distanceParts(161.0, DistanceUnits.MILES))
+        assertEquals(DistanceParts.Small(90), distanceParts(94.0, DistanceUnits.KILOMETERS))
+        assertEquals(DistanceParts.Large(0.1), distanceParts(100.0, DistanceUnits.KILOMETERS))
+        assertEquals(DistanceParts.Large(5.0), distanceParts(5000.0, DistanceUnits.KILOMETERS))
     }
 }

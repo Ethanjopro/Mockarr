@@ -46,6 +46,7 @@ import dev.mockarr.app.ui.theme.Tokens
 import dev.mockarr.core.model.DistanceUnits
 import dev.mockarr.core.model.PlaybackState
 import dev.mockarr.core.model.Route
+import dev.mockarr.core.model.RoutingProfile
 import dev.mockarr.core.model.progressOrZero
 import dev.mockarr.core.model.remainingSecondsOrNull
 import dev.mockarr.core.simulation.SimulationEngine
@@ -239,7 +240,7 @@ internal fun stripFor(
     arrived: Boolean = false,
     searchedPlace: String? = null,
 ): StripModel? = when {
-    playing -> playbackStrip(playbackState)
+    playing -> playbackStrip(playbackState, state.profile)
     movingStop != null -> StripModel(
         text = stringResource(R.string.strip_moving_stop, movingStop),
         tone = StripTone.Neutral,
@@ -270,7 +271,7 @@ internal fun stripFor(
     )
     state.routingError != null -> StripModel(stringResource(state.routingError.stripRes()), StripTone.Error)
     state.isRouting -> StripModel(stringResource(R.string.strip_routing), StripTone.Neutral)
-    builder && state.route != null -> StripModel(stringResource(R.string.strip_ready), StripTone.Ready)
+    builder && state.route != null -> StripModel(stringResource(state.profile.readyLabelRes()), StripTone.Ready)
     // The searched place, until it is a stop: its name and the verb that drops it there.
     searchedPlace != null -> StripModel(
         text = searchedPlace,
@@ -292,7 +293,7 @@ private fun RoutingError.stripRes(): Int = when (this) {
 }
 
 @Composable
-private fun playbackStrip(playbackState: PlaybackState?): StripModel = when (playbackState) {
+private fun playbackStrip(playbackState: PlaybackState?, profile: RoutingProfile): StripModel = when (playbackState) {
     is PlaybackState.Stopping -> StripModel(stringResource(R.string.strip_stopping), StripTone.Neutral)
     is PlaybackState.Paused -> StripModel(stringResource(R.string.strip_paused), StripTone.Hold)
     is PlaybackState.Dwelling -> {
@@ -306,7 +307,7 @@ private fun playbackStrip(playbackState: PlaybackState?): StripModel = when (pla
         }
         StripModel(text, StripTone.Hold)
     }
-    else -> StripModel(stringResource(R.string.strip_driving), StripTone.Accent)
+    else -> StripModel(stringResource(profile.movingLabelRes()), StripTone.Accent)
 }
 
 /** Never coordinates: the name, a generic label once the lookup failed, or null while it runs. */

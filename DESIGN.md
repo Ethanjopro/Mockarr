@@ -302,7 +302,7 @@ waits.
 
 **The State Is a Band Rule.** Session state (ready / driving / waiting / holding / paused /
 error) is communicated by the strip's container colour and one line of copy — never by a
-new card, never by an icon alone. Idle prompts ("Plan a drive", "Building a route") are not
+new card, never by an icon alone. Idle prompts ("Plan a route", "Building a route") are not
 state: the card is hidden until there is something to report. The band never shows raw coordinates: while a hold's
 place name resolves, the previous line stays; if the lookup fails it reads "Holding at
 dropped pin".

@@ -1,7 +1,6 @@
 package dev.mockarr.app.ui.screens
 
 import androidx.compose.animation.AnimatedContent
-import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -26,6 +25,8 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.painterResource
@@ -42,19 +43,6 @@ import dev.mockarr.app.ui.theme.ActionPill
 import dev.mockarr.app.ui.theme.MockarrTheme
 import dev.mockarr.app.ui.theme.Tokens
 import dev.mockarr.core.model.RoutingProfile
-
-/** Icon + short label for a travel mode, shared by the row and the picker. */
-internal fun RoutingProfile.iconRes(): Int = when (this) {
-    RoutingProfile.DRIVING -> R.drawable.ic_car
-    RoutingProfile.WALKING -> R.drawable.ic_walk
-    RoutingProfile.CYCLING -> R.drawable.ic_bike
-}
-
-internal fun RoutingProfile.shortLabelRes(): Int = when (this) {
-    RoutingProfile.DRIVING -> R.string.row_mode_drive
-    RoutingProfile.WALKING -> R.string.row_mode_walk
-    RoutingProfile.CYCLING -> R.string.row_mode_cycle
-}
 
 /** Where a drive can begin when Start is pressed away from the route's first stop. */
 enum class StartOrigin { HELD_SPOT, MY_LOCATION }
@@ -86,13 +74,20 @@ fun ActionRow(
     choice: StartChoice? = null,
     locating: Boolean = false,
 ) {
+    // Keyed on the origin, not the lambda-carrying object: a recomposition that
+    // rebuilds the callbacks must not restart the enter transition (the pills
+    // fading in again is what made the first tap on them land in nothing).
+    // AnimatedContent's own SizeTransform animates the height; a second
+    // animateContentSize on top only stretched the peek's re-anchor window.
+    val latestChoice by rememberUpdatedState(choice)
     AnimatedContent(
-        targetState = choice,
+        targetState = choice?.origin,
         transitionSpec = { fadeThrough() },
         label = "actionRow",
-        modifier = modifier.fillMaxWidth().animateContentSize(),
-    ) { pending ->
-        if (pending != null) {
+        modifier = modifier.fillMaxWidth(),
+    ) { origin ->
+        val pending = latestChoice?.takeIf { it.origin == origin }
+        if (origin != null && pending != null) {
             StartChoiceRow(pending)
         } else {
             ActionSlots(profile, canStart, routeLoaded, onPickMode, onStart, onEditRoute, locating)

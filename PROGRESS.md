@@ -1435,3 +1435,31 @@ start as a start-time choice.
   `topObstructionPx` and `MapInteraction.topChromeBottomPx` were only feeding it → removed.
   DESIGN.md Layout updated. Verified (release build): idle, builder (above the five pills), driving
   (above the card), dark — visible in every state, no longer a control-looking glyph.
+- **Follow-up (same session, 2026-09-04): bugs met on the way.** Traced four; two real, one hardened,
+  one a script flake. (a) **Band said "Driving" in walk/cycle mode** — `playbackStrip` never saw the
+  profile; it now takes `state.profile` and reads `movingLabelRes()` ("Driving / Walking / Cycling");
+  the builder band is per profile too (`readyLabelRes()`: "Ready to drive / walk / ride"). Neutral
+  copy where no profile is at hand: notification title "Mockarr — route in progress", start choice
+  "Start from", idle "Plan a route". Label helpers moved to `ui/screens/ProfileLabels.kt` (keeps
+  MapActionRow/MapSheet under the file cap). (b) **"0.0 mi" for short routes** — `Formatter.distance`
+  was one decimal with no small branch. New pure `distanceParts()` (Formatting.kt): under 0.1 mi →
+  whole feet, under 0.1 km → whole metres, both rounded to 10; `distanceProgress` follows when the
+  total is small ("10 / 80 ft"). One fix point covers the stat card, Distance left, saved-route cards,
+  search distances and the notification. Tests in FormattingTest (7 new assertions; my first
+  expectation for 160 m was wrong — 525 ft rounds to 520). (c) **"Route start" pill dropping the
+  first tap** — no click gate exists; the row's `AnimatedContent` was keyed on the lambda-carrying
+  `StartChoice` (any recomposition rebuilding the callbacks restarted the enter fade) on top of a
+  doubled height animation (`animateContentSize` + the built-in SizeTransform). Now keyed on
+  `choice?.origin` with `rememberUpdatedState`, single size animation. (d) Settings unreachable from
+  the sheet while holding — `OptionsList` renders whenever not playing; `emu.sh tab`'s fixed swipe
+  missed the Record peek. Not an app bug.
+- **Verified on the emulator (release build):** Cycle mode short route → "Ready to ride", "80 ft";
+  playing → "Cycling", Distance left "70 ft", notification "route in progress · 10 / 80 ft · 31 s
+  left". Walk → "Ready to walk", playing "Walking" 2 mph. Drive → "Ready to drive". Pill: "Route
+  start" tapped 1.5 s after the row appeared started playback on the first tap in 3/3 valid trials
+  (earlier "failures" were my script tapping Start inside the post-Done re-anchor window or routes
+  that arrived in < 2 s). No exceptions in logcat.
+- **Emulator lessons:** after a natural arrival the route is cleared and the camera stays where the
+  drive ended — re-pick tap points from a fresh screenshot before the next route; a `waithold`-style
+  poll must first see a moving band or it "passes" on the previous hold; two stops < 25 px apart at
+  max zoom make a 0 ft route that finishes before any band can be read.
