@@ -1361,8 +1361,14 @@ start as a start-time choice.
 - **Verified on the emulator (release build, no key = public path):** search → route (OSRM) → drive;
   the mocked fix carries `alt=3.73 m` from the Terrarium tile (Redwood City, plausible) — first live
   proof of the decoder. Settings dialog shows no toggle without a key; About credits updated.
-  **Not verified live: the Geoapify path itself** — needs Ethan's key in `secrets.properties`
-  (runbook step). Emulator went offline once mid-build; `emu.sh boot` recovered it.
+  **Geoapify path verified live later the same session** with Ethan's key in `secrets.properties`
+  (release build): Settings value "Mockarr" + the managed toggle, credits name Geoapify, search
+  results from Geoapify, 0.5 mi drive route, **Walk/Cycle enabled** in the mode picker, walking
+  re-route 0.5 mi / 14 min (only Geoapify serves foot), playback at 2 mph with tile altitude 4.5 m.
+  Observation, not fixed: the stat card header says "Driving" in walk mode too.
+- **Emulator gotcha:** every `scripts/gradle` run restarts the adb server and the emulator drops off
+  adb ("no devices/emulators found") — run `scripts/emu.sh boot` (it recovers an offline one) before
+  any `emu.sh` command that follows a build.
 - **Gotcha:** the "Route start" pill sometimes needs a second `tapon` after "Start" (the choice row
   animates in); check for "Driving" before reading fixes.
 - **Open for Ethan:** create the Geoapify account/key, drop it in `secrets.properties` and the GitHub
