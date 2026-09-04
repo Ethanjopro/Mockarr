@@ -369,9 +369,10 @@ the sheet (and by pushed screens). There is no navigation bar.
   (Ethan, session 16): its trailing slot is the speed chip while driving and nothing else.
 - **Top overlays** sit `{spacing.map-edge}` from the edges: the search field full-width,
   then the FAB stack aligned to the right edge (3D toggle, locate / follow), 8dp apart —
-  every FAB is a **map pill**. MapLibre's attribution "i" sits top-left under the search field
-  (`map-edge` in, 8dp below the chrome), tinted `MapPalette.attribution`; the MapLibre logo is
-  off. It must stay visible in every state — OpenStreetMap/OpenFreeMap terms, not decoration. The builder's tools row (clear · save · reverse · undo · redo) is five map
+  every FAB is a **map pill**. MapLibre's attribution "i" sits bottom-left (`map-edge` in, 8dp
+  above the overlay stack — sheet peek, card or pills, whichever is highest), tinted
+  `MapPalette.attribution` (onSurfaceVariant at 60 %); the MapLibre logo is off. Discreet, but it
+  must stay visible in every state — OpenStreetMap/OpenFreeMap terms, not decoration. The builder's tools row (clear · save · reverse · undo · redo) is five map
   pills bottom-centre, riding the stat card's top edge (Strava `map-352`).
 - **Spacing rhythm** is the 4dp grid: 4 / 8 / 12 / 16 / 24 / 32, with 20dp as the sheet and
   card content inset and 12dp as the map-edge gutter.

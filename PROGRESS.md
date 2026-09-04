@@ -1428,3 +1428,10 @@ start as a start-time choice.
   launch version + tag, `release.yml`, real feature graphic, the stat-card "Driving" label in walk mode.
 - **Gotcha (repeat):** the "Route start" pill needs a second `tapon` after "Start" — the first one
   lands while the row animates in.
+- **Follow-up (same session): attribution "i" made discreet.** It sat top-left 8dp under the FAB
+  stack, i.e. floating mid-map. Now MapLibre's bottom-left corner riding `bottomObstructionPx`
+  (`map-edge` in, 8dp above the sheet peek / stat card / builder pills, whichever is highest) and
+  `MapPalette.attribution` at 60 % alpha (`0x99…` onSurfaceVariant, both themes). `MockarrMap`'s
+  `topObstructionPx` and `MapInteraction.topChromeBottomPx` were only feeding it → removed.
+  DESIGN.md Layout updated. Verified (release build): idle, builder (above the five pills), driving
+  (above the card), dark — visible in every state, no longer a control-looking glyph.

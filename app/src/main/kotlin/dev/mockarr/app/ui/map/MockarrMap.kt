@@ -114,7 +114,6 @@ fun MockarrMap(
     activeDwell: ActiveDwell? = null,
     cameraCommand: CameraCommand? = null,
     bottomObstructionPx: Int = 0,
-    topObstructionPx: Int = 0,
     pinPosition: LatLng? = null,
     searchedPlace: LatLng? = null,
     onSearchPinTap: () -> Unit = {},
@@ -277,20 +276,20 @@ fun MockarrMap(
     // (Re)load the style whenever the URL changes; sources/layers must be re-added after each load.
     var appliedStyleUrl by remember { mutableStateOf<String?>(null) }
     var flatBuildingMaxZoom by remember { mutableStateOf<Float?>(null) }
-    // Attribution "i" (ODbL / OpenFreeMap terms want it visible) lives top-left
-    // under the search field, mirroring the FAB stack; MapLibre's default
-    // bottom-left corner sits under the sheet. The logo is a courtesy, not a
-    // licence term, and would only add chrome.
-    LaunchedEffect(map, topObstructionPx, palette) {
+    // Attribution "i" (ODbL / OpenFreeMap terms want it visible) keeps MapLibre's
+    // bottom-left corner but rides the overlay stack (sheet peek, card, pills) so
+    // it never hides under the sheet — the least conspicuous spot that stays on
+    // screen in every state. The logo is a courtesy, not a licence term.
+    LaunchedEffect(map, bottomObstructionPx, palette) {
         val libreMap = map ?: return@LaunchedEffect
         with(libreMap.uiSettings) {
             isLogoEnabled = false
-            setAttributionGravity(Gravity.TOP or Gravity.START)
+            setAttributionGravity(Gravity.BOTTOM or Gravity.START)
             setAttributionMargins(
                 (Tokens.mapEdge.value * density).roundToInt(),
-                topObstructionPx + (Tokens.space2.value * density).roundToInt(),
                 0,
                 0,
+                bottomObstructionPx + (Tokens.space2.value * density).roundToInt(),
             )
             setAttributionTintColor(palette.attribution)
         }
