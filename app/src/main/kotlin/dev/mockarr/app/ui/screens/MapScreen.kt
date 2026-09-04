@@ -266,7 +266,7 @@ fun MapScreen(
     val options by optionsViewModel.settings.collectAsStateWithLifecycle()
     val sheetHintPending by optionsViewModel.sheetHintPending.collectAsStateWithLifecycle()
     var handleAnchor by remember { mutableStateOf(Offset.Zero) }
-    val customServerConfigured by viewModel.customServerConfigured.collectAsStateWithLifecycle()
+    val profilesUnlocked by viewModel.profilesUnlocked.collectAsStateWithLifecycle()
     val setupStatus by setupViewModel.status.collectAsStateWithLifecycle()
 
     LifecycleResumeEffect(Unit) {
@@ -529,7 +529,7 @@ fun MapScreen(
     if (showModePicker) {
         ModePickerSheet(
             selected = state.profile,
-            customServerConfigured = customServerConfigured,
+            profilesUnlocked = profilesUnlocked,
             onSelect = {
                 viewModel.setProfile(it)
                 showModePicker = false

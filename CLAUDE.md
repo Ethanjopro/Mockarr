@@ -23,6 +23,9 @@ a free non-OSS API is acceptable when it noticeably improves the app (ADR 0001 a
   `scripts/emu.sh installapk`, never only the debug build. Upload key = git-ignored
   `keystore.properties` / `MOCKARR_UPLOAD_*` env; never commit a keystore. Store paperwork and
   the launch runbook live in `docs/release/` (ADR 0002).
+- Backends (ADR 0003): Geoapify is the managed default via `GEOAPIFY_KEY` in git-ignored
+  `secrets.properties` (or env); no key = public OSRM/Photon only, which is also the runtime
+  rollback (Settings → Routing server → Public). Elevation = AWS Terrarium tiles, keyless.
 - CI: after every push,
   `gh run watch $(gh run list -b main -L1 --json databaseId -q '.[0].databaseId') --exit-status`;
   a round is done only when it is green.

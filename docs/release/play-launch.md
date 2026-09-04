@@ -24,6 +24,14 @@ Path: **personal developer account** (ADR 0002). The organization/LLC path is Ap
       (`fastlane/metadata/android/en-US/`).
 - [x] `docs/release/privacy-policy.md`, `data-safety.md`, `fgs-declaration.md`.
 - [x] Backend seams: `RouteProvider`, `Geocoder`, `ElevationProvider` interfaces.
+- [ ] **Geoapify key** (ADR 0003): sign up at geoapify.com (free plan, no card), create a project,
+      copy the API key into `secrets.properties` at the repo root (git-ignored):
+      ```
+      GEOAPIFY_KEY=…
+      ```
+      Add the same value as the GitHub Actions secret `GEOAPIFY_KEY` so CI builds carry it. Set a
+      usage alert in the Geoapify dashboard at ~80 % of the daily credits and create a second key to
+      keep in reserve. Without the key every build silently uses the public OSRM/Photon servers.
 - [ ] **Upload keystore** (once, on your machine, never in the repo):
   ```sh
   keytool -genkeypair -v -keystore ~/Keys/mockarr-upload.jks -alias mockarr-upload \

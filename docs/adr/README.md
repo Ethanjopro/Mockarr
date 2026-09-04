@@ -11,3 +11,4 @@ call is not final) · **Consequences** (what code/docs must do now, what is defe
 |---|------|-------|--------|
 | 0001 | 2026-08-28 | Direction change: ambition, platforms, openness, Strava baseline | provisional |
 | 0002 | 2026-09-03 | Distribution on Google Play, free core with a later Pro unlock | provisional |
+| 0003 | 2026-09-03 | Backend providers: Geoapify default, public servers fallback, Terrarium elevation | accepted |

@@ -9,6 +9,7 @@ import dev.mockarr.core.data.SettingsRepository
 import dev.mockarr.core.model.DistanceUnits
 import dev.mockarr.core.model.LatLng
 import dev.mockarr.core.model.RoutingProfile
+import dev.mockarr.core.routing.BackendConfig
 import dev.mockarr.core.routing.OsrmRouteProvider
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -19,7 +20,11 @@ import javax.inject.Inject
 @HiltViewModel
 class SettingsViewModel @Inject constructor(
     private val repository: SettingsRepository,
+    backend: BackendConfig,
 ) : ViewModel() {
+
+    /** The build carries a managed-backend key (ADR 0003); gates the Mockarr/Public toggle. */
+    val managedAvailable: Boolean = backend.managedAvailable
 
     sealed interface TestState {
         data object Idle : TestState
@@ -34,6 +39,10 @@ class SettingsViewModel @Inject constructor(
 
     private val _testState = MutableStateFlow<TestState>(TestState.Idle)
     val testState: StateFlow<TestState> = _testState.asStateFlow()
+
+    fun setPublicServersOnly(value: Boolean) {
+        viewModelScope.launch { repository.setPublicServersOnly(value) }
+    }
 
     fun applyOsrmBaseUrl(url: String) {
         _testState.value = TestState.Idle

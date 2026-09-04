@@ -1,3 +1,5 @@
+import java.util.Properties
+
 plugins {
     id("mockarr.android.application")
     alias(libs.plugins.kotlin.compose)
@@ -18,6 +20,12 @@ android {
     buildFeatures {
         compose = true
         buildConfig = true
+    }
+
+    // ADR 0003: the managed backend key. Empty (clean clone, CI without the
+    // secret) = public servers only; never commit secrets.properties.
+    defaultConfig {
+        buildConfigField("String", "GEOAPIFY_KEY", "\"${secret("GEOAPIFY_KEY")}\"")
     }
 }
 
@@ -53,4 +61,12 @@ dependencies {
     testImplementation(libs.junit)
     testImplementation(libs.kotlin.test)
     testImplementation(libs.kotlin.test.junit)
+}
+
+/** A value from the git-ignored `secrets.properties` at the repo root, else the environment, else "". */
+fun secret(name: String): String {
+    val file = rootProject.file("secrets.properties")
+    val props = Properties()
+    if (file.exists()) file.inputStream().use(props::load)
+    return props.getProperty(name) ?: providers.environmentVariable(name).orNull ?: ""
 }

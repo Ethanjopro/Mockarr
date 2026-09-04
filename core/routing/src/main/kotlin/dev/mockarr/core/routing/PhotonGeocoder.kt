@@ -1,6 +1,5 @@
 package dev.mockarr.core.routing
 
-import dev.mockarr.core.model.GeoMath
 import dev.mockarr.core.model.LatLng
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
@@ -160,9 +159,6 @@ class PhotonGeocoder(
         private const val MIN_REQUEST_INTERVAL_MILLIS = 250L
         private const val MAX_SECONDARY_PARTS = 3
 
-        /** Two hits closer than this with the same name are one place (subway entrances, POI + node). */
-        private const val DUPLICATE_METERS = 50.0
-
         private val SETTLEMENT_VALUES = setOf(
             "city", "town", "village", "hamlet", "suburb", "neighbourhood", "quarter", "borough", "locality",
         )
@@ -190,32 +186,5 @@ class PhotonGeocoder(
                     append(zoom.roundToInt())
                 }
             }
-
-        /**
-         * Photon returns distinct OSM objects for one place — every subway
-         * entrance, a POI and its building, a bridge's way and relation. Same
-         * name + city, same name + "where" line, or same name within
-         * [DUPLICATE_METERS], collapses to the first (best-ranked) hit.
-         */
-        fun List<GeocodingResult>.dedupe(): List<GeocodingResult> {
-            val kept = mutableListOf<GeocodingResult>()
-            for (candidate in this) {
-                val duplicate = kept.any { existing ->
-                    existing.name.equals(candidate.name, ignoreCase = true) &&
-                        (existing.sameCity(candidate) || existing.sameSecondary(candidate) || existing.near(candidate))
-                }
-                if (!duplicate) kept += candidate
-            }
-            return kept
-        }
-
-        private fun GeocodingResult.sameCity(other: GeocodingResult): Boolean =
-            city != null && city.equals(other.city, ignoreCase = true)
-
-        private fun GeocodingResult.sameSecondary(other: GeocodingResult): Boolean =
-            secondary != null && secondary.equals(other.secondary, ignoreCase = true)
-
-        private fun GeocodingResult.near(other: GeocodingResult): Boolean =
-            GeoMath.distanceMeters(position, other.position) < DUPLICATE_METERS
     }
 }

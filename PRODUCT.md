@@ -30,8 +30,8 @@ in-app instructions alone, and the drive looks like a real drive in whatever app
 Two claims, weighted equally and told in this order:
 1. **Realistic, road-true playback** — OSRM routes, kinematic braking before turns, graceful
    stops (never a teleport), Gaussian GPS jitter, per-stop wait times, live 0.25×–4× speed.
-2. **Open stack, no keys, no accounts** — MapLibre, OpenStreetMap, OpenFreeMap tiles,
-   OSRM, Photon, Open-Meteo; self-hostable routing and tiles. **Under review (ADR 0001):**
+2. **Open data, no accounts** — MapLibre, OpenStreetMap, OpenFreeMap tiles, Geoapify routing +
+   search (ADR 0003; public OSRM/Photon as fallback, self-hosted OSRM via Settings), AWS terrain tiles. **Under review (ADR 0001):**
    the open-source stance may narrow and light monetisation (ads or similar) is possible;
    until decided, do not put "open source / no tracking" claims in new user-facing copy.
    What survives any outcome: no anti-detection, and nothing phones home or shows ads

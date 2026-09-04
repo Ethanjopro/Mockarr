@@ -18,6 +18,7 @@ import dev.mockarr.core.model.MapCamera
 import dev.mockarr.core.model.Route
 import dev.mockarr.core.model.RoutingProfile
 import dev.mockarr.core.model.Waypoint
+import dev.mockarr.core.routing.BackendConfig
 import dev.mockarr.core.routing.ElevationProvider
 import dev.mockarr.core.routing.ElevationSampling
 import dev.mockarr.core.routing.Geocoder
@@ -57,6 +58,7 @@ class MapViewModel @Inject constructor(
     private val settingsRepository: SettingsRepository,
     private val savedRoutesRepository: SavedRoutesRepository,
     private val routeHandoff: RouteHandoff,
+    backend: BackendConfig,
 ) : ViewModel() {
 
     data class UiState(
@@ -111,12 +113,13 @@ class MapViewModel @Inject constructor(
             settingsRepository.settings.value.tileStyleUrl,
         )
 
-    val customServerConfigured: StateFlow<Boolean> = settingsRepository.settings
-        .map { it.customServerConfigured }
+    /** Walking/cycling available: a custom OSRM, or the managed backend (ADR 0003). */
+    val profilesUnlocked: StateFlow<Boolean> = settingsRepository.settings
+        .map { it.profilesUnlocked(backend.managedAvailable) }
         .stateIn(
             viewModelScope,
             SharingStarted.Eagerly,
-            settingsRepository.settings.value.customServerConfigured,
+            settingsRepository.settings.value.profilesUnlocked(backend.managedAvailable),
         )
 
     val units: StateFlow<DistanceUnits> = settingsRepository.settings

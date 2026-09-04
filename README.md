@@ -2,7 +2,7 @@
 
 **Drive a fake route through the real world.** Mockarr is an Android app built on Android's built-in **mock location** developer feature: pick points on a map, generate a realistic road route, press Play — and your device's reported location drives that route with human-like acceleration, corner slow-downs, wait times at stops, and GPS-style noise, visible in any app that reads location (including Google Maps).
 
-Stack: **Kotlin · Jetpack Compose · MapLibre · OpenStreetMap · OSRM · Photon · Open-Meteo · OpenFreeMap** — no API keys or accounts needed today. Two commitments hold whatever else changes: **no anti-detection features**, and **nothing phones home without being disclosed in-app**.
+Stack: **Kotlin · Jetpack Compose · MapLibre · OpenStreetMap · Geoapify (routing + search, with OSRM and Photon as fallback) · AWS Terrain Tiles · OpenFreeMap** — no accounts; one optional API key (`secrets.properties`, see ADR 0003), without which the app uses the public servers. Two commitments hold whatever else changes: **no anti-detection features**, and **nothing phones home without being disclosed in-app**.
 
 | Route planning | Playback | Setup checklist | Settings |
 |---|---|---|---|

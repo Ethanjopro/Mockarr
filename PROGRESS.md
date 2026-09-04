@@ -1329,3 +1329,42 @@ start as a start-time choice.
 - **Open for Ethan:** generate the upload keystore, open the Play account, host the privacy page,
   decide the backend provider before production (ADR 0003), 512 icon, real-phone check of the
   Play-signed build.
+
+### 2026-09-03 — Session 33 (ADR 0003: backend cost analysis, Geoapify default, Terrarium elevation)
+- **Ethan's ask:** cost analysis of routing/map APIs incl. "should we just use Google now that we
+  pay?" Answer recorded in `docs/research/backend-cost-analysis.md` + `docs/adr/0003-…`: **Google
+  rejected** (Routes/Places must be shown on a Google map → MapLibre would go; route coordinates
+  cacheable ≤ 30 days → offline saved routes illegal; most expensive at every scale). **Geoapify**
+  chosen (3k credits/day free, commercial OK with attribution, $59–299/mo tiers, fixed daily credits
+  so a leaked key burns quota not money); public OSRM/Photon as automatic fallback + "Public"
+  setting; **AWS Terrarium tiles** replace Open-Meteo (whose free tier is non-commercial only);
+  Stadia ($20/mo) recorded as the quality alternative. Ethan: "go with Geoapify, but if this goes
+  badly get ready for a rollback" → the switch is one commit + one binding; Settings → Public is the
+  runtime rollback; empty `GEOAPIFY_KEY` = today's behaviour.
+- **Code:** `GeoapifyRouteProvider` (geojson; per-step time spread over segments by length —
+  `spreadSteps`, `joinLegLines`), `GeoapifyGeocoder` (autocomplete with `bias=proximity`, reverse;
+  `result_type` → `PlaceKind`), `Png` (pure-Kotlin 8-bit RGB/RGBA decoder, all five filters) +
+  `TerrariumElevationProvider` (z12 tiles, LRU of 24, `R*256+G+B/256−32768`), `BackendSwitch.kt`
+  (`BackendMode`, `SwitchingRouteProvider` — falls through on anything but NoRoute, reports the
+  managed error if both fail — `SwitchingGeocoder`, `BackendConfig`). `dedupe()` now top-level in
+  `Geocoder.kt`; `OpenMeteoElevationClient` deleted. `MockarrSettings.publicServersOnly` /
+  `backendMode` / `profilesUnlocked(managedAvailable)`; `customServerConfigured` → `profilesUnlocked`
+  in MapActionRow/MapScreen/MapViewModel (walking/cycling unlock with the managed backend).
+  `app/build.gradle.kts` `secret("GEOAPIFY_KEY")` → BuildConfig; `RoutingModule` builds the chain;
+  Settings → Routing server dialog gains the "Use Mockarr's routing service" switch (only when the
+  build has a key) and the value reads Mockarr / Public / Custom (`serverLabel`). CI passes the
+  `GEOAPIFY_KEY` secret as env. Credits, privacy page, README, PRODUCT.md, runbook updated.
+- **Tests:** Geoapify route parsing + step spreading + error mapping, geocoder mapping/dedupe/reverse,
+  PNG decoder across all filter types (synthetic encoder in the test), Terrarium tile fetch/caching/
+  404, switching providers (6 cases). Build + detekt green (build-fixer extracted `parseIhdr`,
+  `routeWithFallback` for complexity/return-count rules).
+- **Verified on the emulator (release build, no key = public path):** search → route (OSRM) → drive;
+  the mocked fix carries `alt=3.73 m` from the Terrarium tile (Redwood City, plausible) — first live
+  proof of the decoder. Settings dialog shows no toggle without a key; About credits updated.
+  **Not verified live: the Geoapify path itself** — needs Ethan's key in `secrets.properties`
+  (runbook step). Emulator went offline once mid-build; `emu.sh boot` recovered it.
+- **Gotcha:** the "Route start" pill sometimes needs a second `tapon` after "Start" (the choice row
+  animates in); check for "Driving" before reading fixes.
+- **Open for Ethan:** create the Geoapify account/key, drop it in `secrets.properties` and the GitHub
+  secret, then run one scripted session and compare the dashboard count with the 16-per-session
+  model; decide during closed testing whether per-step timing reads as well as OSRM.

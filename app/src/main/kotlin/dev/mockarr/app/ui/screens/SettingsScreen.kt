@@ -64,7 +64,7 @@ fun SettingsScreen(
     if (showModePicker) {
         ModePickerSheet(
             selected = settings.defaultProfile,
-            customServerConfigured = settings.customServerConfigured,
+            profilesUnlocked = settings.profilesUnlocked(viewModel.managedAvailable),
             onSelect = {
                 viewModel.setDefaultProfile(it)
                 showModePicker = false
@@ -76,6 +76,9 @@ fun SettingsScreen(
         ServerDialog(
             currentUrl = settings.osrmBaseUrl,
             isCustom = settings.customServerConfigured,
+            managedAvailable = viewModel.managedAvailable,
+            publicOnly = settings.publicServersOnly,
+            onPublicOnlyChange = viewModel::setPublicServersOnly,
             testState = testState,
             onTest = viewModel::testConnection,
             onSave = {
@@ -131,6 +134,7 @@ fun SettingsScreen(
                 },
                 onPickMode = { showModePicker = true },
                 onServer = { showServer = true },
+                managedAvailable = viewModel.managedAvailable,
             )
 
             SectionHeader(stringResource(R.string.settings_section_playback))
@@ -171,13 +175,7 @@ fun SettingsScreen(
                 iconRes = R.drawable.ic_server,
                 title = stringResource(R.string.settings_server),
                 description = stringResource(R.string.settings_server_desc),
-                value = stringResource(
-                    if (settings.customServerConfigured) {
-                        R.string.settings_server_custom
-                    } else {
-                        R.string.settings_server_public
-                    },
-                ),
+                value = stringResource(serverLabel(settings, viewModel.managedAvailable)),
                 onClick = { showServer = true },
             )
             OptionSwitchRow(
@@ -189,7 +187,7 @@ fun SettingsScreen(
             )
 
             SectionHeader(stringResource(R.string.settings_section_about))
-            AboutBlock()
+            AboutBlock(managedAvailable = viewModel.managedAvailable)
             Spacer(Modifier.height(Tokens.space6))
         }
     }
@@ -203,6 +201,7 @@ private fun TileGrid(
     onToggleUnits: () -> Unit,
     onPickMode: () -> Unit,
     onServer: () -> Unit,
+    managedAvailable: Boolean,
 ) {
     Column(
         modifier = Modifier.padding(horizontal = Tokens.space3, vertical = Tokens.space2),
@@ -248,13 +247,7 @@ private fun TileGrid(
             SettingTile(
                 iconRes = R.drawable.ic_server,
                 title = stringResource(R.string.settings_tile_server),
-                value = stringResource(
-                    if (settings.customServerConfigured) {
-                        R.string.settings_server_custom
-                    } else {
-                        R.string.settings_server_public
-                    },
-                ),
+                value = stringResource(serverLabel(settings, managedAvailable)),
                 onClick = onServer,
                 modifier = Modifier.weight(1f),
             )
@@ -303,7 +296,7 @@ private fun GpsRows(settings: MockarrSettings, viewModel: SettingsViewModel) {
 }
 
 @Composable
-private fun AboutBlock() {
+private fun AboutBlock(managedAvailable: Boolean) {
     val context = LocalContext.current
     val version = remember {
         runCatching { context.packageManager.getPackageInfo(context.packageName, 0).versionName }.getOrNull() ?: "—"
@@ -320,7 +313,9 @@ private fun AboutBlock() {
         )
         HorizontalDivider()
         Text(
-            text = stringResource(R.string.settings_about_credits),
+            text = stringResource(
+                if (managedAvailable) R.string.settings_about_credits else R.string.settings_about_credits_public,
+            ),
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )

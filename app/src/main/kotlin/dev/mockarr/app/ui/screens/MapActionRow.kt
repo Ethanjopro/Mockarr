@@ -277,7 +277,7 @@ private fun RowSlot(
 @Composable
 fun ModePickerSheet(
     selected: RoutingProfile,
-    customServerConfigured: Boolean,
+    profilesUnlocked: Boolean,
     onSelect: (RoutingProfile) -> Unit,
     onDismiss: () -> Unit,
 ) {
@@ -289,7 +289,7 @@ fun ModePickerSheet(
         )
         RoutingProfile.entries.forEach { profile ->
             // The public routing server only serves driving.
-            val enabled = profile == RoutingProfile.DRIVING || customServerConfigured
+            val enabled = profile == RoutingProfile.DRIVING || profilesUnlocked
             Row(
                 modifier = Modifier
                     .fillMaxWidth()

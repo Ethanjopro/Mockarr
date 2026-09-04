@@ -58,7 +58,7 @@ When a provider changes or the app starts doing something new with data, this pa
 and the app's "About" screen credits change with it.
 
 ## Current providers
-- Routing: [name + link — today: Project OSRM public demo server]
-- Place search: [name + link — today: Photon by komoot]
-- Elevation: [name + link — today: Open-Meteo]
-- Map tiles and style: [name + link — today: OpenFreeMap; map data © OpenStreetMap contributors]
+- Routing and place search: Geoapify (https://www.geoapify.com/) — with the public OSRM demo server
+  (https://project-osrm.org/) and Photon by komoot (https://photon.komoot.io/) as fallbacks
+- Elevation: Terrain Tiles on AWS Open Data (Mapzen data, https://registry.opendata.aws/terrain-tiles/)
+- Map tiles and style: OpenFreeMap (https://openfreemap.org/); map data © OpenStreetMap contributors

@@ -17,6 +17,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Slider
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -40,6 +41,7 @@ import dev.mockarr.app.ui.theme.DialogAction
 import dev.mockarr.app.ui.theme.MockarrDialog
 import dev.mockarr.app.ui.theme.MockarrTheme
 import dev.mockarr.app.ui.theme.Tokens
+import dev.mockarr.core.data.MockarrSettings
 
 /**
  * Strava's settings icon grid, one tile per headline setting: icon, name, and
@@ -184,6 +186,9 @@ fun ValueRow(iconRes: Int, title: String, description: String, value: String, on
 fun ServerDialog(
     currentUrl: String,
     isCustom: Boolean,
+    managedAvailable: Boolean,
+    publicOnly: Boolean,
+    onPublicOnlyChange: (Boolean) -> Unit,
     testState: SettingsViewModel.TestState,
     onTest: (String) -> Unit,
     onSave: (String) -> Unit,
@@ -206,6 +211,24 @@ fun ServerDialog(
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
+        if (managedAvailable && !isCustom) {
+            // ADR 0003: Mockarr's managed routing/search vs. the public servers only.
+            Spacer(Modifier.height(Tokens.space2))
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.weight(1f)) {
+                    Text(
+                        text = stringResource(R.string.settings_server_managed_toggle),
+                        style = MaterialTheme.typography.bodyLarge,
+                    )
+                    Text(
+                        text = stringResource(R.string.settings_server_managed_desc),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+                Switch(checked = !publicOnly, onCheckedChange = { onPublicOnlyChange(!it) })
+            }
+        }
         Spacer(Modifier.height(Tokens.space2))
         OutlinedTextField(
             value = url,
@@ -253,4 +276,11 @@ fun RowChevron() {
         contentDescription = null,
         tint = MaterialTheme.colorScheme.onSurfaceVariant,
     )
+}
+
+/** Settings value for the routing backend: the user's URL, the public servers, or Mockarr's managed service. */
+fun serverLabel(settings: MockarrSettings, managedAvailable: Boolean): Int = when {
+    settings.customServerConfigured -> R.string.settings_server_custom
+    settings.publicServersOnly || !managedAvailable -> R.string.settings_server_public
+    else -> R.string.settings_server_managed
 }

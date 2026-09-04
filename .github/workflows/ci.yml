@@ -20,6 +20,9 @@ jobs:
 
       - name: Build, test, and lint
         run: ./gradlew build --stacktrace
+        env:
+          # ADR 0003: absent on forks/PRs → public-servers-only build, still green
+          GEOAPIFY_KEY: ${{ secrets.GEOAPIFY_KEY }}
 
       - name: Upload reports on failure
         if: failure()

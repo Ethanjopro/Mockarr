@@ -123,7 +123,10 @@ You will learn which features people ask for, which is the only good way to
 choose what goes behind Pro.
 
 
-5. THE BACKEND DECISION (OPEN — DECIDE BEFORE PRODUCTION ROLLOUT)
+5. THE BACKEND DECISION — DECIDED 2026-09-03 (ADR 0003): GEOAPIFY DEFAULT,
+   PUBLIC SERVERS AS FALLBACK, AWS TERRARIUM TILES FOR ELEVATION. GOOGLE
+   REJECTED (Google-map-only terms, 30-day cache limit, most expensive).
+   Full numbers: docs/research/backend-cost-analysis.md. Original notes:
 ------------------------------------------------------------------
 Today: routing = router.project-osrm.org, search = photon.komoot.io,
 elevation = api.open-meteo.com, tiles = tiles.openfreemap.org. OpenFreeMap
