@@ -82,6 +82,10 @@ a free non-OSS API is acceptable when it noticeably improves the app (ADR 0001 a
   here or in the `kotlin-conventions` skill — never leave it as a one-off fix.
 - Every user-visible change gets verified on the emulator like a human would
   (tap/type/screenshot) before it is called done.
+- Fix bugs the moment you spot them (Ethan, 2026-09-04): a wrong label, a "0.0 mi", a swallowed
+  tap seen while verifying something else is part of the current round, not an "observation, not
+  fixed" note for later. Add it to the round's plan/commit; only defer when the fix needs a decision
+  from Ethan, and then ask in the same message.
 - When Ethan reports a visual/UI bug, reproduce it on the emulator and LOOK
   (screenshot + Read) before diagnosing — never ask him for screenshots.
 - End rounds with a short efficiency note when you spotted a better way Ethan
