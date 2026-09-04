@@ -67,11 +67,14 @@ class GeoapifyRouteProvider(
         val message = body?.let { runCatching { json.decodeFromString<GeoapifyError>(it).message }.getOrNull() }
         return when {
             code() == HTTP_TOO_MANY_REQUESTS -> RoutingException.RateLimited()
-            code() == HTTP_BAD_REQUEST && message?.contains("route", ignoreCase = true) == true ->
-                RoutingException.NoRoute()
+            code() == HTTP_BAD_REQUEST && message.isNoRoute() -> RoutingException.NoRoute()
             else -> RoutingException.Server("HTTP ${code()}${message?.let { ": $it" }.orEmpty()}")
         }
     }
+
+    /** "Route not found", or "No suitable edges near location" — a stop too far from any road. */
+    private fun String?.isNoRoute(): Boolean =
+        this != null && (contains("route", ignoreCase = true) || contains("suitable edges", ignoreCase = true))
 
     @Serializable
     private data class GeoapifyResponse(val features: List<GeoapifyFeature> = emptyList())
@@ -95,9 +98,7 @@ class GeoapifyRouteProvider(
                 legs = legs,
                 distanceMeters = properties.distance,
                 durationSeconds = properties.time,
-                snappedWaypoints = properties.waypoints.mapNotNull { wp ->
-                    wp.location.takeIf { it.size == 2 }?.let { LatLng(it[1], it[0]) }
-                },
+                snappedWaypoints = snappedWaypoints(legLines),
             )
         }
     }
@@ -106,14 +107,7 @@ class GeoapifyRouteProvider(
     private data class GeoapifyProperties(
         val distance: Double = 0.0,
         val time: Double = 0.0,
-        val waypoints: List<GeoapifyWaypoint> = emptyList(),
         val legs: List<GeoapifyLeg> = emptyList(),
-    )
-
-    @Serializable
-    private data class GeoapifyWaypoint(
-        // Geoapify order: [longitude, latitude].
-        val location: List<Double> = emptyList(),
     )
 
     @Serializable
@@ -160,6 +154,18 @@ class GeoapifyRouteProvider(
                 RoutingProfile.WALKING -> "walk"
                 RoutingProfile.CYCLING -> "bicycle"
             }
+
+        /**
+         * Where the router actually put each stop. Geoapify's `properties.waypoints`
+         * echo the *requested* coordinates, so they are useless for detecting an
+         * off-road stop ([stitchOffRoad] compares against them); the leg lines,
+         * however, start and end on the road, so their end points are the snaps.
+         */
+        internal fun snappedWaypoints(legLines: List<List<LatLng>>): List<LatLng> {
+            val lines = legLines.filter { it.isNotEmpty() }
+            val first = lines.firstOrNull()?.first() ?: return emptyList()
+            return listOf(first) + lines.map { it.last() }
+        }
 
         /**
          * Consecutive legs share their junction point; drop the duplicate so the

@@ -25,10 +25,10 @@ class BackendSwitchTest {
     }
 
     @Test
-    fun `managed mode uses the managed provider when it succeeds`() = runTest {
+    fun `uses the managed provider when it succeeds`() = runTest {
         val managed = FakeRoutes(Result.success(managedRoute))
         val public = FakeRoutes(Result.success(publicRoute))
-        val switch = SwitchingRouteProvider(managed, public) { BackendMode.MANAGED }
+        val switch = SwitchingRouteProvider(managed, public)
 
         assertSame(managedRoute, switch.route(waypoints, RoutingProfile.DRIVING).getOrThrow())
         assertEquals(0, public.calls)
@@ -38,26 +38,27 @@ class BackendSwitchTest {
     fun `rate limit on the managed provider falls through to the public one`() = runTest {
         val managed = FakeRoutes(Result.failure(RoutingException.RateLimited()))
         val public = FakeRoutes(Result.success(publicRoute))
-        val switch = SwitchingRouteProvider(managed, public) { BackendMode.MANAGED }
+        val switch = SwitchingRouteProvider(managed, public)
 
         assertSame(publicRoute, switch.route(waypoints, RoutingProfile.DRIVING).getOrThrow())
     }
 
     @Test
-    fun `no route is a real answer and is not second-guessed`() = runTest {
+    fun `no route from the managed provider still tries the public one`() = runTest {
+        // The public OSRM snaps more leniently, so a stop Geoapify refuses may still route there.
         val managed = FakeRoutes(Result.failure(RoutingException.NoRoute()))
         val public = FakeRoutes(Result.success(publicRoute))
-        val switch = SwitchingRouteProvider(managed, public) { BackendMode.MANAGED }
+        val switch = SwitchingRouteProvider(managed, public)
 
-        assertIs<RoutingException.NoRoute>(switch.route(waypoints, RoutingProfile.DRIVING).exceptionOrNull())
-        assertEquals(0, public.calls)
+        assertSame(publicRoute, switch.route(waypoints, RoutingProfile.DRIVING).getOrThrow())
+        assertEquals(1, public.calls)
     }
 
     @Test
     fun `both failing reports the managed error`() = runTest {
         val managed = FakeRoutes(Result.failure(RoutingException.Server("managed down")))
         val public = FakeRoutes(Result.failure(RoutingException.RateLimited()))
-        val switch = SwitchingRouteProvider(managed, public) { BackendMode.MANAGED }
+        val switch = SwitchingRouteProvider(managed, public)
 
         val error = switch.route(waypoints, RoutingProfile.DRIVING).exceptionOrNull()
         assertIs<RoutingException.Server>(error)
@@ -65,17 +66,20 @@ class BackendSwitchTest {
     }
 
     @Test
-    fun `public and custom modes, or no managed provider, skip the managed one`() = runTest {
-        val managed = FakeRoutes(Result.success(managedRoute))
-        val public = FakeRoutes(Result.success(publicRoute))
+    fun `a definitive no route from the fallback wins over the managed error`() = runTest {
+        val managed = FakeRoutes(Result.failure(RoutingException.Server("managed down")))
+        val public = FakeRoutes(Result.failure(RoutingException.NoRoute()))
+        val switch = SwitchingRouteProvider(managed, public)
 
-        val publicOnly = SwitchingRouteProvider(managed, public) { BackendMode.PUBLIC }
-        val customOnly = SwitchingRouteProvider(managed, public) { BackendMode.CUSTOM }
-        val noManaged = SwitchingRouteProvider(null, public) { BackendMode.MANAGED }
-        assertSame(publicRoute, publicOnly.route(waypoints, RoutingProfile.DRIVING).getOrThrow())
-        assertSame(publicRoute, customOnly.route(waypoints, RoutingProfile.DRIVING).getOrThrow())
-        assertSame(publicRoute, noManaged.route(waypoints, RoutingProfile.DRIVING).getOrThrow())
-        assertEquals(0, managed.calls)
+        assertIs<RoutingException.NoRoute>(switch.route(waypoints, RoutingProfile.DRIVING).exceptionOrNull())
+    }
+
+    @Test
+    fun `no managed provider goes straight to the public one`() = runTest {
+        val public = FakeRoutes(Result.success(publicRoute))
+        val switch = SwitchingRouteProvider(null, public)
+
+        assertSame(publicRoute, switch.route(waypoints, RoutingProfile.DRIVING).getOrThrow())
     }
 
     @Test
@@ -95,7 +99,7 @@ class BackendSwitchTest {
             ) = Result.success(listOf(hit))
             override suspend fun reverse(position: LatLng) = Result.success(PlaceInfo("Street", "City"))
         }
-        val switch = SwitchingGeocoder(managed, public) { BackendMode.MANAGED }
+        val switch = SwitchingGeocoder(managed, public)
 
         assertEquals(listOf(hit), switch.search("x").getOrThrow())
         assertEquals("Street", switch.reverse(LatLng(0.0, 0.0)).getOrThrow().name)

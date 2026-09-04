@@ -8,7 +8,6 @@ import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
 import dev.mockarr.app.BuildConfig
 import dev.mockarr.app.ui.map.RouteThumbnails
-import dev.mockarr.core.data.SettingsRepository
 import dev.mockarr.core.routing.BackendConfig
 import dev.mockarr.core.routing.ElevationProvider
 import dev.mockarr.core.routing.GeoapifyGeocoder
@@ -28,8 +27,9 @@ import javax.inject.Singleton
  * of [AppModule] to stay under detekt's per-object function threshold. The app
  * only ever sees the interfaces — swapping a backend is one class + one binding
  * here (ADR 0002). ADR 0003: Geoapify is the managed default when the build has
- * a key (`GEOAPIFY_KEY` in `secrets.properties`), the public OSRM/Photon servers
- * are the fallback and the "Public" setting; no key = public servers only.
+ * a key (`GEOAPIFY_KEY` in `secrets.properties`) and the public OSRM/Photon
+ * servers are the automatic fallback; no key = public servers only. There is no
+ * user-facing switch — rollback is a build without the key.
  */
 @Module
 @InstallIn(SingletonComponent::class)
@@ -43,21 +43,16 @@ object RoutingModule {
 
     @Provides
     @Singleton
-    fun provideRouteProvider(settingsRepository: SettingsRepository): RouteProvider = SwitchingRouteProvider(
+    fun provideRouteProvider(): RouteProvider = SwitchingRouteProvider(
         managed = geoapifyKey?.let { GeoapifyRouteProvider(apiKey = it, userAgent = USER_AGENT) },
-        fallback = OsrmRouteProvider(
-            baseUrlProvider = { settingsRepository.settings.value.osrmBaseUrl },
-            userAgent = USER_AGENT,
-        ),
-        mode = { settingsRepository.settings.value.backendMode },
+        fallback = OsrmRouteProvider(userAgent = USER_AGENT),
     )
 
     @Provides
     @Singleton
-    fun provideGeocoder(settingsRepository: SettingsRepository): Geocoder = SwitchingGeocoder(
+    fun provideGeocoder(): Geocoder = SwitchingGeocoder(
         managed = geoapifyKey?.let { GeoapifyGeocoder(apiKey = it, userAgent = USER_AGENT) },
         fallback = PhotonGeocoder(userAgent = USER_AGENT),
-        mode = { settingsRepository.settings.value.backendMode },
     )
 
     @Provides

@@ -1,8 +1,8 @@
 # Mockarr — project instructions
 
 Android app that mocks device location via the official mock-location developer
-feature, with realistic OSRM route playback. Stack: MapLibre, OpenFreeMap, OSRM,
-Photon, Open-Meteo — no API keys today. **Direction under review (ADR 0001,
+feature, with realistic road-route playback. Stack: MapLibre, OpenFreeMap, Geoapify
+(routing + search, keyed) with OSRM/Photon as fallback, AWS Terrarium elevation. **Direction under review (ADR 0001,
 `docs/adr/`)**: iOS port possible, licence/openness/monetisation undecided (repo
 private until the licence is picked), Strava UX/UI is the visual baseline
 (`docs/design/brief.md`). Do not add "open source / no tracking / F-Droid" claims
@@ -24,8 +24,9 @@ a free non-OSS API is acceptable when it noticeably improves the app (ADR 0001 a
   `keystore.properties` / `MOCKARR_UPLOAD_*` env; never commit a keystore. Store paperwork and
   the launch runbook live in `docs/release/` (ADR 0002).
 - Backends (ADR 0003): Geoapify is the managed default via `GEOAPIFY_KEY` in git-ignored
-  `secrets.properties` (or env); no key = public OSRM/Photon only, which is also the runtime
-  rollback (Settings → Routing server → Public). Elevation = AWS Terrarium tiles, keyless.
+  `secrets.properties` (or env); no key = public OSRM/Photon only. There is NO user-facing
+  server setting (removed 2026-09-03) — rollback is a build without the key. Elevation = AWS
+  Terrarium tiles, keyless.
 - CI: after every push,
   `gh run watch $(gh run list -b main -L1 --json databaseId -q '.[0].databaseId') --exit-status`;
   a round is done only when it is green.

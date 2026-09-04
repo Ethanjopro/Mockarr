@@ -54,42 +54,20 @@ fun SettingsScreen(
 ) {
     val settings by viewModel.settings.collectAsStateWithLifecycle()
     val setupStatus by setupViewModel.status.collectAsStateWithLifecycle()
-    val testState by viewModel.testState.collectAsStateWithLifecycle()
     LifecycleResumeEffect(Unit) {
         setupViewModel.refresh()
         onPauseOrDispose { }
     }
     var showModePicker by remember { mutableStateOf(false) }
-    var showServer by remember { mutableStateOf(false) }
     if (showModePicker) {
         ModePickerSheet(
             selected = settings.defaultProfile,
-            profilesUnlocked = settings.profilesUnlocked(viewModel.managedAvailable),
+            profilesUnlocked = viewModel.managedAvailable,
             onSelect = {
                 viewModel.setDefaultProfile(it)
                 showModePicker = false
             },
             onDismiss = { showModePicker = false },
-        )
-    }
-    if (showServer) {
-        ServerDialog(
-            currentUrl = settings.osrmBaseUrl,
-            isCustom = settings.customServerConfigured,
-            managedAvailable = viewModel.managedAvailable,
-            publicOnly = settings.publicServersOnly,
-            onPublicOnlyChange = viewModel::setPublicServersOnly,
-            testState = testState,
-            onTest = viewModel::testConnection,
-            onSave = {
-                viewModel.applyOsrmBaseUrl(it)
-                showServer = false
-            },
-            onUsePublic = {
-                viewModel.applyOsrmBaseUrl(MockarrSettings.DEFAULT_OSRM_BASE_URL)
-                showServer = false
-            },
-            onDismiss = { showServer = false },
         )
     }
 
@@ -133,8 +111,6 @@ fun SettingsScreen(
                     viewModel.setUnits(next)
                 },
                 onPickMode = { showModePicker = true },
-                onServer = { showServer = true },
-                managedAvailable = viewModel.managedAvailable,
             )
 
             SectionHeader(stringResource(R.string.settings_section_playback))
@@ -171,13 +147,6 @@ fun SettingsScreen(
                 value = stringResource(settings.defaultProfile.shortLabelRes()),
                 onClick = { showModePicker = true },
             )
-            ValueRow(
-                iconRes = R.drawable.ic_server,
-                title = stringResource(R.string.settings_server),
-                description = stringResource(R.string.settings_server_desc),
-                value = stringResource(serverLabel(settings, viewModel.managedAvailable)),
-                onClick = { showServer = true },
-            )
             OptionSwitchRow(
                 iconRes = R.drawable.ic_add_route,
                 title = stringResource(R.string.settings_offroad),
@@ -200,8 +169,6 @@ private fun TileGrid(
     onOpenSetup: () -> Unit,
     onToggleUnits: () -> Unit,
     onPickMode: () -> Unit,
-    onServer: () -> Unit,
-    managedAvailable: Boolean,
 ) {
     Column(
         modifier = Modifier.padding(horizontal = Tokens.space3, vertical = Tokens.space2),
@@ -236,22 +203,13 @@ private fun TileGrid(
                 modifier = Modifier.weight(1f),
             )
         }
-        Row(horizontalArrangement = Arrangement.spacedBy(Tokens.space2)) {
-            SettingTile(
-                iconRes = settings.defaultProfile.iconRes(),
-                title = stringResource(R.string.settings_tile_mode),
-                value = stringResource(settings.defaultProfile.shortLabelRes()),
-                onClick = onPickMode,
-                modifier = Modifier.weight(1f),
-            )
-            SettingTile(
-                iconRes = R.drawable.ic_server,
-                title = stringResource(R.string.settings_tile_server),
-                value = stringResource(serverLabel(settings, managedAvailable)),
-                onClick = onServer,
-                modifier = Modifier.weight(1f),
-            )
-        }
+        SettingTile(
+            iconRes = settings.defaultProfile.iconRes(),
+            title = stringResource(R.string.settings_tile_mode),
+            value = stringResource(settings.defaultProfile.shortLabelRes()),
+            onClick = onPickMode,
+            modifier = Modifier.fillMaxWidth(),
+        )
     }
 }
 

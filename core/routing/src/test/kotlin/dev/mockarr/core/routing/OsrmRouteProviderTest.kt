@@ -24,8 +24,8 @@ class OsrmRouteProviderTest {
         server = MockWebServer()
         server.start()
         provider = OsrmRouteProvider(
-            baseUrlProvider = { server.url("/").toString() },
             userAgent = "MockarrTest/0.0",
+            baseUrl = server.url("/").toString(),
         )
     }
 

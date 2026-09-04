@@ -31,7 +31,7 @@ Two claims, weighted equally and told in this order:
 1. **Realistic, road-true playback** — OSRM routes, kinematic braking before turns, graceful
    stops (never a teleport), Gaussian GPS jitter, per-stop wait times, live 0.25×–4× speed.
 2. **Open data, no accounts** — MapLibre, OpenStreetMap, OpenFreeMap tiles, Geoapify routing +
-   search (ADR 0003; public OSRM/Photon as fallback, self-hosted OSRM via Settings), AWS terrain tiles. **Under review (ADR 0001):**
+   search (ADR 0003; public OSRM/Photon as automatic fallback, no server setting), AWS terrain tiles. **Under review (ADR 0001):**
    the open-source stance may narrow and light monetisation (ads or similar) is possible;
    until decided, do not put "open source / no tracking" claims in new user-facing copy.
    What survives any outcome: no anti-detection, and nothing phones home or shows ads
@@ -46,8 +46,8 @@ Realism is the feature; honesty is the trust story.
 - Typical session: search or tap to place stops → route → Play → switch to another app and
   leave Mockarr running in the background (foreground service with notification controls).
 - Pin mode (long-press to hold a location) and a thumbstick for nudging while held.
-- Saved routes replay offline. Public OSRM demo server is rate-limited and driving-only;
-  self-hosted OSRM unlocks walking/cycling.
+- Saved routes replay offline. Walking/cycling need the managed backend (keyed build); the
+  public OSRM fallback is rate-limited and driving-only.
 - Verification happens on the emulator via `scripts/emu.sh`; reference devices are Pixel
   and Samsung across API 26 / 31 / 34+.
 

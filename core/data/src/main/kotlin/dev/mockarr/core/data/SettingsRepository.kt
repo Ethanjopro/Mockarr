@@ -11,8 +11,6 @@ import dev.mockarr.core.model.DistanceUnits
 import dev.mockarr.core.model.LatLng
 import dev.mockarr.core.model.MapCamera
 import dev.mockarr.core.model.RoutingProfile
-import dev.mockarr.core.routing.BackendMode
-import dev.mockarr.core.routing.OsrmRouteProvider
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -22,9 +20,6 @@ import kotlinx.coroutines.flow.stateIn
 import java.util.Locale
 
 data class MockarrSettings(
-    val osrmBaseUrl: String = DEFAULT_OSRM_BASE_URL,
-    /** Skip Mockarr's managed routing/search and use the public OSRM/Photon servers only. */
-    val publicServersOnly: Boolean = false,
     val tileStyleUrl: String = DEFAULT_TILE_STYLE_URL,
     val tickHz: Double = 1.0,
     val jitterEnabled: Boolean = true,
@@ -44,24 +39,7 @@ data class MockarrSettings(
     /** The one-time "pull the sheet up" hint on the Map has been dismissed. */
     val sheetHintSeen: Boolean = false,
 ) {
-    /** Walking/cycling need a full OSRM install; the public demo only serves driving. */
-    val customServerConfigured: Boolean
-        get() = osrmBaseUrl != DEFAULT_OSRM_BASE_URL
-
-    /** Which backend serves routes and search (ADR 0003). */
-    val backendMode: BackendMode
-        get() = when {
-            customServerConfigured -> BackendMode.CUSTOM
-            publicServersOnly -> BackendMode.PUBLIC
-            else -> BackendMode.MANAGED
-        }
-
-    /** Walking/cycling: a custom OSRM serves them, and so does the managed backend when the build has one. */
-    fun profilesUnlocked(managedAvailable: Boolean): Boolean =
-        customServerConfigured || (managedAvailable && backendMode == BackendMode.MANAGED)
-
     companion object {
-        const val DEFAULT_OSRM_BASE_URL = OsrmRouteProvider.DEFAULT_BASE_URL
         const val DEFAULT_TILE_STYLE_URL = "https://tiles.openfreemap.org/styles/liberty"
 
         // Dark-recolored liberty bundled as an app asset (scripts/make_dark_style.py);
@@ -71,9 +49,6 @@ data class MockarrSettings(
         const val TICK_HZ_MAX = 5.0
         const val JITTER_SIGMA_MIN = 0.0
         const val JITTER_SIGMA_MAX = 10.0
-
-        /** Canonical form for user-entered base URLs. */
-        fun normalizeBaseUrl(raw: String): String = raw.trim().trimEnd('/')
     }
 }
 
@@ -91,17 +66,6 @@ class SettingsRepository(
      * in-memory defaults before DataStore has loaded (the cold-start race).
      */
     suspend fun awaitLoaded(): MockarrSettings = dataStore.data.first().toSettings()
-
-    suspend fun setOsrmBaseUrl(url: String) = edit { prefs ->
-        prefs[KEY_OSRM_URL] = MockarrSettings.normalizeBaseUrl(url)
-            .ifEmpty { MockarrSettings.DEFAULT_OSRM_BASE_URL }
-    }
-
-    suspend fun setPublicServersOnly(value: Boolean) = edit { prefs -> prefs[KEY_PUBLIC_ONLY] = value }
-
-    suspend fun setTileStyleUrl(url: String) = edit { prefs ->
-        prefs[KEY_TILE_URL] = url.trim().ifEmpty { MockarrSettings.DEFAULT_TILE_STYLE_URL }
-    }
 
     suspend fun setTickHz(value: Double) = edit {
         it[KEY_TICK_HZ] = value.coerceIn(MockarrSettings.TICK_HZ_MIN, MockarrSettings.TICK_HZ_MAX)
@@ -146,7 +110,6 @@ class SettingsRepository(
 
     private fun Preferences.toSettings(): MockarrSettings = withFlags(
         MockarrSettings(
-            osrmBaseUrl = this[KEY_OSRM_URL] ?: DEFAULTS.osrmBaseUrl,
             tileStyleUrl = this[KEY_TILE_URL] ?: DEFAULTS.tileStyleUrl,
             tickHz = this[KEY_TICK_HZ] ?: DEFAULTS.tickHz,
             jitterSigmaMeters = this[KEY_JITTER_SIGMA] ?: DEFAULTS.jitterSigmaMeters,
@@ -160,7 +123,6 @@ class SettingsRepository(
 
     private fun Preferences.withFlags(base: MockarrSettings): MockarrSettings = base.copy(
         jitterEnabled = this[KEY_JITTER_ENABLED] ?: DEFAULTS.jitterEnabled,
-        publicServersOnly = this[KEY_PUBLIC_ONLY] ?: DEFAULTS.publicServersOnly,
         stayAtDestination = this[KEY_STAY_AT_DESTINATION] ?: DEFAULTS.stayAtDestination,
         map3dEnabled = this[KEY_MAP_3D] ?: DEFAULTS.map3dEnabled,
         trafficSimEnabled = this[KEY_TRAFFIC_SIM] ?: DEFAULTS.trafficSimEnabled,
@@ -179,8 +141,6 @@ class SettingsRepository(
 
     private companion object {
         val DEFAULTS = MockarrSettings()
-        val KEY_OSRM_URL = stringPreferencesKey("osrm_base_url")
-        val KEY_PUBLIC_ONLY = booleanPreferencesKey("public_servers_only")
         val KEY_TILE_URL = stringPreferencesKey("tile_style_url")
         val KEY_TICK_HZ = doublePreferencesKey("tick_hz")
         val KEY_JITTER_ENABLED = booleanPreferencesKey("jitter_enabled")

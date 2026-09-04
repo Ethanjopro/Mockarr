@@ -80,3 +80,15 @@ Tiles stay on OpenFreeMap (free, unlimited, attribution shown on the map since A
   managed backend is on, About credits and the privacy page list the new providers.
 - CI: `GEOAPIFY_KEY` secret → env; absent = public-only build, still green.
 - Superseded parts of ADR 0002 §"Deferred": the backend decision.
+
+## Amendment — 2026-09-03: no user-facing backend setting
+Decision 3's Settings → Routing server (Mockarr / Public / Custom URL) is removed. An end user cannot
+do anything useful with it, and it advertised a self-hosting path nobody is on. What stays: the
+managed provider first, the public OSRM/Photon servers as *automatic* fallback on any failure
+(now including "no route" — the public OSRM's `snapping=any` reaches stops Geoapify refuses, and the
+off-road stitcher takes it from there), public-only when the build has no key. Consequences:
+`BackendMode`, `MockarrSettings.osrmBaseUrl` / `publicServersOnly` / `backendMode` /
+`profilesUnlocked()`, the connection test and the dialog are deleted; walking/cycling are available
+exactly when the build has a key (`BackendConfig.managedAvailable`). Rollback is build-time only:
+ship with an empty `GEOAPIFY_KEY`, or `git revert`. Self-hosting remains the scale-up path in the
+cost table, but behind a code change, not a setting.

@@ -1374,3 +1374,57 @@ start as a start-time choice.
 - **Open for Ethan:** create the Geoapify account/key, drop it in `secrets.properties` and the GitHub
   secret, then run one scripted session and compare the dashboard count with the 16-per-session
   model; decide during closed testing whether per-step timing reads as well as OSRM.
+
+### 2026-09-03 — Session 34 (off-road stops broken on Geoapify; Routing-server setting removed; Play to-do)
+- **Ethan's ask:** (1) routing into a building/terrain stopped working after Geoapify; (2) remove every
+  Routing-server setting ("the average end user can't do anything with these"); (3) what is left, in
+  order, to publish on Play.
+- **Root cause (1), confirmed with live calls:** `stitchOffRoad` decides a stop is off-road by comparing
+  the request with `Route.snappedWaypoints` (> 25 m). OSRM returns the *snapped* coordinate there;
+  **Geoapify echoes the requested coordinate verbatim** in `properties.waypoints[].location` (a
+  Golden Gate Park meadow came back as the exact request while the geometry ended ~110 m away on the
+  road). Distance 0 → no connector → the drive ended on the road. The Geoapify test fixture had been
+  copied from the OSRM test and asserted only `size`, so it never caught the semantic difference.
+  Second finding: a stop far from any road makes Geoapify answer HTTP 400 "No suitable edges near
+  location"; that fell through to OSRM only because the message didn't say "route".
+- **Fix:** `GeoapifyRouteProvider.snappedWaypoints(legLines)` derives the snaps from the geometry
+  (route start + end of each leg line — the leg lines *are* snapped); `GeoapifyWaypoint` deleted.
+  "No suitable edges" → `NoRoute`. `SwitchingRouteProvider` now falls through to the public OSRM on
+  **every** failure including `NoRoute` (OSRM's `snapping=any` reaches stops Geoapify refuses, the
+  stitcher takes it from there); when both fail, a fallback `NoRoute` wins over the managed error.
+  Multi-leg junctions verified byte-identical live, so `joinLegLines` / the tiling gate were fine.
+- **(2) Routing server removed end to end:** `BackendMode`, the `mode` lambdas on both switching
+  classes, `OsrmRouteProvider.baseUrlProvider` (now `baseUrl` with a default), `MockarrSettings.
+  osrmBaseUrl` / `publicServersOnly` / `customServerConfigured` / `backendMode` / `profilesUnlocked()` /
+  `normalizeBaseUrl`, the DataStore keys, the connection test (`TestState`, `testConnection`),
+  `ServerDialog`, `serverLabel`, 14 strings, `ic_server.xml`. `MapViewModel.profilesUnlocked` is a plain
+  `Boolean = backend.managedAvailable`; `mode_locked` now reads "Not available in this build" (only a
+  keyless dev build ever shows it). Settings tile grid: Mock + Units, then **Travel mode full width**
+  (Ethan's pick). Runtime = Geoapify first when the build has a key, automatic public fallback, public
+  only without a key; rollback is build-time (empty key / revert). ADR 0003 got an Amendment; README
+  (self-hosting section → "Routing backend"), PRODUCT.md, CLAUDE.md stack line, play-launch.md,
+  fastlane full_description + changelog no longer promise a configurable server. Also dropped the
+  dead `setTileStyleUrl`.
+- **Tests:** Geoapify fixture now honest (waypoints echo the request, geometry ends differ) and asserts
+  `snappedWaypoints == geometry ends`; `snappedWaypoints()` unit case; "No suitable edges" → NoRoute;
+  `BackendSwitchTest` rewritten (NoRoute falls through, fallback NoRoute wins, no managed → public);
+  `OffRoadStitcherTest` regression case with Geoapify-shaped snaps. 53 core:routing tests green; full
+  `scripts/gradle build` green.
+- **Verified on the emulator (release/R8 build, key present):** stop 1 on Walnut Street, stop 2 inside
+  the big building east of it → solid road route + **dotted connector into the building**; Route start →
+  "Driving" 8 mph → "Holding at destination" after ~30 s with the held puck inside the building
+  (fused mock fix 37.488548,-122.225086, alt from the Terrarium tile). Settings: no server tile/row/
+  dialog, grid Mock+Units / Travel mode full width, Walk + Cycle enabled in both mode pickers, credits
+  name Geoapify with OSRM/Photon fallback; dark theme clean; no exceptions in logcat.
+  **Not emulator-verified:** the keyless build (CI builds it with 0 secrets and stays green; the
+  switch is unit-tested) and a stop far from any road (unit-tested via the "No suitable edges" 400 +
+  fall-through; live curl confirmed the 400).
+- **(3) Play Store — left for Ethan, in order:** 1 upload keystore, 2 Play developer account (note the
+  creation date → 12 testers / 14 days), 3 public privacy-policy URL (needs a public repo/site or the
+  licence decision), 4 512×512 icon (brand undecided), 5 first internal-track AAB by hand + IARC /
+  target audience / Data safety / FGS video, 6 recruit ≥12 testers and start the 14-day clock, 7
+  `GEOAPIFY_KEY` GitHub secret (repo has 0 secrets) + Geoapify usage alert, 8 contact mailbox +
+  trademark check, 9 real-phone check of the signed build, 10 licence. Code I can do when asked:
+  launch version + tag, `release.yml`, real feature graphic, the stat-card "Driving" label in walk mode.
+- **Gotcha (repeat):** the "Route start" pill needs a second `tapon` after "Start" — the first one
+  lands while the row animates in.

@@ -47,16 +47,17 @@ class GeoapifyRouteProviderTest {
 
     @Test
     fun `parses a geojson response and spreads step time over segments`() = runTest {
+        // As the real API does: `waypoints` echo the request; only the geometry is snapped to the road.
         server.enqueue(
             MockResponse().setBody(
                 """
                 {"type":"FeatureCollection","features":[{"type":"Feature",
                   "properties":{"mode":"drive","distance":3000,"time":300,
-                    "waypoints":[{"location":[2.29455,48.85843],"original_index":0},{"location":[2.33762,48.86061],"original_index":1}],
+                    "waypoints":[{"location":[2.2945,48.8584],"original_index":0},{"location":[2.3376,48.8606],"original_index":1}],
                     "legs":[{"distance":3000,"time":300,
                       "steps":[{"from_index":0,"to_index":2,"distance":2000,"time":100},
                                {"from_index":2,"to_index":3,"distance":1000,"time":200}]}]},
-                  "geometry":{"type":"MultiLineString","coordinates":[[[2.2945,48.8584],[2.3000,48.8584],[2.3200,48.8584],[2.3376,48.8606]]]}}]}
+                  "geometry":{"type":"MultiLineString","coordinates":[[[2.2950,48.8580],[2.3000,48.8584],[2.3200,48.8584],[2.3370,48.8610]]]}}]}
                 """.trimIndent(),
             ),
         )
@@ -66,7 +67,8 @@ class GeoapifyRouteProviderTest {
         assertEquals(4, route.points.size)
         assertEquals(3000.0, route.distanceMeters)
         assertEquals(300.0, route.durationSeconds)
-        assertEquals(2, route.snappedWaypoints.size)
+        // Snapped stops come from the geometry ends, not the echoed request.
+        assertEquals(listOf(LatLng(48.8580, 2.2950), LatLng(48.8610, 2.3370)), route.snappedWaypoints)
         val leg = route.legs.single()
         assertEquals(3, leg.segmentDistancesMeters.size)
         assertEquals(300.0, leg.segmentDurationsSeconds.sum(), absoluteTolerance = 1e-6)
@@ -84,6 +86,16 @@ class GeoapifyRouteProviderTest {
         val b = LatLng(2.0, 2.0)
         val c = LatLng(3.0, 3.0)
         assertEquals(listOf(a, b, c), GeoapifyRouteProvider.joinLegLines(listOf(listOf(a, b), listOf(b, c))))
+    }
+
+    @Test
+    fun `snapped waypoints are the start of the route and the end of every leg`() {
+        val a = LatLng(1.0, 1.0)
+        val b = LatLng(2.0, 2.0)
+        val c = LatLng(3.0, 3.0)
+        val legLines = listOf(listOf(a, LatLng(1.5, 1.5), b), listOf(b, c))
+        assertEquals(listOf(a, b, c), GeoapifyRouteProvider.snappedWaypoints(legLines))
+        assertEquals(emptyList(), GeoapifyRouteProvider.snappedWaypoints(emptyList()))
     }
 
     @Test
@@ -105,8 +117,17 @@ class GeoapifyRouteProviderTest {
             MockResponse().setResponseCode(400)
                 .setBody("""{"statusCode":400,"error":"Bad Request","message":"Route not found"}"""),
         )
+        // What the live API answers for a stop far from any road (verified 2026-09-03).
+        server.enqueue(
+            MockResponse().setResponseCode(400)
+                .setBody(
+                    """{"statusCode":400,"error":"Bad Request","message":"No suitable edges near """ +
+                        """location. Please check waypoint coordinate order (lat/lon)."}""",
+                ),
+        )
 
         assertIs<RoutingException.RateLimited>(provider.route(waypoints, RoutingProfile.DRIVING).exceptionOrNull())
+        assertIs<RoutingException.NoRoute>(provider.route(waypoints, RoutingProfile.DRIVING).exceptionOrNull())
         assertIs<RoutingException.NoRoute>(provider.route(waypoints, RoutingProfile.DRIVING).exceptionOrNull())
     }
 }

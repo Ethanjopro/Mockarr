@@ -65,6 +65,21 @@ class OffRoadStitcherTest {
     }
 
     @Test
+    fun `stitches a Geoapify-shaped route whose snaps come from the geometry ends`() {
+        // Regression: Geoapify echoes the request as its waypoints, so the provider must
+        // derive the snaps from the leg lines or a park-interior stop is never stitched.
+        val target = GeoMath.destination(roadC, 0.0, 100.0)
+        val legLines = listOf(listOf(roadA, roadB), listOf(roadB, roadC))
+        val route = roadRoute(snapped = GeoapifyRouteProvider.snappedWaypoints(legLines))
+
+        val stitched = stitchOffRoad(route, listOf(roadA, roadB, target), RoutingProfile.DRIVING)
+
+        stitched.assertLegsTileGeometry()
+        assertEquals(1, stitched.offRoadSpans.size)
+        assertEquals(target, stitched.points.last())
+    }
+
+    @Test
     fun `an off-road via stop gets an out-and-back spur inside its legs`() {
         val target = GeoMath.destination(roadB, 0.0, 300.0)
 

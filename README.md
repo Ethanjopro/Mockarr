@@ -20,7 +20,6 @@ Stack: **Kotlin · Jetpack Compose · MapLibre · OpenStreetMap · Geoapify (rou
 - **Background playback** — foreground service with pause/resume/stop from the notification; survives screen-off
 - **Saved routes** — replay past routes fully offline
 - **Speed control** — 0.25×–4× live during playback from the run box's speed pill (wait timers stay real-time)
-- **Bring your own server** — point Mockarr at a self-hosted OSRM to unlock walking/cycling profiles, and use any MapLibre style URL for tiles
 
 ## How it works
 
@@ -46,19 +45,9 @@ cd Mockarr
 
 First-run setup on the device: enable Developer Options (tap Build number 7×), then Developer Options → **Select mock location app** → Mockarr. The in-app checklist walks you through it.
 
-## Self-hosting OSRM (optional)
+## Routing backend
 
-The public demo server (`router.project-osrm.org`) is rate-limited and driving-only. To run your own:
-
-```sh
-wget https://download.geofabrik.de/europe/monaco-latest.osm.pbf   # pick your region
-docker run -t -v $PWD:/data ghcr.io/project-osrm/osrm-backend osrm-extract -p /opt/car.lua /data/monaco-latest.osm.pbf
-docker run -t -v $PWD:/data ghcr.io/project-osrm/osrm-backend osrm-partition /data/monaco-latest.osrm
-docker run -t -v $PWD:/data ghcr.io/project-osrm/osrm-backend osrm-customize /data/monaco-latest.osrm
-docker run -t -i -p 5000:5000 -v $PWD:/data ghcr.io/project-osrm/osrm-backend osrm-routed --algorithm mld /data/monaco-latest.osrm
-```
-
-Then set `http://<your-host>:5000` in Mockarr's Settings. Build with `foot.lua`/`bicycle.lua` profiles to unlock walking/cycling.
+Routing and search go through Geoapify when the build has a `GEOAPIFY_KEY` (git-ignored `secrets.properties`, see `docs/adr/0003-backend-providers.md`), with the public OSRM/Photon servers as automatic fallback. Without a key the app uses the public servers only, which route driving only. There is no in-app server setting.
 
 ## Architecture
 
@@ -66,7 +55,7 @@ Then set `http://<your-host>:5000` in Mockarr's Settings. Build with `foot.lua`/
 :app                  Compose UI, ViewModels, navigation, MockSessionService, Hilt wiring
 :core:model           Shared data types + geo math (pure Kotlin)
 :core:simulation      Route playback engine (pure Kotlin, deterministic, fully unit-tested)
-:core:routing         RouteProvider abstraction, OSRM client, Photon geocoder, Open-Meteo elevation, polyline6 codec, fallback
+:core:routing         RouteProvider abstraction, Geoapify + OSRM clients, Geoapify + Photon geocoders, Terrarium elevation, polyline6 codec, fallback
 :core:mocklocation    Mock location providers + setup-status detection
 :core:data            Room (saved routes) + DataStore (settings)
 ```
@@ -79,7 +68,7 @@ See [CONTRIBUTING.md](CONTRIBUTING.md). Issues and PRs welcome — especially de
 
 ## Attribution
 
-Map data © [OpenStreetMap](https://www.openstreetmap.org/copyright) contributors · Routing by [OSRM](https://project-osrm.org) · Search by [Photon](https://photon.komoot.io) (komoot) · Elevation by [Open-Meteo](https://open-meteo.com) · Rendering by [MapLibre](https://maplibre.org) · Tiles by [OpenFreeMap](https://openfreemap.org)
+Map data © [OpenStreetMap](https://www.openstreetmap.org/copyright) contributors · Routing and search powered by [Geoapify](https://www.geoapify.com), with [OSRM](https://project-osrm.org) and [Photon](https://photon.komoot.io) (komoot) as fallback · Elevation from [Terrain Tiles on AWS](https://registry.opendata.aws/terrain-tiles/) (Mapzen) · Rendering by [MapLibre](https://maplibre.org) · Tiles by [OpenFreeMap](https://openfreemap.org)
 
 ## License
 

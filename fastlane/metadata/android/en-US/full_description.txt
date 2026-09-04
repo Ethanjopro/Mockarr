@@ -9,7 +9,7 @@ Features:
 • Background playback with Pause / Resume / Stop from the notification; survives screen-off
 • Save routes and replay them fully offline
 • Live speed control (0.25× – 4×)
-• Bring your own routing server and map style — no accounts, no sign-in
+• No accounts, no sign-in
 
 Setup takes a minute: enable Developer Options, then choose Mockarr under "Select mock location app". The in-app checklist walks you through each step and shows what is still missing.
 

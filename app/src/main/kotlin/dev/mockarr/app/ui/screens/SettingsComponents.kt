@@ -12,23 +12,14 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Slider
-import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -37,11 +28,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import dev.mockarr.app.R
-import dev.mockarr.app.ui.theme.DialogAction
-import dev.mockarr.app.ui.theme.MockarrDialog
 import dev.mockarr.app.ui.theme.MockarrTheme
 import dev.mockarr.app.ui.theme.Tokens
-import dev.mockarr.core.data.MockarrSettings
 
 /**
  * Strava's settings icon grid, one tile per headline setting: icon, name, and
@@ -181,90 +169,6 @@ fun ValueRow(iconRes: Int, title: String, description: String, value: String, on
     }
 }
 
-/** Custom OSRM server: URL field, a live Test, and a way back to the public server. */
-@Composable
-fun ServerDialog(
-    currentUrl: String,
-    isCustom: Boolean,
-    managedAvailable: Boolean,
-    publicOnly: Boolean,
-    onPublicOnlyChange: (Boolean) -> Unit,
-    testState: SettingsViewModel.TestState,
-    onTest: (String) -> Unit,
-    onSave: (String) -> Unit,
-    onUsePublic: () -> Unit,
-    onDismiss: () -> Unit,
-) {
-    var url by remember { mutableStateOf(if (isCustom) currentUrl else "") }
-    MockarrDialog(
-        title = stringResource(R.string.settings_server_title),
-        onDismissRequest = onDismiss,
-        confirm = DialogAction(
-            label = stringResource(R.string.dialog_save),
-            onClick = { onSave(url) },
-            enabled = url.isNotBlank(),
-        ),
-        dismiss = DialogAction(stringResource(R.string.dialog_cancel), onDismiss),
-    ) {
-        Text(
-            text = stringResource(R.string.settings_server_desc),
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-        if (managedAvailable && !isCustom) {
-            // ADR 0003: Mockarr's managed routing/search vs. the public servers only.
-            Spacer(Modifier.height(Tokens.space2))
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Column(Modifier.weight(1f)) {
-                    Text(
-                        text = stringResource(R.string.settings_server_managed_toggle),
-                        style = MaterialTheme.typography.bodyLarge,
-                    )
-                    Text(
-                        text = stringResource(R.string.settings_server_managed_desc),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
-                Switch(checked = !publicOnly, onCheckedChange = { onPublicOnlyChange(!it) })
-            }
-        }
-        Spacer(Modifier.height(Tokens.space2))
-        OutlinedTextField(
-            value = url,
-            onValueChange = { url = it },
-            placeholder = { Text(stringResource(R.string.settings_server_hint)) },
-            singleLine = true,
-            trailingIcon = {
-                if (testState is SettingsViewModel.TestState.Testing) {
-                    CircularProgressIndicator(modifier = Modifier.size(Tokens.space6), strokeWidth = 2.dp)
-                } else {
-                    TextButton(enabled = url.isNotBlank(), onClick = { onTest(url) }) {
-                        Text(stringResource(R.string.settings_server_test))
-                    }
-                }
-            },
-        )
-        when (testState) {
-            SettingsViewModel.TestState.Success -> Text(
-                text = stringResource(R.string.settings_server_ok),
-                style = MaterialTheme.typography.bodySmall,
-                color = MockarrTheme.colors.ready,
-            )
-            is SettingsViewModel.TestState.Failure -> Text(
-                text = testState.message ?: stringResource(R.string.settings_server_failed),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.error,
-            )
-            else -> Unit
-        }
-        if (isCustom) {
-            // Tertiary verb: stays a text button inside the body, not a third pill.
-            TextButton(onClick = onUsePublic) { Text(stringResource(R.string.settings_server_use_public)) }
-        }
-    }
-}
-
 private val TILE_MIN_HEIGHT = 96.dp
 private val TILE_ICON = 28.dp
 
@@ -276,11 +180,4 @@ fun RowChevron() {
         contentDescription = null,
         tint = MaterialTheme.colorScheme.onSurfaceVariant,
     )
-}
-
-/** Settings value for the routing backend: the user's URL, the public servers, or Mockarr's managed service. */
-fun serverLabel(settings: MockarrSettings, managedAvailable: Boolean): Int = when {
-    settings.customServerConfigured -> R.string.settings_server_custom
-    settings.publicServersOnly || !managedAvailable -> R.string.settings_server_public
-    else -> R.string.settings_server_managed
 }

@@ -113,14 +113,8 @@ class MapViewModel @Inject constructor(
             settingsRepository.settings.value.tileStyleUrl,
         )
 
-    /** Walking/cycling available: a custom OSRM, or the managed backend (ADR 0003). */
-    val profilesUnlocked: StateFlow<Boolean> = settingsRepository.settings
-        .map { it.profilesUnlocked(backend.managedAvailable) }
-        .stateIn(
-            viewModelScope,
-            SharingStarted.Eagerly,
-            settingsRepository.settings.value.profilesUnlocked(backend.managedAvailable),
-        )
+    /** Walking/cycling need the managed backend (ADR 0003); the public OSRM serves driving only. */
+    val profilesUnlocked: Boolean = backend.managedAvailable
 
     val units: StateFlow<DistanceUnits> = settingsRepository.settings
         .map { it.units }

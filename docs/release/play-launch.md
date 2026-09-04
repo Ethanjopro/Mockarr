@@ -31,7 +31,7 @@ Path: **personal developer account** (ADR 0002). The organization/LLC path is Ap
       ```
       Add the same value as the GitHub Actions secret `GEOAPIFY_KEY` so CI builds carry it. Set a
       usage alert in the Geoapify dashboard at ~80 % of the daily credits and create a second key to
-      keep in reserve. Without the key every build silently uses the public OSRM/Photon servers.
+      keep in reserve. Without the key every build silently uses the public OSRM/Photon servers (build-time only — there is no in-app switch).
 - [ ] **Upload keystore** (once, on your machine, never in the repo):
   ```sh
   keytool -genkeypair -v -keystore ~/Keys/mockarr-upload.jks -alias mockarr-upload \

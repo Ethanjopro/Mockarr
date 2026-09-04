@@ -18,12 +18,12 @@ import java.io.IOException
 
 /**
  * [RouteProvider] backed by an OSRM server (`/route/v1`). Defaults to the public
- * demo server, which reliably serves the driving profile only — a custom server
- * URL (Settings) unlocks walking/cycling.
+ * demo server, which reliably serves the driving profile only; it is the
+ * fallback behind the managed backend (ADR 0003).
  */
 class OsrmRouteProvider(
-    private val baseUrlProvider: () -> String,
     userAgent: String,
+    private val baseUrl: String = DEFAULT_BASE_URL,
 ) : RouteProvider {
 
     private interface OsrmApi {
@@ -49,7 +49,7 @@ class OsrmRouteProvider(
         require(waypoints.size >= 2) { "At least two waypoints are required" }
         val coords = waypoints.joinToString(";") { "${it.longitude},${it.latitude}" }
         val url = buildString {
-            append(baseUrlProvider().trimEnd('/'))
+            append(baseUrl.trimEnd('/'))
             append("/route/v1/")
             append(profile.osrmName)
             append('/')
