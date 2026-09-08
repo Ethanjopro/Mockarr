@@ -1513,3 +1513,9 @@ start as a start-time choice.
   Mobbin's terms. Handling recorded in ADR 0004 and in the commit that lands it.
 - **Process:** flipping visibility is `gh repo edit --visibility public`; the site links the repo
   from the Mockarr section's tag line and body.
+- **History rewrite (author email):** after the scrub, the 73 earlier commits still carried the
+  school email as author. Ethan chose a rewrite: every commit's author/committer email became the
+  GitHub noreply address (content, dates and messages unchanged). Commit hashes cited in this file
+  and in the ADRs before 2026-09-08 refer to the pre-rewrite history; a local branch
+  `backup/pre-email-rewrite` keeps the old objects (never push it). Force-push done by Ethan by hand
+  (force-push stays on the tool deny list).
