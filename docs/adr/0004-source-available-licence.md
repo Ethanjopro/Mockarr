@@ -18,8 +18,8 @@ licence that grants reading but not reuse.
 What the repo contains that matters for going public (full-history scan, 2026-09-08): no API key,
 keystore, `secrets.properties`, `local.properties` or token has ever been committed (all are
 git-ignored and were checked against `git log --all -p`); the commit author email is present on
-every commit; PROGRESS.md and `docs/release/play-store-recommendations.md` record personal
-decisions (Play account type, LLC and tax notes) in Ethan's own words; and
+every commit; PROGRESS.md and a release memo carried personal context (account type, business and
+location details) that has no place in a public record; and
 `docs/design/refs/strava/` holds 42 curated Strava screenshots captured via Mobbin, which are
 third-party copyrighted material under Mobbin's terms (the 600 MB raw set is git-ignored; the
 curated set was committed on 2026-08-28).
@@ -41,8 +41,12 @@ curated set was committed on 2026-08-28).
    tree in the same commit that adds the licence, and `docs/design/refs/refs.md` keeps the table of
    what each frame informed. They remain in git history unless Ethan asks for a history rewrite,
    which is a separate, explicit decision (force-pushes are on the tool deny list).
-5. **Personal context in the docs stays.** PROGRESS.md and the release memo are part of the
-   project record Ethan wants readable; nothing in them is a credential.
+5. **No personal information in the tree.** The release memo moved to a git-ignored
+   `docs/private/`; PROGRESS.md and the launch runbook were scrubbed of home paths, home-area
+   place names, personal-finance remarks, resume filenames and state-specific steps. `.gitignore`
+   covers `docs/private/`, `docs/portfolio/`, `docs/*.docx` and `docs/resume*`. Commits from here
+   on use a GitHub noreply author address; the earlier author email stays in history unless Ethan
+   asks for a rewrite.
 6. **Relicensing later is possible in one direction only.** Ethan holds all copyright (no outside
    contributions have been merged), so a later switch to an OSI licence needs only a new ADR and
    a new `LICENSE`. Code accepted under PolyForm Strict from others would complicate that, which is

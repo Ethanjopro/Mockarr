@@ -17,7 +17,7 @@ that traffic. Ethan's stated priority: **stay free to change the API after launc
 ## Decision
 1. **Google Play is the primary distribution channel**, via a *personal* developer account (an LLC
    and organization account are deferred; triggers for revisiting are in
-   `docs/release/play-store-recommendations.md`). GitHub Releases APKs remain a secondary channel
+   the private release memo (`docs/private/`, git-ignored)). GitHub Releases APKs remain a secondary channel
    until the licence is chosen. F-Droid is not pursued while the repo is private.
 2. **Free core, one-time "Pro" in-app unlock later.** No ads by default, no paid-app price (Play
    makes "free" irreversible, which suits this model). Everything in the core loop stays free:

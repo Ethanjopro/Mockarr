@@ -34,7 +34,7 @@ Android app that plays back road routes through Android's built-in mock location
 - **Compose BOM 2026.08.00 requires compileSdk 37** (build fails at `checkDebugAarMetadata` with 36).
 - **Material icons are NOT bundled with material3** in current BOMs — need explicit `androidx.compose.material:material-icons-core:1.7.8` (not in BOM).
 - **GitHub workflow files need the `workflow` OAuth scope** — was granted via `gh auth refresh -h github.com -s workflow` (done 2026-08-13). If pushes touching `.github/workflows/` are rejected, that's why.
-- SDK components (platform 37 etc.) auto-download during build; `local.properties` (gitignored) points at `/Users/ethanjones/Library/Android/sdk`.
+- SDK components (platform 37 etc.) auto-download during build; `local.properties` (gitignored) points at `~/Library/Android/sdk`.
 - Version catalog: `gradle/libs.versions.toml`. build-logic imports the same catalog via its settings file.
 
 ## How to build / test / verify
@@ -162,7 +162,7 @@ Verified end-to-end like a human: app-drawer swipe → tapped the Mockarr icon �
   - **Time remaining**: `PlaybackState.Playing/Paused` gained `remainingSeconds` (all construction sites are engine-internal); `RouteGeometry` cumulative durations → `remainingDurationSeconds()/multiplier`; shown in the playback card ("· 30 s left") and notification (dedupe key extended with minutes so the text can't go stale).
 - New tests: `RouteGeometryEtaAltitudeTest`, `SimulationEngineEtaTest`, `ElevationSamplingTest`, `OpenMeteoElevationClientTest` (MockWebServer, incl. >100-coord chunking).
 - detekt: `LongParameterList.ignoreAnnotated` +HiltViewModel/Inject (DI constructors list one dep per param); `TooManyFunctions.thresholdInClasses` 20→26.
-- **Correction to the session-5 note**: the "stale Dallas camera" was almost certainly the user's own between-session emulator testing (camera restored to Carrollton, TX again this session) — camera persistence was working as designed, not a bug.
+- **Correction to the session-5 note**: the "stale Dallas camera" was almost certainly the user's own between-session emulator testing (camera restored to the same test-drive area again this session) — camera persistence was working as designed, not a bug.
 
 ### 2026-08-15 — Session 7 (user testing feedback round 4)
 
@@ -1287,14 +1287,14 @@ start as a start-time choice.
 - Final build left installed on the emulator (running) for Ethan to test.
 
 ### 2026-09-03 — Session 32 (Play Store readiness: ADR 0002, release build, store paperwork, backend seams)
-- **Decisions (Ethan, via plan-mode questions):** personal Play developer account, LLC deferred
-  ("seems more difficult and I probably won't make a lot of money"); free v1 with a one-time Pro
-  unlock later, no ads; backend/API provider choice left open until the production rollout —
-  his main concern was staying flexible post-launch. Texas. Recorded in `docs/adr/0002-…` (provisional).
-- **Docs:** `docs/release/play-launch.md` (checkbox runbook, personal-account path, LLC path as
-  appendix, tester brief), `play-store-recommendations.md` (the plain-text honest-notes doc he
-  asked for: account choice, LLC triggers + Texas steps, Pro model, backend options table with
-  quotas/terms as of today, what gets mock-location apps rejected, what I'm unsure about),
+- **Decisions (Ethan, via plan-mode questions):** personal Play developer account, an
+  organization account deferred; free v1 with a one-time Pro unlock later, no ads; backend/API
+  provider choice left open until the production rollout — the priority was staying flexible
+  post-launch. Recorded in `docs/adr/0002-…` (provisional).
+- **Docs:** `docs/release/play-launch.md` (checkbox runbook, personal-account path, organization
+  path as appendix, tester brief), plus a private recommendations memo (kept outside the repo:
+  account choice and triggers, Pro model, backend options table with quotas/terms as of today,
+  what gets mock-location apps rejected, what I'm unsure about),
   `privacy-policy.md` (providers named *by role*; current names only in the final list),
   `data-safety.md` (form answers — location collected + shared + ephemeral), `fgs-declaration.md`
   (location FGS text + video steps). PRODUCT.md "Undecided" list, README Install, ADR index updated.
@@ -1464,13 +1464,11 @@ start as a start-time choice.
   poll must first see a moving band or it "passes" on the previous hold; two stops < 25 px apart at
   max zoom make a 0 ft route that finishes before any band can be read.
 
-### 2026-09-04 — Session 35 (resume entry, Play launch tabled, portfolio media; search "Add stop" fix)
+### 2026-09-04 — Session 35 (Play launch tabled, portfolio media; search "Add stop" fix)
 - **Not app work, recorded for the handoff:** Play Store launch tabled (walkthrough given; a new
-  personal account needs ID verification plus a 12-tester / 14-day closed test, so no same-day
-  listing — nothing on the Play side was started). Resume "Opaque" entry swapped for Mockarr in
-  `docs/EthanJones_Resume_2026_Mockarr.docx` (patched `word/document.xml` directly; right tab stop
-  at 10800 twips like the other headers) + `docs/resume-mockarr-entry.txt`. All resume files in
-  `docs/` are untracked — do not commit them.
+  personal account needs identity verification plus a 12-tester / 14-day closed test, so no
+  same-day listing — nothing on the Play side was started). Personal documents edited this
+  session live outside the tracked tree (`docs/private/`, git-ignored) — never commit them.
 - **Portfolio media in `docs/portfolio/` (untracked, 44 MB):** 16 screenshots (idle, search, 3-stop
   Dallas route builder, ready, driving, speed picker, paused, expanded notification, hold mode,
   3D, saved routes, sheet options, setup checklist, dark driving / arrival / settings) and two
@@ -1482,7 +1480,7 @@ start as a start-time choice.
   result showed the pin but no "Add stop" pill — the `builder && route != null` ready branch won
   over `searchedPlace != null`. Branches reordered; verified on the release build: third stop
   added from search, "Ready to drive · 1.3 mi · 3 stops". Uncommitted at the end of the session
-  (Ethan had scoped the session to the resume/portfolio; commit with the next round).
+  (Ethan had scoped the session to the portfolio; commit with the next round).
 - **Observed, not bugs:** the speed popover is a horizontal scroll row (2×/4× peek past the right
   edge); `emu.sh tab X` misses the sheet peek while holding and `tab Map` does not back out of a
   pushed screen (use `back` + `assert "Search for a place"`); a long-press via `swipe x y x y 1500`
@@ -1504,9 +1502,12 @@ start as a start-time choice.
   CLAUDE.md updated to match.
 - **Pre-flip history scan (full `git log --all -p`):** no key, keystore, `secrets.properties`,
   `local.properties`, token or private-key material ever committed; the only email in history is
-  the commit author address (`ethanja@smu.edu`, present on every commit). Personal-decision
-  context (Play account, LLC/tax notes, resume filenames) lives in PROGRESS.md and
-  `docs/release/play-store-recommendations.md` — public by Ethan's choice.
+  the commit author address on every commit (unchangeable without a history rewrite).
+- **Personal-information sweep (same day, after Ethan asked):** the Play/LLC memo moved to the
+  git-ignored `docs/private/`; PROGRESS.md and `play-launch.md` lost a home path, a home-area place
+  name, personal-finance quotes, resume filenames and state-specific steps; `.gitignore` now covers
+  `docs/private/`, `docs/portfolio/`, `docs/*.docx`, `docs/resume*`. The commit author email is the
+  one item a tree edit cannot remove.
 - **Third-party material:** the 42 curated Strava captures from Mobbin in
   `docs/design/refs/strava/` (committed 2026-08-28, `3c168ec`) are copyrighted screenshots under
   Mobbin's terms. Handling recorded in ADR 0004 and in the commit that lands it.

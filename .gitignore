@@ -27,3 +27,9 @@ captures/
 
 # Third-party (Mobbin) reference captures — 600 MB, never commit; curated webp picks live in docs/design/refs/strava/
 docs/design/refs/Strava\ ios*/
+
+# Personal notes and media — never committed (resume, portfolio site, Play/LLC memo)
+docs/private/
+docs/portfolio/
+docs/*.docx
+docs/resume*

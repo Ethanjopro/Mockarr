@@ -3,7 +3,7 @@
 Checkbox-style, in order. Written 2026-09-03 against Play Console as it was then — rules change
 (target API each August, Billing Library every two years, testing requirements), so when a step
 disagrees with what the Console shows, the Console wins and this file gets a fix. Honest advice
-and trade-offs live in `play-store-recommendations.md`; this file is the *what to click*.
+and trade-offs live in the private release memo (`docs/private/`, git-ignored); this file is the *what to click*.
 
 Path: **personal developer account** (ADR 0002). The organization/LLC path is Appendix A.
 
@@ -162,8 +162,8 @@ Play's API cannot create the app or the first release. After that:
   `mappingFile: app/build/outputs/mapping/release/mapping.txt`,
   `whatsNewDirectory: fastlane/metadata/android/en-US/changelogs`.
 
-## Appendix A — Organization account via a Texas LLC (deferred; see recommendations §LLC)
-1. Form the LLC (SOSDirect Form 205, $300) → EIN (IRS, free) → business bank account.
+## Appendix A — Organization account via an LLC (deferred)
+1. Form the LLC with your state's filing office → EIN (IRS, free) → business bank account.
 2. D-U-N-S number (dnb.com, free, up to 30 days; refuse the paid upsell).
 3. Play Console → Create account → **Organization**: legal name, D-U-N-S, address, verified
    phone/email, authorised representative ID, formation documents.
