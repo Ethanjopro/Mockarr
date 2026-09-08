@@ -1463,3 +1463,28 @@ start as a start-time choice.
   drive ended — re-pick tap points from a fresh screenshot before the next route; a `waithold`-style
   poll must first see a moving band or it "passes" on the previous hold; two stops < 25 px apart at
   max zoom make a 0 ft route that finishes before any band can be read.
+
+### 2026-09-04 — Session 35 (resume entry, Play launch tabled, portfolio media; search "Add stop" fix)
+- **Not app work, recorded for the handoff:** Play Store launch tabled (walkthrough given; a new
+  personal account needs ID verification plus a 12-tester / 14-day closed test, so no same-day
+  listing — nothing on the Play side was started). Resume "Opaque" entry swapped for Mockarr in
+  `docs/EthanJones_Resume_2026_Mockarr.docx` (patched `word/document.xml` directly; right tab stop
+  at 10800 twips like the other headers) + `docs/resume-mockarr-entry.txt`. All resume files in
+  `docs/` are untracked — do not commit them.
+- **Portfolio media in `docs/portfolio/` (untracked, 44 MB):** 16 screenshots (idle, search, 3-stop
+  Dallas route builder, ready, driving, speed picker, paused, expanded notification, hold mode,
+  3D, saved routes, sheet options, setup checklist, dark driving / arrival / settings) and two
+  screen recordings (`mockarr-route-and-drive.mp4` 49 s: Start → Route start → drive → speed
+  picker; `mockarr-dark-drive-4x.mp4` 34 s) plus 720p `-web` encodes. Captured on the emulator
+  from the release APK; route = Klyde Warren Park → Dallas Museum of Art → Dealey Plaza, saved as
+  "Arts District to Dealey Plaza" (emulator DB).
+- **Bug fixed on sight (MapSheet.kt `stripFor`):** once two stops formed a route, picking a search
+  result showed the pin but no "Add stop" pill — the `builder && route != null` ready branch won
+  over `searchedPlace != null`. Branches reordered; verified on the release build: third stop
+  added from search, "Ready to drive · 1.3 mi · 3 stops". Uncommitted at the end of the session
+  (Ethan had scoped the session to the resume/portfolio; commit with the next round).
+- **Observed, not bugs:** the speed popover is a horizontal scroll row (2×/4× peek past the right
+  edge); `emu.sh tab X` misses the sheet peek while holding and `tab Map` does not back out of a
+  pushed screen (use `back` + `assert "Search for a place"`); a long-press via `swipe x y x y 1500`
+  never registers as a hold on the AVD — use the sheet's "Hold my location at the map centre" row.
+  Double-tap zoom steps are large: for a 3D-buildings shot re-centre via search and double-tap once.

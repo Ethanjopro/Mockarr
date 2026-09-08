@@ -271,14 +271,15 @@ internal fun stripFor(
     )
     state.routingError != null -> StripModel(stringResource(state.routingError.stripRes()), StripTone.Error)
     state.isRouting -> StripModel(stringResource(R.string.strip_routing), StripTone.Neutral)
-    builder && state.route != null -> StripModel(stringResource(state.profile.readyLabelRes()), StripTone.Ready)
-    // The searched place, until it is a stop: its name and the verb that drops it there.
+    // The searched place, until it is a stop: its name and the verb that drops it there. Sits above the
+    // ready strip on purpose — otherwise a third stop could never be added from search.
     searchedPlace != null -> StripModel(
         text = searchedPlace,
         tone = StripTone.Accent,
         actionLabel = stringResource(R.string.strip_add_stop),
         action = StripAction.ADD_STOP,
     )
+    builder && state.route != null -> StripModel(stringResource(state.profile.readyLabelRes()), StripTone.Ready)
     builder -> StripModel(stringResource(R.string.strip_building), StripTone.Neutral, hidden = true)
     state.route != null -> StripModel(stringResource(R.string.strip_route_loaded), StripTone.Ready)
     // The empty card: the one instruction a cold start needs.
