@@ -65,8 +65,9 @@ Realism is the feature; honesty is the trust story.
   stop), *Play / Pause / Stop* for playback, *Following* (camera tracks the position).
 - Decided (ADR 0002, provisional): Google Play is the primary channel via a personal developer
   account; free core with a one-time Pro unlock later, no ads. Backend provider choice is open
-  until the production rollout (ADR 0003). Undecided: licence, iOS scope. Repo private until the
-  licence is chosen. Release paperwork lives in `docs/release/`.
+  until the production rollout (ADR 0003). Licence decided (ADR 0004): public repo under PolyForm
+  Strict 1.0.0 — source-available, not open source; never claim "open source". Undecided: iOS
+  scope. Release paperwork lives in `docs/release/`.
 
 ## Visual Baseline
 Strava iOS (Mobbin, Jul 2026) is the UX/UI reference, translated into Material 3 — sheet

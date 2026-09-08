@@ -3,10 +3,10 @@
 Android app that mocks device location via the official mock-location developer
 feature, with realistic road-route playback. Stack: MapLibre, OpenFreeMap, Geoapify
 (routing + search, keyed) with OSRM/Photon as fallback, AWS Terrarium elevation. **Direction under review (ADR 0001,
-`docs/adr/`)**: iOS port possible, licence/openness/monetisation undecided (repo
-private until the licence is picked), Strava UX/UI is the visual baseline
-(`docs/design/brief.md`). Do not add "open source / no tracking / F-Droid" claims
-to user-facing copy until decided. Tooling priority is **cheap/free over open-source**:
+`docs/adr/`)**: iOS port possible, monetisation undecided, Strava UX/UI is the visual baseline
+(`docs/design/brief.md`). The repo is **public and source-available under PolyForm Strict 1.0.0
+(ADR 0004)** — not open source: never add "open source / no tracking / F-Droid" claims anywhere,
+and never merge outside PRs. Tooling priority is **cheap/free over open-source**:
 a free non-OSS API is acceptable when it noticeably improves the app (ADR 0001 addendum).
 
 ## Build & verify

@@ -5,8 +5,10 @@ for a developer tool. **Palette constraint (Ethan): indigo, not Strava orange.**
 
 ## Source
 Strava iOS, Mobbin capture Jul 2026 — 709 screens in `Strava ios Jul 2026/` (git-ignored,
-600 MB, third-party). Triaged 2026-08-28 to the 42 curated webps in `strava/`, named
-`<category>-<mobbin index>`. Categories: **hud** (Record screen), **map** (map + sheet),
+600 MB, third-party). Triaged 2026-08-28 to 42 curated webps named `<category>-<mobbin index>`.
+The curated set was removed from the tree on 2026-09-08 when the repo went public (ADR 0004:
+Mobbin captures are third-party material); the table below is the record of what each frame
+informed. The frames live locally in the git-ignored folder. Categories: **hud** (Record screen), **map** (map + sheet),
 **list** (route cards), **settings**, **state** (empty / error / confirm), **numeral**.
 
 ## What to take · what to leave

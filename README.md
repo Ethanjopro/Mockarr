@@ -4,6 +4,8 @@
 
 Stack: **Kotlin · Jetpack Compose · MapLibre · OpenStreetMap · Geoapify (routing + search, with OSRM and Photon as fallback) · AWS Terrain Tiles · OpenFreeMap** — no accounts; one optional API key (`secrets.properties`, see ADR 0003), without which the app uses the public servers. Two commitments hold whatever else changes: **no anti-detection features**, and **nothing phones home without being disclosed in-app**.
 
+> **Source-available.** This repository is public so the code and its history can be read. It is licensed under [PolyForm Strict 1.0.0](LICENSE) (noncommercial use only; no redistribution, no modification). See [License](#license).
+
 | Route planning | Playback | Setup checklist | Settings |
 |---|---|---|---|
 | ![Route](fastlane/metadata/android/en-US/images/phoneScreenshots/1.png) | ![Playback](fastlane/metadata/android/en-US/images/phoneScreenshots/2.png) | ![Setup](fastlane/metadata/android/en-US/images/phoneScreenshots/3.png) | ![Settings](fastlane/metadata/android/en-US/images/phoneScreenshots/4.png) |
@@ -64,7 +66,7 @@ Key seams are interfaces (`RouteProvider`, `MockLocationController`), so alterna
 
 ## Contributing
 
-See [CONTRIBUTING.md](CONTRIBUTING.md). Issues and PRs welcome — especially device-specific reports (mock location behavior varies by OEM).
+See [CONTRIBUTING.md](CONTRIBUTING.md). Issues are welcome — especially device-specific reports (mock location behavior varies by OEM). Pull requests are not accepted: the licence below does not permit derived works, and keeping all copyright in one place keeps a later relicensing possible.
 
 ## Attribution
 
@@ -72,4 +74,4 @@ Map data © [OpenStreetMap](https://www.openstreetmap.org/copyright) contributor
 
 ## License
 
-**TBD — all rights reserved until a license is chosen.** Picking one is an explicit pre-release task; until then this source is available for reading and building for personal use.
+**Source-available, not open source.** Mockarr is licensed under the [PolyForm Strict License 1.0.0](LICENSE): you may read, build and run it for noncommercial purposes; you may not distribute it, modify it, or make new works based on it. The reasoning is in [ADR 0004](docs/adr/0004-source-available-licence.md). Copyright © 2026 Ethan Jones.

@@ -1488,3 +1488,27 @@ start as a start-time choice.
   pushed screen (use `back` + `assert "Search for a place"`); a long-press via `swipe x y x y 1500`
   never registers as a hold on the AVD — use the sheet's "Hold my location at the map centre" row.
   Double-tap zoom steps are large: for a 3D-buildings shot re-centre via search and double-tap once.
+
+### 2026-09-08 — Session 36 (source-available licence, repo public; portfolio site)
+- **Not app work, first:** Ethan's portfolio site (`docs/portfolio/mysite/`, untracked) gained a
+  Mockarr section (two 720p clips, four screenshots, two paragraphs Ethan wrote himself) and a
+  time-capsule reference `docs/portfolio/mockarr-time-capsule.md` (~8,300 words, pulled from the
+  repo by three Explore agents) to feed future descriptions. Session-35's `stripFor` search fix
+  committed on its own (`4b214ee`).
+- **Licence decided — ADR 0004:** the repo goes public under **PolyForm Strict 1.0.0**
+  (source-available: read/build/run for noncommercial purposes; no distribution, no modification,
+  no derived works). Purpose: employers and reviewers can read the code without a collaborator
+  invite. This is *not* open source; the "no open source / F-Droid claims" rule stands. `LICENSE`
+  carries the official plain text verbatim (`polyformproject.org/licenses/strict/1.0.0.txt`) under a
+  short copyright header; README, CONTRIBUTING (issues welcome, PRs not accepted), PRODUCT.md and
+  CLAUDE.md updated to match.
+- **Pre-flip history scan (full `git log --all -p`):** no key, keystore, `secrets.properties`,
+  `local.properties`, token or private-key material ever committed; the only email in history is
+  the commit author address (`ethanja@smu.edu`, present on every commit). Personal-decision
+  context (Play account, LLC/tax notes, resume filenames) lives in PROGRESS.md and
+  `docs/release/play-store-recommendations.md` — public by Ethan's choice.
+- **Third-party material:** the 42 curated Strava captures from Mobbin in
+  `docs/design/refs/strava/` (committed 2026-08-28, `3c168ec`) are copyrighted screenshots under
+  Mobbin's terms. Handling recorded in ADR 0004 and in the commit that lands it.
+- **Process:** flipping visibility is `gh repo edit --visibility public`; the site links the repo
+  from the Mockarr section's tag line and body.
