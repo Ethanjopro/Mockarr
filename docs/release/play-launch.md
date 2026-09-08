@@ -3,7 +3,7 @@
 Checkbox-style, in order. Written 2026-09-03 against Play Console as it was then — rules change
 (target API each August, Billing Library every two years, testing requirements), so when a step
 disagrees with what the Console shows, the Console wins and this file gets a fix. Honest advice
-and trade-offs live in the private release memo (`docs/private/`, git-ignored); this file is the *what to click*.
+and trade-offs live in `docs/private/play-store-recommendations.md` (git-ignored); this file is the *what to click*.
 
 Path: **personal developer account** (ADR 0002). The organization/LLC path is Appendix A.
 
@@ -62,7 +62,7 @@ Path: **personal developer account** (ADR 0002). The organization/LLC path is Ap
       `fastlane/metadata/android/en-US/changelogs/<versionCode>.txt`, tag `v<versionName>`.
 
 ## 2. Privacy policy hosting
-Play needs a public URL. The main repo is private, so:
+Play needs a public URL. The main repo is public but source-available (ADR 0004); keep the policy page in its own place so it can change without a code release:
 - [ ] Create a public repo `mockarr-site` (or a branch of a public docs repo) with GitHub Pages
       on; put `privacy-policy.md` there as `privacy.md` (Pages renders Markdown) → URL like
       `https://<user>.github.io/mockarr-site/privacy`.

@@ -41,12 +41,13 @@ curated set was committed on 2026-08-28).
    tree in the same commit that adds the licence, and `docs/design/refs/refs.md` keeps the table of
    what each frame informed. They remain in git history unless Ethan asks for a history rewrite,
    which is a separate, explicit decision (force-pushes are on the tool deny list).
-5. **No personal information in the tree.** The release memo moved to a git-ignored
-   `docs/private/`; PROGRESS.md and the launch runbook were scrubbed of home paths, home-area
-   place names, personal-finance remarks, resume filenames and state-specific steps. `.gitignore`
-   covers `docs/private/`, `docs/portfolio/`, `docs/*.docx` and `docs/resume*`. Commits from here
-   on use a GitHub noreply author address; the earlier author email stays in history unless Ethan
-   asks for a rewrite.
+5. **No credentials or home-address-level detail in the tree.** The release memo (it discusses
+   registered-agent and home-address questions) moved to the git-ignored
+   `docs/private/play-store-recommendations.md`; a home-area place name and the state-specific
+   LLC steps left PROGRESS.md and the launch runbook. File paths, including local ones and resume
+   filenames, deliberately stay: sessions rely on them (Ethan, 2026-09-08). `.gitignore` covers
+   `docs/private/`, `docs/portfolio/`, `docs/*.docx` and `docs/resume*`. The history was rewritten
+   the same day so every commit carries a GitHub noreply author address.
 6. **Relicensing later is possible in one direction only.** Ethan holds all copyright (no outside
    contributions have been merged), so a later switch to an OSI licence needs only a new ADR and
    a new `LICENSE`. Code accepted under PolyForm Strict from others would complicate that, which is
