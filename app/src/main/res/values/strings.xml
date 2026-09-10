@@ -20,6 +20,7 @@
     <string name="strip_stopping">Stopping…</string>
     <string name="strip_waiting">Waiting at stop %1$d · %2$s</string>
     <string name="strip_waiting_destination">Waiting at destination · %1$s</string>
+    <string name="strip_skip_wait">Skip</string>
     <string name="strip_offroad_pause">Leaving the road · %1$s</string>
     <string name="strip_holding_at">Holding at %1$s</string>
     <string name="strip_holding_destination">Holding at destination</string>

@@ -974,6 +974,11 @@ fun MapScreen(
                 } else {
                     null
                 }
+                // Skip ends only this drive's wait at the stop; the route's saved wait is untouched.
+                val skipWait: () -> Unit = {
+                    val dwelling = playbackState as? PlaybackState.Dwelling
+                    if (dwelling != null) sessionViewModel.setWaypointWait(dwelling.waypointIndex, 0)
+                }
                 StatCard(
                     strip = shownStrip,
                     stats = stats,
@@ -982,6 +987,7 @@ fun MapScreen(
                         StripAction.RELEASE -> sessionViewModel::release
                         StripAction.CANCEL_MOVE -> viewModel.interaction::cancelMove
                         StripAction.ADD_STOP -> viewModel::addSearchedPlaceAsStop
+                        StripAction.SKIP_WAIT -> skipWait
                         null -> null
                     },
                     onStatsClick = statsClick,

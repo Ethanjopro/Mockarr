@@ -210,7 +210,7 @@ private const val DOUBLE_SPEED = 2.0
 private val HANDLE_HEIGHT = 36.dp
 private val HANDLE_PILL_HEIGHT = 4.dp
 
-internal enum class StripAction { FIX, RELEASE, CANCEL_MOVE, ADD_STOP }
+internal enum class StripAction { FIX, RELEASE, CANCEL_MOVE, ADD_STOP, SKIP_WAIT }
 
 internal data class StripModel(
     val text: String,
@@ -306,7 +306,14 @@ private fun playbackStrip(playbackState: PlaybackState?, profile: RoutingProfile
             playbackState.waypointIndex < 0 -> stringResource(R.string.strip_offroad_pause, countdown)
             else -> stringResource(R.string.strip_waiting, playbackState.waypointIndex + 1, countdown)
         }
-        StripModel(text, StripTone.Hold)
+        // A real stop's wait can be skipped; the off-road pause is part of the drive itself.
+        val skippable = playbackState.waypointIndex >= 0
+        StripModel(
+            text = text,
+            tone = StripTone.Hold,
+            actionLabel = if (skippable) stringResource(R.string.strip_skip_wait) else null,
+            action = if (skippable) StripAction.SKIP_WAIT else null,
+        )
     }
     else -> StripModel(stringResource(profile.movingLabelRes()), StripTone.Accent)
 }

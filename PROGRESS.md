@@ -1524,3 +1524,23 @@ start as a start-time choice.
   and in the ADRs before 2026-09-08 refer to the pre-rewrite history; a local branch
   `backup/pre-email-rewrite` keeps the old objects (never push it). Force-push done by Ethan by hand
   (force-push stays on the tool deny list).
+
+### 2026-09-10 — Session 37 (Capstone assignment 1: Skip-wait interaction, first distributed build)
+- **Context:** Mockarr is Ethan's Junior Capstone project. Assignment 1 asks for a working, distributed
+  prototype with commit history, an AI code tour, a small AI-added interaction inspected via `git diff`
+  with one part revised by hand, and a write-up. The write-up lives in `Assignments/` (git-ignored
+  from this session on — coursework stays out of the public tree); the repo being public means the
+  grader needs no invite.
+- **Skip the wait (AI-coded):** the Dwelling branch of `playbackStrip` (`MapSheet.kt`) gains an
+  action (`StripAction.SKIP_WAIT`, label `strip_skip_wait`) whenever the wait belongs to a real stop
+  (`waypointIndex >= 0`; off-road pauses stay unskippable). `MapScreen.kt` dispatches it to
+  `MockSessionViewModel.setWaypointWait(index, 0)` — the live wait-edit queue the stop popover already
+  uses, so the engine is untouched and the route's saved wait survives for a replay. New engine test:
+  `clearing the active dwell leaves on the next tick` (`SimulationEngineWaitEditTest`).
+- **Emulator-verified (debug build):** "Waiting at stop 2 · 0:39" + Skip → "Driving", chip gone,
+  distance left falling; Paused hides Skip, Resume restores it with the countdown intact; Skip after a
+  resume works. Screenshots kept with the assignment. The destination popover's dimmed clock is by
+  design (`stopStays` while "Stay at destination" is on), not a bug.
+- **Next in this session:** Ethan revises one part by hand (own commit), release APK debug-signed and
+  verified via `installapk`, README "Install" gains the GitHub Releases line, tag `v0.2.0` + GitHub
+  Release with install notes.

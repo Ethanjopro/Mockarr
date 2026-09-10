@@ -112,6 +112,21 @@ class SimulationEngineWaitEditTest {
     }
 
     @Test
+    fun `clearing the active dwell leaves on the next tick`() = runTest {
+        val engine = SimulationEngine(twoLegRoute(waits = listOf(0, 600, 0)), noJitter, testClock())
+        val job = launch { engine.fixes.collect {} }
+        advanceTimeBy(80_000)
+        assertIs<PlaybackState.Dwelling>(engine.state.value)
+
+        engine.setWaypointWait(1, 0) // the Skip button
+        advanceTimeBy(3_000)
+        assertIs<PlaybackState.Playing>(engine.state.value)
+        advanceTimeBy(600_000)
+        job.join()
+        assertIs<PlaybackState.Finished>(engine.state.value)
+    }
+
+    @Test
     fun `extending the active dwell keeps waiting`() = runTest {
         val engine = SimulationEngine(twoLegRoute(waits = listOf(0, 60, 0)), noJitter, testClock())
         val job = launch { engine.fixes.collect {} }
