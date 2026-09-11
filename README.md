@@ -31,6 +31,7 @@ Android's Developer Options include **"Select mock location app"** — an OS-san
 
 ## Install
 
+- **GitHub Releases** — debug-signed test builds for sideloading ([latest release](https://github.com/Ethanjopro/Mockarr/releases/latest)); install steps are in each release's notes
 - **Google Play** — in preparation (ADR 0002; runbook in `docs/release/play-launch.md`)
 - **From source** (below)
 

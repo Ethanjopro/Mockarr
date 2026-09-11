@@ -1541,6 +1541,16 @@ start as a start-time choice.
   distance left falling; Paused hides Skip, Resume restores it with the countdown intact; Skip after a
   resume works. Screenshots kept with the assignment. The destination popover's dimmed clock is by
   design (`stopStays` while "Stay at destination" is on), not a bug.
-- **Next in this session:** Ethan revises one part by hand (own commit), release APK debug-signed and
-  verified via `installapk`, README "Install" gains the GitHub Releases line, tag `v0.2.0` + GitHub
-  Release with install notes.
+- **Ethan's manual revision (own commit):** Skip is offered only while more than `SKIP_MIN_SECONDS`
+  (3 s) of wait remain — the assignment's "revise one part by hand" step.
+- **Release APK verified (R8, debug-signed as `Mockarr-0.2.0-test.apk` via the same apksigner step
+  `emu.sh installapk` uses):** search → add stops → "Ready to drive"; wait badge; playback at 4×;
+  Skip present at 0:59 and flips to "Driving"; no Skip at 0:02; arrival → Holding → Stop; save →
+  Routes card with thumbnail → reload "Route ready". Logcat clean (no ClassNotFound/NoSuchMethod).
+- **Distribution:** first sideload channel — README "Install" lists GitHub Releases (debug-signed
+  test builds; ADR 0002 already names it the secondary channel). Tag `v0.2.0`, release notes with
+  install + mock-location setup steps, the APK attached. No upload keystore exists yet (Play still
+  tabled); the test build will not update over a future Play install.
+- **Verifier friction:** the speed popover's 2×/4× chips sit past the right edge with no scroll
+  affordance (already noted in session 35); setting a wait on "stop 2" of a two-stop route is moot
+  because stop 2 is the destination — build three stops first.
