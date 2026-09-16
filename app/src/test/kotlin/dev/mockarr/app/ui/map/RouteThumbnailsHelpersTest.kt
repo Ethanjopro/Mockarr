@@ -63,6 +63,8 @@ class RouteThumbnailsHelpersTest {
 private fun testPalette(route: Int) = MapPalette(
     route = route,
     routeCasing = 0xFFFFFFFF.toInt(),
+    routeTravelled = route,
+    routeGlow = 0,
     fallbackRoute = 0xFFB8741A.toInt(),
     offRoad = route,
     position = route,

@@ -20,8 +20,10 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.lerp
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.CustomAccessibilityAction
 import androidx.compose.ui.semantics.contentDescription
@@ -97,12 +99,18 @@ fun ThumbstickOverlay(
             dragging = false
         }
     }
+    val haptic = LocalHapticFeedback.current
     LaunchedEffect(dragging) {
         // Reads drag.value each pass — a coroutine loop sees fresh state.
+        var moving = false
         while (dragging) {
             val current = drag
             if (current != Offset.Zero) {
                 val deflection = (current.getDistance() / maxRadiusPx).coerceIn(0f, 1f)
+                // A tick at the dead-zone edge: the thumb can feel where movement begins.
+                val nowMoving = responseCurve(deflection) > 0f
+                if (nowMoving && !moving) haptic.performHapticFeedback(HapticFeedbackType.SegmentFrequentTick)
+                moving = nowMoving
                 onNudge(stickBearingDegrees(current.x, current.y), deflection)
             }
             delay(NUDGE_TICK_MILLIS)

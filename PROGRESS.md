@@ -1609,3 +1609,28 @@ start as a start-time choice.
   Update's points. Service class hit the 26-function detekt cap → the notification progress helpers
   moved to `playback/ProgressLayout.kt` (file-level). Live-region/heading semantics are not visible
   in uiautomator dumps — code-verified only.
+- **D — Visual-effects study + first pass (shipped D1–D5):** study in the plan file (ten ideas
+  ranked; D6–D8 route draw-in, stop-drop bounce, arrival ring are the second pass; D9/D10 parked).
+  Built: **D1 heading cone** — `MapPuck.kt`: a radial-faded wedge bitmap on a `SymbolLayer` under
+  the live dot, `icon-rotate` from the fix's bearing (map-aligned), breathing 0.7↔1.0 opacity via
+  `Animatable` frame callbacks (steady under reduce-motion — gated on the same flag as camera
+  eases). **D2 travelled road dims** — `ROUTE_SOURCE` gets `lineMetrics`, `ROUTE_LAYER` a
+  `line-gradient` stepping `routeTravelled` → `route` at the drive's progress (one property update
+  per fix; solid when not driving or when off-road spans split the line). **D3 odometer
+  numerals** — `StatTrio` values roll up through `Motion.rollUp()` (`AnimatedContent`, 200 ms;
+  not visually captured — a screenshot can't catch a 200 ms roll). **D4 night glow** — a blurred
+  `LineLayer` under the casing, `MapPalette.routeGlow` (dark 40 % indigo, light transparent).
+  **D5 haptics** — `SessionHaptics`: drive start (`GestureThresholdActivate`), wait begins/ends
+  (`SegmentTick`); stop placed (`ContextClick`, `MapLayer`); thumbstick dead-zone edge
+  (`SegmentFrequentTick`). New palette tokens `routeTravelled` / `routeGlow` (thumbnail cache key
+  includes the palette, so thumbnails regenerate once). Emulator: light + dark frames show the
+  cone ahead of the puck along the road, the dimmed stretch behind, the glow at night; vibrator
+  log counted 3 haptics for 3 stops; logcat clean. First cone build was too faint — alpha 0x8C →
+  0xB8, solid core 0.15 → 0.4, breath floor 0.45 → 0.7.
+- **Found while verifying (fixed):** the Start chooser's origin (`pendingRealStart`) was a
+  `remember`ed local while the chooser's route lived in `MapInteraction`, so a theme change or
+  rotation mid-choice relabelled "My location" as "Held spot" with no hold. Now
+  `MapInteraction.startChoiceRealStart` travels with the route; verified across a night-mode flip.
+- **Verifier friction this session:** `tapon "Route start"` needs ~1.5 s after Start (the chooser
+  animates in); `tapon Stop` can match the trio's "Stops" label — tap the band's Stop by
+  coordinates; a scratch `drive.sh build|start|hold` helper made reruns cheap.

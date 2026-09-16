@@ -14,6 +14,10 @@ import androidx.compose.runtime.Immutable
 data class MapPalette(
     val route: Int,
     val routeCasing: Int,
+    /** The stretch already driven: the accent, spent. */
+    val routeTravelled: Int,
+    /** Soft halo under the route (the neon road at night); transparent by day. */
+    val routeGlow: Int,
     val fallbackRoute: Int,
     val offRoad: Int,
     val position: Int,

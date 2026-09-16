@@ -62,6 +62,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.layout.boundsInParent
 import androidx.compose.ui.layout.boundsInWindow
 import androidx.compose.ui.layout.onGloballyPositioned
@@ -69,6 +70,7 @@ import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
@@ -102,6 +104,7 @@ import dev.mockarr.core.model.LatLng
 import dev.mockarr.core.model.PlaybackState
 import dev.mockarr.core.model.Route
 import dev.mockarr.core.model.Waypoint
+import dev.mockarr.core.model.progressOrZero
 import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.launch
 import kotlin.math.roundToInt
@@ -133,6 +136,7 @@ fun MapLayer(
     val playbackState by sessionViewModel.playbackState.collectAsStateWithLifecycle()
     val focusManager = LocalFocusManager.current
     val context = LocalContext.current
+    val haptic = LocalHapticFeedback.current
 
     val playing = session is MockSessionState.Playing
     // Natural arrival ends like Finish does: the driven route leaves the map (a
@@ -186,7 +190,10 @@ fun MapLayer(
                         TapAction.DismissStartChoice -> viewModel.interaction.clearStartChoice()
                         TapAction.DismissSelection -> viewModel.interaction.select(null)
                         // Building or idle: a stop lands (the first one opens the builder).
-                        TapAction.AddStop -> viewModel.addWaypoint(point)
+                        TapAction.AddStop -> {
+                            haptic.performHapticFeedback(HapticFeedbackType.ContextClick)
+                            viewModel.addWaypoint(point)
+                        }
                     }
                 }
             } else if (viewModel.interaction.selectedWaypoint.value != null) {
@@ -230,6 +237,13 @@ fun MapLayer(
         searchedPlace = searchedPlace?.position,
         onSearchPinTap = viewModel::addSearchedPlaceAsStop,
         playbackPosition = if (playing) latestFix?.position else null,
+        playbackBearing = if (playing) latestFix?.bearingDegrees else null,
+        // Off-road spans split the drawn line into pieces, and line-progress is per piece.
+        playbackProgress = if (playing && state.route?.offRoadSpans.isNullOrEmpty()) {
+            playbackState.progressOrZero.toFloat()
+        } else {
+            null
+        },
         cameraFollow = followCamera && playing,
         animateCamera = rememberSystemAnimationsEnabled(),
         dragEnabled = !playing,
@@ -373,7 +387,7 @@ fun MapScreen(
     var showRouteFromHoldPrompt by remember { mutableStateOf(false) }
     var routeFromMePosition by remember { mutableStateOf<LatLng?>(null) }
     var playWhenRouteReady by remember { mutableStateOf(false) }
-    var pendingRealStart by remember { mutableStateOf<LatLng?>(null) }
+    val pendingRealStart by viewModel.interaction.startChoiceRealStart.collectAsStateWithLifecycle()
     var locatingStart by remember { mutableStateOf(false) }
 
     fun currentHold(): MockSessionState.Holding? =
@@ -404,8 +418,7 @@ fun MapScreen(
             if (real == null || startsNear(current.points.first(), real)) {
                 requestPlay(current)
             } else {
-                pendingRealStart = real
-                viewModel.interaction.requestStartChoice(current)
+                viewModel.interaction.requestStartChoice(current, realStart = real)
             }
         }
     }
@@ -427,7 +440,6 @@ fun MapScreen(
         val hold = currentHold()
         val ui = viewModel.uiState.value
         val route = ui.route
-        pendingRealStart = null
         when {
             route != null && hold != null -> {
                 if (startsNear(route.points.first(), hold.position)) {
@@ -459,13 +471,11 @@ fun MapScreen(
             onFromOrigin = {
                 viewModel.interaction.clearStartChoice()
                 val origin = realStart ?: currentHold()?.position
-                pendingRealStart = null
                 origin?.let { viewModel.addWaypoint(it, atStart = true) }
                 playWhenRouteReady = true
             },
             onFromRouteStart = {
                 viewModel.interaction.clearStartChoice()
-                pendingRealStart = null
                 requestPlay(pendingRoute)
             },
         )
@@ -491,7 +501,6 @@ fun MapScreen(
                 searchViewModel.clearResults()
             }
             startChoice != null -> {
-                pendingRealStart = null
                 viewModel.interaction.clearStartChoice()
             }
             movingWaypoint != null -> viewModel.interaction.cancelMove()
@@ -622,6 +631,7 @@ fun MapScreen(
         scope.launch { snackbarHostState.showSnackbar(savedTemplate.format(name)) }
     }
     ReleaseSnackbar(session = session, snackbarHostState = snackbarHostState)
+    SessionHaptics(session = session, playbackState = playbackState)
     val expanded = sheetState.currentValue == SheetValue.Expanded
     var peekHeightPx by remember { mutableIntStateOf(0) }
     val density = LocalDensity.current

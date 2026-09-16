@@ -6,6 +6,7 @@ import androidx.compose.animation.AnimatedContentTransitionScope
 import androidx.compose.animation.ContentTransform
 import androidx.compose.animation.EnterTransition
 import androidx.compose.animation.ExitTransition
+import androidx.compose.animation.SizeTransform
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -51,6 +52,14 @@ object Motion {
         return fadeThroughIn.togetherWith(fadeOut(tween(FADE_THROUGH_DELAY)))
     }
 
+    /** A stat value ticking over: the new one rolls up from below like an odometer wheel. */
+    fun <T> AnimatedContentTransitionScope<T>.rollUp(): ContentTransform {
+        val enter = slideInVertically(tween(QUICK_MILLIS)) { it / ROLL_FRACTION } + fadeIn(tween(QUICK_MILLIS))
+        val exit = slideOutVertically(tween(QUICK_MILLIS)) { -it / ROLL_FRACTION } + fadeOut(tween(QUICK_MILLIS))
+        return (enter togetherWith exit).using(SizeTransform(clip = false))
+    }
+
+    private const val ROLL_FRACTION = 2
     private const val SCALE_FROM = 0.8f
     private const val FADE_THROUGH_SCALE = 0.96f
     private const val FADE_THROUGH_DELAY = 90

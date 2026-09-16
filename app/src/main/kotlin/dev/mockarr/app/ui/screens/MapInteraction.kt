@@ -1,6 +1,7 @@
 package dev.mockarr.app.ui.screens
 
 import androidx.compose.ui.geometry.Offset
+import dev.mockarr.core.model.LatLng
 import dev.mockarr.core.model.Route
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -29,6 +30,14 @@ class MapInteraction(private val isStop: (Int) -> Boolean) {
     /** Route awaiting a "from held spot / from route start" pick in the action row. */
     private val _startChoiceRoute = MutableStateFlow<Route?>(null)
     val startChoiceRoute: StateFlow<Route?> = _startChoiceRoute.asStateFlow()
+
+    /**
+     * The device's real position when the pick is "my location / route start",
+     * null when it is "held spot / route start". Lives here with the route so a
+     * theme or rotation change cannot relabel the pills mid-choice.
+     */
+    private val _startChoiceRealStart = MutableStateFlow<LatLng?>(null)
+    val startChoiceRealStart: StateFlow<LatLng?> = _startChoiceRealStart.asStateFlow()
 
     /** The stop whose popover is open: a marker tap's selection; a sheet pick only highlights. */
     private val _popoverWaypoint = MutableStateFlow<Int?>(null)
@@ -105,12 +114,14 @@ class MapInteraction(private val isStop: (Int) -> Boolean) {
         }
     }
 
-    fun requestStartChoice(route: Route) {
+    fun requestStartChoice(route: Route, realStart: LatLng? = null) {
         _startChoiceRoute.value = route
+        _startChoiceRealStart.value = realStart
     }
 
     fun clearStartChoice() {
         _startChoiceRoute.value = null
+        _startChoiceRealStart.value = null
     }
 
     /** Every stop edit drops the selection and any pending move. */

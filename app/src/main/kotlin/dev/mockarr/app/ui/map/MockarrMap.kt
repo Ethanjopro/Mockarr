@@ -55,6 +55,7 @@ import org.maplibre.android.geometry.LatLng as MapLibreLatLng
 internal const val ROUTE_SOURCE = "route-source"
 private const val ROUTE_LAYER = "route-layer"
 private const val ROUTE_CASING_LAYER = "route-casing-layer"
+private const val ROUTE_GLOW_LAYER = "route-glow-layer"
 private const val ROUTE_ARROW_LAYER = "route-arrow-layer"
 private const val ROUTE_ARROW_ICON = "route-chevron"
 private const val ROUTE_ARROW_SPACING_DP = 72f
@@ -70,7 +71,7 @@ internal const val WAIT_CHIP_SOURCE = "wait-chip-source"
 internal const val WAIT_CHIP_LAYER = "wait-chip-layer"
 private const val PIN_SOURCE = "pin-source"
 private const val PIN_LAYER = "pin-layer"
-private const val PLAYBACK_SOURCE = "playback-source"
+internal const val PLAYBACK_SOURCE = "playback-source"
 private const val PLAYBACK_LAYER = "playback-layer"
 internal const val ICON_KEY = "icon"
 internal const val SORT_KEY = "sort"
@@ -118,6 +119,9 @@ fun MockarrMap(
     searchedPlace: LatLng? = null,
     onSearchPinTap: () -> Unit = {},
     playbackPosition: LatLng? = null,
+    playbackBearing: Double? = null,
+    /** 0–1 of the route driven, or null to paint the whole line in the accent. */
+    playbackProgress: Float? = null,
     cameraFollow: Boolean = false,
     animateCamera: Boolean = true,
     dragEnabled: Boolean = true,
@@ -375,10 +379,24 @@ fun MockarrMap(
         }
     }
 
-    LaunchedEffect(style, playbackPosition) {
+    LaunchedEffect(style, playbackPosition, playbackBearing) {
         val loadedStyle = style ?: return@LaunchedEffect
-        loadedStyle.getSourceAs<GeoJsonSource>(PLAYBACK_SOURCE)
-            ?.setGeoJson(playbackPosition.toFeatures())
+        updatePlayback(loadedStyle, playbackPosition, playbackBearing)
+    }
+    // The road behind the puck goes quiet: one gradient update per fix.
+    LaunchedEffect(style, palette, playbackProgress) {
+        val loadedStyle = style ?: return@LaunchedEffect
+        val gradient = routeGradient(palette, playbackProgress)
+        loadedStyle.getLayer(ROUTE_LAYER)?.setProperties(PropertyFactory.lineGradient(gradient))
+    }
+    // The heading cone breathes while driving (reduce-motion: steady).
+    LaunchedEffect(style, playbackPosition != null, animateCamera) {
+        val layer = style?.getLayer(PLAYBACK_HEADING_LAYER) ?: return@LaunchedEffect
+        if (playbackPosition != null && animateCamera) {
+            breathe(layer)
+        } else {
+            layer.setProperties(PropertyFactory.iconOpacity(1f))
+        }
     }
 
     // Read at apply time, not as a key: a taller overlay must not re-run the last fit.
@@ -414,6 +432,9 @@ fun MockarrMap(
 }
 
 private const val CASING_OPACITY = 0.9f
+private const val GLOW_Z10 = 10f
+private const val GLOW_Z15 = 18f
+private const val GLOW_Z19 = 34f
 private const val FOLLOW_MIN_ZOOM = 15.0
 private const val FOLLOW_EASE_MILLIS = 900
 private const val KEEP_IN_VIEW_MARGIN = 0.2f
@@ -476,7 +497,10 @@ private fun setUpLayers(style: Style, density: Float, palette: MapPalette) {
     // 0.375, maxZoom 18) re-simplify the route client-side, visibly cutting
     // corners off the road when overzoomed past z18.
     val lineSourceOptions = GeoJsonOptions().withMaxZoom(22).withTolerance(0.0f)
-    listOf(ROUTE_SOURCE, FALLBACK_SOURCE, OFF_ROAD_SOURCE)
+    // Line metrics give the route layer `line-progress` for the travelled-stretch gradient.
+    val routeSourceOptions = GeoJsonOptions().withMaxZoom(22).withTolerance(0.0f).withLineMetrics(true)
+    style.addSource(GeoJsonSource(ROUTE_SOURCE, routeSourceOptions))
+    listOf(FALLBACK_SOURCE, OFF_ROAD_SOURCE)
         .forEach { style.addSource(GeoJsonSource(it, lineSourceOptions)) }
     listOf(WAYPOINT_SOURCE, WAIT_CHIP_SOURCE, SEARCH_PIN_SOURCE, PIN_SOURCE, PLAYBACK_SOURCE)
         .forEach { style.addSource(GeoJsonSource(it)) }
@@ -489,6 +513,7 @@ private fun setUpLayers(style: Style, density: Float, palette: MapPalette) {
     )
     val routeWidth = zoomWidth(3f, 5f, 11f)
     val casingWidth = zoomWidth(5f, 8f, 15f)
+    style.addLayer(routeGlowLayer(ROUTE_GLOW_LAYER, ROUTE_SOURCE, zoomWidth(GLOW_Z10, GLOW_Z15, GLOW_Z19)))
     // Casing under the line: the route stays legible on any basemap tone.
     style.addLayer(
         LineLayer(ROUTE_CASING_LAYER, ROUTE_SOURCE).withProperties(
@@ -540,7 +565,11 @@ private fun applyPalette(style: Style, palette: MapPalette, density: Float) {
     style.getLayer(ROUTE_CASING_LAYER)?.setProperties(
         PropertyFactory.lineColor(MapPalette.css(palette.routeCasing)),
     )
-    style.getLayer(ROUTE_LAYER)?.setProperties(PropertyFactory.lineColor(MapPalette.css(palette.route)))
+    style.getLayer(ROUTE_LAYER)?.setProperties(
+        PropertyFactory.lineColor(MapPalette.css(palette.route)),
+        PropertyFactory.lineGradient(routeGradient(palette, null)),
+    )
+    style.getLayer(ROUTE_GLOW_LAYER)?.setProperties(PropertyFactory.lineColor(MapPalette.css(palette.routeGlow)))
     style.getLayer(FALLBACK_LAYER)?.setProperties(
         PropertyFactory.lineColor(MapPalette.css(palette.fallbackRoute)),
     )
@@ -557,6 +586,7 @@ private fun applyPalette(style: Style, palette: MapPalette, density: Float) {
     )
     style.addImage(ROUTE_ARROW_ICON, chevronBitmap(palette.routeCasing, density))
     style.addImage(SEARCH_PIN_ICON, searchPinBitmap(MarkerStyle(density, palette)))
+    style.addImage(PLAYBACK_HEADING_ICON, headingConeBitmap(palette.position, density))
 }
 
 /** A ">" pointing along +x; MapLibre rotates it to the line's bearing. */
@@ -623,6 +653,8 @@ private fun addPointLayers(style: Style) {
             PropertyFactory.circleStrokeWidth(3f),
         ),
     )
+    // The heading cone sits under the live dot and turns with the fix's bearing.
+    style.addLayer(headingLayer())
     style.addLayer(
         CircleLayer(PLAYBACK_LAYER, PLAYBACK_SOURCE).withProperties(
             PropertyFactory.circleRadius(8f),

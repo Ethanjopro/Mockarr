@@ -1,5 +1,6 @@
 package dev.mockarr.app.ui.screens
 
+import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.animateContentSize
@@ -38,6 +39,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import dev.mockarr.app.R
+import dev.mockarr.app.ui.Motion.rollUp
 import dev.mockarr.app.ui.rememberFormatter
 import dev.mockarr.app.ui.theme.MapPopover
 import dev.mockarr.app.ui.theme.MockarrTheme
@@ -184,15 +186,23 @@ fun StatTrio(cells: List<StatCell>, modifier: Modifier = Modifier) {
     Row(modifier = modifier.fillMaxWidth()) {
         cells.forEach { cell ->
             Column(modifier = Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally) {
-                Text(
-                    text = cell.value,
-                    style = MaterialTheme.typography.headlineMedium.copy(fontWeight = FontWeight.Bold),
-                    color = MaterialTheme.colorScheme.onSurface,
-                    maxLines = 1,
-                    softWrap = false,
-                    // "1 h 12 min" overflows a third of the card at 28sp: shrink, never clip.
-                    autoSize = TextAutoSize.StepBased(minFontSize = TRIO_MIN_FONT, maxFontSize = TRIO_MAX_FONT),
-                )
+                // The value rolls over like an instrument wheel when it changes.
+                AnimatedContent(
+                    targetState = cell.value,
+                    transitionSpec = { rollUp() },
+                    contentAlignment = Alignment.Center,
+                    label = "statValue",
+                ) { value ->
+                    Text(
+                        text = value,
+                        style = MaterialTheme.typography.headlineMedium.copy(fontWeight = FontWeight.Bold),
+                        color = MaterialTheme.colorScheme.onSurface,
+                        maxLines = 1,
+                        softWrap = false,
+                        // "1 h 12 min" overflows a third of the card at 28sp: shrink, never clip.
+                        autoSize = TextAutoSize.StepBased(minFontSize = TRIO_MIN_FONT, maxFontSize = TRIO_MAX_FONT),
+                    )
+                }
                 Text(
                     text = cell.label,
                     style = MaterialTheme.typography.labelMedium,
