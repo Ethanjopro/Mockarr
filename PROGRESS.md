@@ -1588,3 +1588,12 @@ start as a start-time choice.
   clean; logcat clean. **Verifier notes:** the Start tap opens the "Start from" chooser when the
   real location is far from the route — tap "Route start"; the dialog's Resume/Discard share
   labels with the band, so tap by bounds (parse with python, not awk on `][`).
+- **A — Android 16 Live Updates (shipped):** the drive notification is built with
+  `NotificationCompat.ProgressStyle` — one segment per leg (whole metres), one point per
+  intermediate stop, `styledByProgress`, tracker icon by travel mode (car/walk/bike), flag at the
+  end — plus `setRequestPromotedOngoing(true)` and a `shortCriticalText` chip (time left, or
+  "Paused"). Manifest gains `POST_PROMOTED_NOTIFICATIONS`. Holding notification untouched; the
+  5-tick refresh and the de-dupe key are unchanged. On API 35 the compat style posts a plain bar
+  in metre units (`progress 417 / 795`) with both actions — verified via `dumpsys notification`
+  and the shade. **Not verified:** the promoted chip itself needs Android 16 (the AVD is API 35) —
+  Ethan to check on his Pixel 8a, or ask for an `android-36` AVD.

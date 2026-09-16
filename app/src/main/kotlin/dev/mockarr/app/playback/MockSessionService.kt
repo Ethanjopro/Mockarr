@@ -12,6 +12,7 @@ import android.os.PowerManager
 import android.os.SystemClock
 import androidx.core.app.NotificationCompat
 import androidx.core.app.ServiceCompat
+import androidx.core.graphics.drawable.IconCompat
 import dagger.hilt.android.AndroidEntryPoint
 import dev.mockarr.app.MainActivity
 import dev.mockarr.app.R
@@ -80,6 +81,14 @@ class MockSessionService : Service() {
     private var holdJob: Job? = null
     private var wakeLock: PowerManager.WakeLock? = null
     private var routeDistanceMeters: Double = 0.0
+
+    /** The drive's legs and stops as the notification's progress bar shows them (Android 16 Live Updates). */
+    private var progressLayout: ProgressLayout? = null
+
+    /** Whole-metre leg lengths (the bar's segments) and the stops between them (its points). */
+    private class ProgressLayout(val segmentMeters: List<Int>, val stopMeters: List<Int>, val profile: RoutingProfile) {
+        val totalMeters: Int = segmentMeters.sum()
+    }
 
     /** The drive in flight, for snapshots; null while holding or idle. */
     private var activeDrive: ActiveDrive? = null
@@ -196,6 +205,7 @@ class MockSessionService : Service() {
         val route = pending.route
         acquireWakeLock()
         routeDistanceMeters = route.distanceMeters
+        progressLayout = progressLayoutOf(route, pending.profile)
         val settings = settingsRepository.settings.value
         // Congestion factor is captured once at playback start, never mid-route.
         val trafficFactor = if (settings.trafficSimEnabled) {
@@ -451,9 +461,10 @@ class MockSessionService : Service() {
         val progress = state.progressOrZero
         val units = settingsRepository.settings.value.units
         val formatter = Formatter(resources)
+        val timeLeft = state.remainingSecondsOrNull?.let(formatter::duration)
         val parts = listOfNotNull(
             formatter.distanceProgress(routeDistanceMeters * progress, routeDistanceMeters, units),
-            state.remainingSecondsOrNull?.let { getString(R.string.notification_time_left, formatter.duration(it)) },
+            timeLeft?.let { getString(R.string.notification_time_left, it) },
             when {
                 paused -> getString(R.string.notification_paused)
                 state is PlaybackState.Dwelling -> getString(R.string.notification_waiting)
@@ -468,6 +479,10 @@ class MockSessionService : Service() {
             NotificationCompat.Action(0, getString(R.string.notification_action_pause), pauseIntent)
         }
 
+        // Android 16+: a promoted Live Update — status-bar chip with the time
+        // left, lock-screen card whose bar has the legs as segments and the stops
+        // as points. Older versions ignore the style and keep the plain bar.
+        val chip = if (paused) getString(R.string.notification_chip_paused) else timeLeft
         return NotificationCompat.Builder(this, CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_stat_pin)
             .setContentTitle(getString(R.string.notification_title_driving))
@@ -478,7 +493,37 @@ class MockSessionService : Service() {
             .setContentIntent(contentIntent)
             .addAction(toggleAction)
             .addAction(NotificationCompat.Action(0, getString(R.string.notification_action_stop), stopIntent))
+            .setRequestPromotedOngoing(true)
+            .apply { chip?.let(::setShortCriticalText) }
+            .apply { progressLayout?.let { setStyle(progressStyle(it, progress)) } }
             .build()
+    }
+
+    private fun progressStyle(layout: ProgressLayout, progress: Double): NotificationCompat.ProgressStyle =
+        NotificationCompat.ProgressStyle()
+            .setProgressSegments(layout.segmentMeters.map { NotificationCompat.ProgressStyle.Segment(it) })
+            .setProgressPoints(layout.stopMeters.map { NotificationCompat.ProgressStyle.Point(it) })
+            .setProgress((progress * layout.totalMeters).toInt().coerceIn(0, layout.totalMeters))
+            .setStyledByProgress(true)
+            .setProgressTrackerIcon(IconCompat.createWithResource(this, layout.profile.trackerIconRes()))
+            .setProgressEndIcon(IconCompat.createWithResource(this, R.drawable.ic_flag))
+
+    private fun RoutingProfile.trackerIconRes(): Int = when (this) {
+        RoutingProfile.DRIVING -> R.drawable.ic_car
+        RoutingProfile.WALKING -> R.drawable.ic_walk
+        RoutingProfile.CYCLING -> R.drawable.ic_bike
+    }
+
+    /**
+     * One segment per leg (whole metres, at least 1 so a zero-length leg still
+     * draws) and one point per intermediate stop at its cumulative distance.
+     * Null when the route carries no legs, in which case the bar stays plain.
+     */
+    private fun progressLayoutOf(route: Route, profile: RoutingProfile): ProgressLayout? {
+        if (route.legs.isEmpty()) return null
+        val segments = route.legs.map { leg -> leg.segmentDistancesMeters.sum().toInt().coerceAtLeast(1) }
+        val stops = segments.runningReduce(Int::plus).dropLast(1)
+        return ProgressLayout(segments, stops, profile)
     }
 
     /** User-facing failure copy for a mock session start, or null on success. */
