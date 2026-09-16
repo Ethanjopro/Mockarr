@@ -12,7 +12,6 @@ import android.os.PowerManager
 import android.os.SystemClock
 import androidx.core.app.NotificationCompat
 import androidx.core.app.ServiceCompat
-import androidx.core.graphics.drawable.IconCompat
 import dagger.hilt.android.AndroidEntryPoint
 import dev.mockarr.app.MainActivity
 import dev.mockarr.app.R
@@ -31,6 +30,7 @@ import dev.mockarr.core.model.progressOrZero
 import dev.mockarr.core.model.remainingSecondsOrNull
 import dev.mockarr.core.routing.ElevationProvider
 import dev.mockarr.core.routing.Geocoder
+import dev.mockarr.core.simulation.Jitter
 import dev.mockarr.core.simulation.SimClock
 import dev.mockarr.core.simulation.SimulationEngine
 import dev.mockarr.core.simulation.SimulationParams
@@ -85,11 +85,6 @@ class MockSessionService : Service() {
     /** The drive's legs and stops as the notification's progress bar shows them (Android 16 Live Updates). */
     private var progressLayout: ProgressLayout? = null
 
-    /** Whole-metre leg lengths (the bar's segments) and the stops between them (its points). */
-    private class ProgressLayout(val segmentMeters: List<Int>, val stopMeters: List<Int>, val profile: RoutingProfile) {
-        val totalMeters: Int = segmentMeters.sum()
-    }
-
     /** The drive in flight, for snapshots; null while holding or idle. */
     private var activeDrive: ActiveDrive? = null
 
@@ -98,6 +93,9 @@ class MockSessionService : Service() {
 
     /** The pin held when playback began — the fallback if "stay at destination" is off. */
     private var rememberedPin: LatLng? = null
+
+    /** A parked receiver still wobbles: the hold keepalive reports a jittered copy of the spot. */
+    private val holdJitter = Jitter(Random(SystemClock.elapsedRealtimeNanos()))
 
     private val contentIntent by lazy {
         PendingIntent.getActivity(
@@ -350,11 +348,18 @@ class MockSessionService : Service() {
             }
             while (isActive) {
                 delay(HOLD_TICK_MILLIS)
-                mockController.push(fix)
+                mockController.push(wobbled(fix))
             }
         }
         getSystemService(NotificationManager::class.java)
             .notify(NOTIFICATION_ID, buildNotification())
+    }
+
+    /** The pushed copy only — the held position, the banner and the thumbstick target never move. */
+    private fun wobbled(fix: SimulatedFix): SimulatedFix {
+        val settings = settingsRepository.settings.value
+        if (!settings.jitterEnabled) return fix
+        return fix.copy(position = holdJitter.offset(fix.position, settings.jitterSigmaMeters))
     }
 
     private suspend fun resolveHoldName(position: LatLng) {
@@ -497,33 +502,6 @@ class MockSessionService : Service() {
             .apply { chip?.let(::setShortCriticalText) }
             .apply { progressLayout?.let { setStyle(progressStyle(it, progress)) } }
             .build()
-    }
-
-    private fun progressStyle(layout: ProgressLayout, progress: Double): NotificationCompat.ProgressStyle =
-        NotificationCompat.ProgressStyle()
-            .setProgressSegments(layout.segmentMeters.map { NotificationCompat.ProgressStyle.Segment(it) })
-            .setProgressPoints(layout.stopMeters.map { NotificationCompat.ProgressStyle.Point(it) })
-            .setProgress((progress * layout.totalMeters).toInt().coerceIn(0, layout.totalMeters))
-            .setStyledByProgress(true)
-            .setProgressTrackerIcon(IconCompat.createWithResource(this, layout.profile.trackerIconRes()))
-            .setProgressEndIcon(IconCompat.createWithResource(this, R.drawable.ic_flag))
-
-    private fun RoutingProfile.trackerIconRes(): Int = when (this) {
-        RoutingProfile.DRIVING -> R.drawable.ic_car
-        RoutingProfile.WALKING -> R.drawable.ic_walk
-        RoutingProfile.CYCLING -> R.drawable.ic_bike
-    }
-
-    /**
-     * One segment per leg (whole metres, at least 1 so a zero-length leg still
-     * draws) and one point per intermediate stop at its cumulative distance.
-     * Null when the route carries no legs, in which case the bar stays plain.
-     */
-    private fun progressLayoutOf(route: Route, profile: RoutingProfile): ProgressLayout? {
-        if (route.legs.isEmpty()) return null
-        val segments = route.legs.map { leg -> leg.segmentDistancesMeters.sum().toInt().coerceAtLeast(1) }
-        val stops = segments.runningReduce(Int::plus).dropLast(1)
-        return ProgressLayout(segments, stops, profile)
     }
 
     /** User-facing failure copy for a mock session start, or null on success. */

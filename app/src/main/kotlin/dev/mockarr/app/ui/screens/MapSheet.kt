@@ -4,16 +4,16 @@ import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.requiredHeight
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.FilterChip
@@ -21,6 +21,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -148,17 +149,20 @@ fun SheetHandle(expanded: Boolean, onToggle: () -> Unit, modifier: Modifier = Mo
 }
 
 /** The chip row the speed pill opens. */
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun SpeedChips(
     speedMultiplier: Double,
     onSpeedChange: (Double) -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    Row(
-        // Scrolls: 4x must stay reachable at large font scales and 720px-wide displays.
-        modifier = modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+    // Wraps: the popover is narrower than five chips, and a scroll row hid 2×/4×
+    // past its edge with nothing to say so (sessions 35/37).
+    FlowRow(
+        modifier = modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.spacedBy(Tokens.space2),
-        verticalAlignment = Alignment.CenterVertically,
+        verticalArrangement = Arrangement.spacedBy(Tokens.space1),
+        itemVerticalAlignment = Alignment.CenterVertically,
     ) {
         Text(
             text = stringResource(R.string.sheet_speed).uppercase(),
@@ -373,5 +377,6 @@ internal fun PlaybackStats(
         ),
     )
     Spacer(Modifier.height(Tokens.space3))
-    DriveProgress(progress = progress.toFloat())
+    val stops = remember(route) { stopFractions(route) }
+    DriveProgress(progress = progress.toFloat(), stops = stops)
 }

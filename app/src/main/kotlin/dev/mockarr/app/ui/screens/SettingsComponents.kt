@@ -22,6 +22,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.font.FontWeight
@@ -89,12 +90,14 @@ fun SectionHeader(text: String) {
         text = text.uppercase(),
         style = MaterialTheme.typography.labelSmall,
         color = MaterialTheme.colorScheme.onSurfaceVariant,
-        modifier = Modifier.padding(
-            start = Tokens.inset,
-            end = Tokens.inset,
-            top = Tokens.space6,
-            bottom = Tokens.space1,
-        ),
+        modifier = Modifier
+            .semantics { heading() }
+            .padding(
+                start = Tokens.inset,
+                end = Tokens.inset,
+                top = Tokens.space6,
+                bottom = Tokens.space1,
+            ),
     )
 }
 

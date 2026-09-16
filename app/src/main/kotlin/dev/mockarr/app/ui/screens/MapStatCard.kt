@@ -24,10 +24,13 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -40,6 +43,7 @@ import dev.mockarr.app.ui.theme.MapPopover
 import dev.mockarr.app.ui.theme.MockarrTheme
 import dev.mockarr.app.ui.theme.Tokens
 import dev.mockarr.core.model.DistanceUnits
+import dev.mockarr.core.model.Route
 import kotlin.math.roundToInt
 
 /** What the strip says about the session, in colour. */
@@ -133,7 +137,8 @@ fun StatusStrip(
             textAlign = if (actionLabel == null && trailing == null) TextAlign.Center else TextAlign.Start,
             maxLines = 2,
             overflow = TextOverflow.Ellipsis,
-            modifier = Modifier.weight(1f),
+            // The band is the app's one state surface: TalkBack hears Ready → Driving → Arrived.
+            modifier = Modifier.weight(1f).semantics { liveRegion = LiveRegionMode.Polite },
         )
         if (actionLabel != null && onAction != null) {
             Spacer(Modifier.width(Tokens.space2))
@@ -200,15 +205,40 @@ fun StatTrio(cells: List<StatCell>, modifier: Modifier = Modifier) {
     }
 }
 
-/** Progress under the trio: thin, accent, no label — the trio already says the numbers. */
+/**
+ * Progress under the trio: thin, accent, no label — the trio already says the
+ * numbers. [stops] are the intermediate stops as fractions of the route, drawn
+ * as ticks so the bar and the notification's Live Update read as one system.
+ */
 @Composable
-fun DriveProgress(progress: Float, modifier: Modifier = Modifier) {
+fun DriveProgress(progress: Float, modifier: Modifier = Modifier, stops: List<Float> = emptyList()) {
+    val passed = MaterialTheme.colorScheme.onPrimary
+    val ahead = MaterialTheme.colorScheme.outline
     LinearProgressIndicator(
         progress = { progress },
-        modifier = modifier.fillMaxWidth().height(PROGRESS_HEIGHT),
+        modifier = modifier
+            .fillMaxWidth()
+            .height(PROGRESS_HEIGHT)
+            .drawWithContent {
+                drawContent()
+                val radius = size.height / 2
+                stops.forEach { fraction ->
+                    val colour = if (fraction <= progress) passed else ahead
+                    drawCircle(colour, radius, Offset(size.width * fraction, radius))
+                }
+            },
         trackColor = MaterialTheme.colorScheme.surfaceContainerHighest,
         drawStopIndicator = {},
     )
+}
+
+/** Intermediate stops as fractions of the route's length (leg boundaries), or empty without legs. */
+internal fun stopFractions(route: Route?): List<Float> {
+    val legs = route?.legs ?: return emptyList()
+    val lengths = legs.map { it.segmentDistancesMeters.sum() }
+    val total = lengths.sum()
+    if (total <= 0.0 || legs.size < 2) return emptyList()
+    return lengths.runningReduce(Double::plus).dropLast(1).map { (it / total).toFloat() }
 }
 
 /** The loaded route's Distance · Duration · Stops, or null when nothing is loaded. */

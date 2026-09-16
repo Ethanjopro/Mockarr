@@ -1597,3 +1597,15 @@ start as a start-time choice.
   in metre units (`progress 417 / 795`) with both actions — verified via `dumpsys notification`
   and the shade. **Not verified:** the promoted chip itself needs Android 16 (the AVD is API 35) —
   Ethan to check on his Pixel 8a, or ask for an `android-36` AVD.
+- **C — Polish bundle (shipped):** (1) the speed popover's chips **wrap** (`FlowRow`) instead of
+  scrolling off the edge — 2×/4× reachable, verified in the `ui` dump and a screenshot; (2) the
+  status strip's text is a **polite live region** (first in the app), so TalkBack announces state
+  changes; (3) `SectionHeader` / `OptionsHeader` carry `heading()` semantics; (4) **hold wobble** —
+  `Jitter` (new, `core:simulation`, Box–Muller + uniform bearing, `JitterTest` ×4) is shared by the
+  engine (RNG order unchanged, suites byte-identical) and the hold keepalive, which pushes a
+  jittered copy when GPS wobble is on — the held position, banner and thumbstick target never
+  move; verified: consecutive `dumpsys location` fixes differ by a few metres; (5) the drive
+  progress bar draws **stop ticks** at the leg boundaries (`stopFractions`), matching the Live
+  Update's points. Service class hit the 26-function detekt cap → the notification progress helpers
+  moved to `playback/ProgressLayout.kt` (file-level). Live-region/heading semantics are not visible
+  in uiautomator dumps — code-verified only.

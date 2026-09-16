@@ -23,6 +23,7 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import dev.mockarr.app.R
@@ -181,12 +182,14 @@ private fun OptionsHeader(text: String) {
         text = text.uppercase(),
         style = MaterialTheme.typography.labelSmall,
         color = MaterialTheme.colorScheme.onSurfaceVariant,
-        modifier = Modifier.padding(
-            start = Tokens.inset,
-            end = Tokens.inset,
-            top = Tokens.space3,
-            bottom = Tokens.space1,
-        ),
+        modifier = Modifier
+            .semantics { heading() }
+            .padding(
+                start = Tokens.inset,
+                end = Tokens.inset,
+                top = Tokens.space3,
+                bottom = Tokens.space1,
+            ),
     )
 }
 

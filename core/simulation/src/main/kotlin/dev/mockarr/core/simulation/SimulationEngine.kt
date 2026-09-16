@@ -1,7 +1,5 @@
 package dev.mockarr.core.simulation
 
-import dev.mockarr.core.model.GeoMath
-import dev.mockarr.core.model.LatLng
 import dev.mockarr.core.model.PlaybackState
 import dev.mockarr.core.model.Route
 import dev.mockarr.core.model.SimulatedFix
@@ -13,14 +11,9 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.isActive
-import kotlin.math.PI
 import kotlin.math.abs
-import kotlin.math.cos
-import kotlin.math.ln
 import kotlin.math.max
 import kotlin.math.min
-import kotlin.math.sin
-import kotlin.math.sqrt
 import kotlin.random.Random
 
 /**
@@ -83,6 +76,8 @@ class SimulationEngine(
     /** Wait edits queued by any thread, drained at the top of each tick. */
     @Volatile
     private var pendingWaitEdits: List<Pair<Int, Int>> = emptyList()
+
+    private val jitter = Jitter(random)
 
     private val _state = MutableStateFlow(initialState())
     val state: StateFlow<PlaybackState> = _state.asStateFlow()
@@ -333,8 +328,8 @@ class SimulationEngine(
 
     private fun currentFix(): SimulatedFix {
         val truePosition = geometry.positionAt(distance)
-        val reported = if (params.jitterEnabled) jitter(truePosition) else truePosition
-        val accuracy = (params.minAccuracyMeters + abs(gaussian()) * ACCURACY_SIGMA)
+        val reported = if (params.jitterEnabled) jitter.offset(truePosition, params.jitterSigmaMeters) else truePosition
+        val accuracy = (params.minAccuracyMeters + abs(jitter.gaussian()) * ACCURACY_SIGMA)
             .coerceIn(params.minAccuracyMeters, params.maxAccuracyMeters)
         return SimulatedFix(
             position = reported,
@@ -343,29 +338,6 @@ class SimulationEngine(
             accuracyMeters = accuracy,
             altitudeMeters = geometry.altitudeAt(distance) ?: DEFAULT_ALTITUDE_METERS,
         )
-    }
-
-    /** Jitter the reported position only — along-track state never drifts. */
-    private fun jitter(position: LatLng): LatLng {
-        val offsetMeters = abs(gaussian()) * params.jitterSigmaMeters
-        val direction = random.nextDouble() * FULL_CIRCLE_DEGREES
-        return GeoMath.destination(position, direction, offsetMeters)
-    }
-
-    private var spareGaussian: Double? = null
-
-    /** Box–Muller, seeded via [random] for deterministic tests. */
-    private fun gaussian(): Double {
-        spareGaussian?.let {
-            spareGaussian = null
-            return it
-        }
-        var u1 = random.nextDouble()
-        while (u1 <= 1e-12) u1 = random.nextDouble()
-        val u2 = random.nextDouble()
-        val radius = sqrt(-2.0 * ln(u1))
-        spareGaussian = radius * sin(2.0 * PI * u2)
-        return radius * cos(2.0 * PI * u2)
     }
 
     private fun normalizeBearing(bearing: Double): Double = ((bearing % 360.0) + 360.0) % 360.0
@@ -382,7 +354,6 @@ class SimulationEngine(
         private const val STOP_SPEED_THRESHOLD = 0.3
         private const val BEARING_SMOOTHING = 0.4
         private const val ACCURACY_SIGMA = 1.5
-        private const val FULL_CIRCLE_DEGREES = 360.0
         private const val DEFAULT_ALTITUDE_METERS = 35.0
     }
 }
