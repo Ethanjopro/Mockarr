@@ -12,13 +12,14 @@ import javax.inject.Singleton
 @Singleton
 class RouteHandoff @Inject constructor() {
 
-    data class LoadedRoute(val route: Route, val profile: RoutingProfile)
+    /** [saved] is false for a route that only lives in memory (an interrupted drive), so Save stays offered. */
+    data class LoadedRoute(val route: Route, val profile: RoutingProfile, val saved: Boolean = true)
 
     private val _pending = MutableStateFlow<LoadedRoute?>(null)
     val pending: StateFlow<LoadedRoute?> = _pending.asStateFlow()
 
-    fun set(route: Route, profile: RoutingProfile) {
-        _pending.value = LoadedRoute(route, profile)
+    fun set(route: Route, profile: RoutingProfile, saved: Boolean = true) {
+        _pending.value = LoadedRoute(route, profile, saved)
     }
 
     fun clear() {

@@ -47,10 +47,12 @@ import dev.mockarr.core.model.DistanceUnits
 import dev.mockarr.core.model.PlaybackState
 import dev.mockarr.core.model.Route
 import dev.mockarr.core.model.RoutingProfile
+import dev.mockarr.core.model.SessionSnapshot
 import dev.mockarr.core.model.progressOrZero
 import dev.mockarr.core.model.remainingSecondsOrNull
 import dev.mockarr.core.simulation.SimulationEngine
 import kotlin.math.ceil
+import kotlin.math.roundToInt
 
 /**
  * Strava's pause control: one full-width Pause pill that splits into Resume
@@ -210,8 +212,9 @@ private const val DOUBLE_SPEED = 2.0
 private val HANDLE_HEIGHT = 36.dp
 private val HANDLE_PILL_HEIGHT = 4.dp
 private const val SKIP_MIN_SECONDS = 3.0
+private const val PERCENT = 100
 
-internal enum class StripAction { FIX, RELEASE, CANCEL_MOVE, ADD_STOP, SKIP_WAIT }
+internal enum class StripAction { FIX, RELEASE, CANCEL_MOVE, ADD_STOP, SKIP_WAIT, RESUME_SESSION }
 
 internal data class StripModel(
     val text: String,
@@ -240,6 +243,7 @@ internal fun stripFor(
     movingStop: String? = null,
     arrived: Boolean = false,
     searchedPlace: String? = null,
+    interrupted: SessionSnapshot? = null,
 ): StripModel? = when {
     playing -> playbackStrip(playbackState, state.profile)
     movingStop != null -> StripModel(
@@ -269,6 +273,17 @@ internal fun stripFor(
         tone = StripTone.Error,
         actionLabel = stringResource(R.string.strip_fix),
         action = StripAction.FIX,
+    )
+    // A session the process death cut short, offered back only while nothing else is going on.
+    interrupted != null && state.route == null && !builder -> StripModel(
+        text = if (interrupted.kind == SessionSnapshot.Kind.HOLDING) {
+            stringResource(R.string.strip_interrupted_hold)
+        } else {
+            stringResource(R.string.strip_interrupted_drive, (interrupted.progress * PERCENT).roundToInt())
+        },
+        tone = StripTone.Hold,
+        actionLabel = stringResource(R.string.strip_resume),
+        action = StripAction.RESUME_SESSION,
     )
     state.routingError != null -> StripModel(stringResource(state.routingError.stripRes()), StripTone.Error)
     state.isRouting -> StripModel(stringResource(R.string.strip_routing), StripTone.Neutral)

@@ -10,14 +10,21 @@ import dagger.hilt.android.qualifiers.ApplicationContext
 import dev.mockarr.app.R
 import dev.mockarr.app.playback.MockSessionRepository
 import dev.mockarr.app.playback.MockSessionService
+import dev.mockarr.app.playback.MockSessionState
+import dev.mockarr.app.ui.RouteHandoff
+import dev.mockarr.core.data.SessionSnapshotStore
 import dev.mockarr.core.model.LatLng
 import dev.mockarr.core.model.PlaybackState
 import dev.mockarr.core.model.Route
+import dev.mockarr.core.model.RoutingProfile
+import dev.mockarr.core.model.SessionSnapshot
+import dev.mockarr.core.simulation.SimulationEngine
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.launch
 import javax.inject.Inject
 import kotlin.math.ceil
 
@@ -25,7 +32,23 @@ import kotlin.math.ceil
 class MockSessionViewModel @Inject constructor(
     @ApplicationContext private val context: Context,
     private val repository: MockSessionRepository,
+    private val snapshotStore: SessionSnapshotStore,
+    private val routeHandoff: RouteHandoff,
 ) : ViewModel() {
+
+    init {
+        // A snapshot left on disk with nothing running means the last session
+        // died with the process: offer it back — or, when it is too old to
+        // offer, just tidy up. A live session owns the file.
+        viewModelScope.launch {
+            if (repository.session.value !is MockSessionState.Idle) return@launch
+            val snapshot = snapshotStore.read(System.currentTimeMillis())
+            when {
+                snapshot != null -> repository.setInterrupted(snapshot)
+                snapshotStore.hasLeftover() -> discardInterrupted()
+            }
+        }
+    }
 
     /** The stop playback is waiting at right now, with a whole-second countdown. */
     data class DwellInfo(val waypointIndex: Int, val secondsLeft: Int)
@@ -47,13 +70,55 @@ class MockSessionViewModel @Inject constructor(
 
     val speedMultiplier: StateFlow<Double> = repository.speedMultiplier
 
-    fun play(route: Route) {
-        repository.requestStart(route)
+    /** The interrupted drive or hold on offer, until resumed, discarded, or overtaken by a new session. */
+    val interrupted: StateFlow<SessionSnapshot?> = repository.interrupted
+
+    fun play(route: Route, profile: RoutingProfile) {
+        repository.clearInterrupted()
+        repository.requestStart(route, profile)
         startService(Intent(context, MockSessionService::class.java).setAction(MockSessionService.ACTION_START))
+    }
+
+    /** Picks the interrupted session back up: the drive from where it stopped, or the hold at its spot. */
+    fun resumeInterrupted() {
+        val snapshot = repository.interrupted.value ?: return
+        repository.clearInterrupted()
+        val route = snapshot.route
+        val holdPosition = snapshot.holdPosition
+        when {
+            snapshot.kind == SessionSnapshot.Kind.PLAYING && route != null -> {
+                routeHandoff.set(route, snapshot.profile, saved = false)
+                repository.setSpeedMultiplier(snapshot.speedMultiplier)
+                repository.requestStart(
+                    route,
+                    snapshot.profile,
+                    SimulationEngine.ResumePoint(snapshot.distanceMeters, snapshot.dwellSecondsLeft),
+                )
+                startService(
+                    Intent(context, MockSessionService::class.java).setAction(MockSessionService.ACTION_START),
+                )
+            }
+            holdPosition != null -> hold(holdPosition)
+            else -> snapshotStore.clear()
+        }
+    }
+
+    /**
+     * Forgets the interrupted session. A process killed mid-session (force
+     * stop, OOM) never ran the service's teardown, so its test providers can
+     * still be registered and freezing the device on the last fake fix: the
+     * service's release path is asked to remove them, keeping mock ownership
+     * in one place.
+     */
+    fun discardInterrupted() {
+        repository.clearInterrupted()
+        snapshotStore.clear()
+        release()
     }
 
     /** Hold the mocked location at one spot (long-press pin). */
     fun hold(position: LatLng) {
+        repository.clearInterrupted()
         startService(
             Intent(context, MockSessionService::class.java)
                 .setAction(MockSessionService.ACTION_HOLD)

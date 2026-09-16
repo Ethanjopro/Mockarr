@@ -177,7 +177,7 @@ class MapViewModel @Inject constructor(
                             routedFor = anchors,
                             isRouting = false,
                             routingError = null,
-                            routeSaved = true,
+                            routeSaved = loaded.saved,
                             trafficFactor = settingsRepository.currentTrafficFactor(),
                         )
                     }

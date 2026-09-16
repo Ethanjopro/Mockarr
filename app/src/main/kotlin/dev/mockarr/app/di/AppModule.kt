@@ -15,6 +15,7 @@ import dev.mockarr.app.BuildConfig
 import dev.mockarr.core.data.MockarrDatabase
 import dev.mockarr.core.data.RecentSearchesStore
 import dev.mockarr.core.data.SavedRoutesRepository
+import dev.mockarr.core.data.SessionSnapshotStore
 import dev.mockarr.core.data.SettingsRepository
 import dev.mockarr.core.mocklocation.AndroidMockLocationController
 import dev.mockarr.core.mocklocation.MockLocationController
@@ -22,6 +23,7 @@ import dev.mockarr.core.mocklocation.SetupStatusRepository
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import java.io.File
 import javax.inject.Singleton
 
 val USER_AGENT = "Mockarr/${BuildConfig.VERSION_NAME} (+https://github.com/Ethanjopro/Mockarr)"
@@ -61,6 +63,11 @@ object AppModule {
         @ApplicationContext context: Context,
         appScope: CoroutineScope,
     ): RecentSearchesStore = RecentSearchesStore(context.recentSearchesDataStore, appScope)
+
+    @Provides
+    @Singleton
+    fun provideSessionSnapshotStore(@ApplicationContext context: Context): SessionSnapshotStore =
+        SessionSnapshotStore(File(context.filesDir, SessionSnapshotStore.FILE_NAME))
 
     @Provides
     @Singleton

@@ -31,6 +31,9 @@
     <string name="strip_idle">Tap the map to add stops · long-press to hold</string>
     <string name="strip_arrived">Arrived</string>
     <string name="strip_arrived_at">Arrived at %1$s</string>
+    <string name="strip_interrupted_drive">Drive interrupted at %1$d%%</string>
+    <string name="strip_interrupted_hold">Hold interrupted</string>
+    <string name="strip_resume">Resume</string>
     <string name="strip_routing_failed">No road route here — showing a straight line instead</string>
     <string name="strip_routing_busy">Routing server is busy — showing a straight line for now</string>
     <string name="strip_routing_offline">Can\'t reach the routing server — showing a straight line instead</string>
@@ -94,6 +97,11 @@
     <string name="dialog_wait_custom">Custom minutes</string>
     <string name="dialog_set">Set</string>
     <string name="dialog_cancel">Cancel</string>
+    <string name="dialog_resume_title">Pick up where you left off?</string>
+    <string name="dialog_resume_drive_body">Mockarr was closed mid-drive, at %1$d%% with %2$s to go. Resume drives on from there; Discard forgets it.</string>
+    <string name="dialog_resume_hold_body">Mockarr was closed while holding a location. Resume holds there again; Discard forgets it.</string>
+    <string name="dialog_resume">Resume</string>
+    <string name="dialog_resume_discard">Discard</string>
     <string name="dialog_route_from_hold_title">Route from held location?</string>
     <string name="dialog_route_from_hold_body">Build a route from your held location to this stop and play it?</string>
     <string name="dialog_route_from_me_title">Route from my location?</string>

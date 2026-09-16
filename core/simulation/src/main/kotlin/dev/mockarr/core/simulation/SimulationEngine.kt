@@ -35,7 +35,15 @@ class SimulationEngine(
     private val clock: SimClock = SimClock { System.nanoTime() },
     private val random: Random = Random(0),
     initialSpeedMultiplier: Double = 1.0,
+    resumeFrom: ResumePoint? = null,
 ) {
+    /**
+     * Where an interrupted drive picks up again: [distanceMeters] along the
+     * route, plus the seconds still owed at the stop it was waiting at (0 when
+     * it was moving). Speed restarts from rest either way.
+     */
+    data class ResumePoint(val distanceMeters: Double, val dwellSecondsLeft: Double = 0.0)
+
     private val geometry = RouteGeometry(
         route,
         params.decelerationMps2,
@@ -50,26 +58,54 @@ class SimulationEngine(
 
     /** Copy-on-write: replaced wholesale by [applyWaitEdit] on the tick coroutine. */
     private var dwellStops = geometry.dwellStops
-    private var nextDwellIndex = 0
+
+    private var distance = (resumeFrom?.distanceMeters ?: 0.0).coerceIn(0.0, geometry.totalDistanceMeters)
+    private var speed = 0.0
+    private var smoothedBearing = geometry.bearingAt(distance)
+
+    /** Countdown of the active dwell; survives pause/resume, unlike the state object. */
+    private var dwellSecondsLeft = (resumeFrom?.dwellSecondsLeft ?: 0.0).coerceAtLeast(0.0)
+
+    private var nextDwellIndex = if (resumeFrom == null) 0 else resumedDwellIndex()
+
+    /**
+     * Stops already driven past are behind us; the stop we were waiting at when
+     * interrupted (at our distance, wait still owed) is the current one.
+     */
+    private fun resumedDwellIndex(): Int {
+        val firstAhead = dwellStops.indexOfFirst { it.distanceMeters > distance + DWELL_EPSILON_METERS }
+            .let { if (it < 0) dwellStops.size else it }
+        val resumingDwell = dwellSecondsLeft > 0.0 && firstAhead > 0 &&
+            dwellStops[firstAhead - 1].distanceMeters >= distance - DWELL_EPSILON_METERS
+        return if (resumingDwell) firstAhead - 1 else firstAhead
+    }
 
     /** Wait edits queued by any thread, drained at the top of each tick. */
     @Volatile
     private var pendingWaitEdits: List<Pair<Int, Int>> = emptyList()
 
-    /** Countdown of the active dwell; survives pause/resume, unlike the state object. */
-    private var dwellSecondsLeft = 0.0
-
-    private val _state = MutableStateFlow<PlaybackState>(
-        PlaybackState.Playing(
-            0.0,
-            geometry.totalDurationSeconds / speedMultiplier + dwellStops.sumOf { it.waitSeconds },
-        ),
-    )
+    private val _state = MutableStateFlow(initialState())
     val state: StateFlow<PlaybackState> = _state.asStateFlow()
 
-    private var distance = 0.0
-    private var speed = 0.0
-    private var smoothedBearing = geometry.bearingAt(0.0)
+    /** Along-track metres driven so far — what a snapshot needs to resume from. */
+    val distanceMeters: Double
+        get() = distance
+
+    /** Seconds still owed at the stop being waited at, 0 while moving. */
+    val activeDwellSecondsLeft: Double
+        get() = dwellSecondsLeft
+
+    private fun initialState(): PlaybackState {
+        val stop = dwellStops.getOrNull(nextDwellIndex)
+        val resumingDwell = dwellSecondsLeft > 0.0 && stop != null
+        return if (resumingDwell) {
+            distance = stop.distanceMeters
+            dwelling(progress(), remainingWithDwell(), stop)
+        } else {
+            dwellSecondsLeft = 0.0
+            PlaybackState.Playing(progress(), remainingWithDwell())
+        }
+    }
 
     val fixes: Flow<SimulatedFix> = flow {
         var lastNanos = clock.elapsedNanos()

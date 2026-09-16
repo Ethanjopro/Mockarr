@@ -98,8 +98,13 @@ class AndroidMockLocationController(
         }
     }
 
+    /**
+     * Sweeps every provider, not just the ones this instance registered: a
+     * process killed mid-session (force stop, OOM) leaves its test providers
+     * behind, and the next process must be able to remove them.
+     */
     override fun stop() {
-        activeProviders.forEach(::removeQuietly)
+        providers.forEach(::removeQuietly)
         activeProviders = emptyList()
     }
 

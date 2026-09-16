@@ -1554,3 +1554,37 @@ start as a start-time choice.
 - **Verifier friction:** the speed popover's 2×/4× chips sit past the right edge with no scroll
   affordance (already noted in session 35); setting a wait on "stop 2" of a two-stop route is moot
   because stop 2 is the destination — build three stops first.
+
+### 2026-09-15 — Session 38 (R&D round: resume after death, Live Updates, polish, visual-effects study)
+- **Plan:** Ethan asked for an R&D menu; picked *resume after process death*, *Android 16 Live
+  Updates*, the *polish bundle*, and a *visual-effects study*, with one emphasis: keep the simple
+  flow (no new screens/modes; features ride the band, notification, map, trio). Memory saved as
+  `preserve-simple-flow`. The unpicked menu (repeat drive, GPX import/export, elevation profile,
+  favourites, QS tile) is in the plan file for a later round.
+- **B — Resume after process death (shipped):** the service writes a `SessionSnapshot`
+  (`core:model`, serialisable) to `filesDir/session_snapshot.json` via `SessionSnapshotStore`
+  (`core:data`, own single-thread dispatcher so a clear issued during `stopSelf` still lands
+  after the last write): on play start, every 5th tick, on Playing/Paused/Dwelling transitions,
+  on hold entry and after each nudge settles. `release()` clears it; `onDestroy` deliberately
+  does not. `SimulationEngine` gains `resumeFrom: ResumePoint(distanceMeters, dwellSecondsLeft)`
+  — distance seeded first, passed dwells skipped, a mid-wait countdown restored, speed from rest;
+  the `null` path is the old behaviour (`SimulationEngineResumeTest`, 5 cases; store test, 7).
+  `MockSessionViewModel` reads the store once at start when Idle → `repository.interrupted`; the
+  band shows **"Drive interrupted at 42% · Resume"** / **"Hold interrupted · Resume"** (amber,
+  only while no route is loaded, not building, setup ready); Resume opens `ResumeSessionDialog`
+  (Resume / Discard). Resume = `RouteHandoff.set(saved = false)` + `requestStart(route, profile,
+  resumeFrom)`; a hold resumes via `hold()`. `play()`/`hold()` clear the offer.
+- **Found while verifying (pre-existing, now handled):** a force-stop skips `onDestroy`, so the
+  gps/fused **test providers stay registered** and the device sits frozen on the last fake fix
+  (`dumpsys location` showed `gps provider [mock]` after the kill). `AndroidMockLocationController.stop()`
+  now sweeps every known provider, not just the ones this process registered, and Discard (and a
+  stale leftover snapshot at launch) sends `ACTION_RELEASE` so the service's one release path
+  removes them — verified: `[mock]` count 3 → 0 after Discard. Mock ownership stays in the service.
+- **Emulator-verified (debug, API 35):** three-stop drive → force-stop at 28% → relaunch shows the
+  band → dialog "at 28% with 0.5 mi to go" → Resume → "Driving", 0.4 mi left, follow camera on,
+  snapshot refreshing → arrival → destination hold (snapshot flips to HOLDING) → Stop clears the
+  file → clean relaunch shows no band. Hold variant: kill during a hold → Resume → mock fix equals
+  the held position. Discard: file gone, band gone, providers 0. Dark theme and font scale 1.3
+  clean; logcat clean. **Verifier notes:** the Start tap opens the "Start from" chooser when the
+  real location is far from the route — tap "Route start"; the dialog's Resume/Discard share
+  labels with the band, so tap by bounds (parse with python, not awk on `][`).

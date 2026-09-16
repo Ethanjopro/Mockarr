@@ -3,6 +3,8 @@ package dev.mockarr.app.playback
 import dev.mockarr.core.model.LatLng
 import dev.mockarr.core.model.PlaybackState
 import dev.mockarr.core.model.Route
+import dev.mockarr.core.model.RoutingProfile
+import dev.mockarr.core.model.SessionSnapshot
 import dev.mockarr.core.model.SimulatedFix
 import dev.mockarr.core.simulation.SimulationEngine
 import kotlinx.coroutines.channels.BufferOverflow
@@ -66,17 +68,36 @@ class MockSessionRepository @Inject constructor() {
     )
     internal val holdMoves: SharedFlow<LatLng> = _holdMoves.asSharedFlow()
 
-    /** Staged for the service, which consumes it (routes exceed intent-extra limits). */
-    private var pendingRoute: Route? = null
+    /** What the service should start next (routes exceed intent-extra limits). */
+    data class PendingSession(
+        val route: Route,
+        val profile: RoutingProfile,
+        /** Set when picking an interrupted drive back up; null starts from the route's beginning. */
+        val resumeFrom: SimulationEngine.ResumePoint? = null,
+    )
+
+    private var pendingSession: PendingSession? = null
+
+    /** A drive or hold cut short by process death, waiting for the user's Resume / Discard. */
+    private val _interrupted = MutableStateFlow<SessionSnapshot?>(null)
+    val interrupted: StateFlow<SessionSnapshot?> = _interrupted.asStateFlow()
+
+    internal fun setInterrupted(snapshot: SessionSnapshot?) {
+        _interrupted.value = snapshot
+    }
+
+    fun clearInterrupted() {
+        _interrupted.value = null
+    }
 
     /** Thumbstick: move the held location to [position]; ignored unless holding. */
     fun requestHoldMove(position: LatLng) {
         if (_session.value is MockSessionState.Holding) _holdMoves.tryEmit(position)
     }
 
-    /** Stage a route for the next session; the caller then starts the service. */
-    fun requestStart(route: Route) {
-        pendingRoute = route
+    /** Stage the next session; the caller then starts the service. */
+    fun requestStart(route: Route, profile: RoutingProfile, resumeFrom: SimulationEngine.ResumePoint? = null) {
+        pendingSession = PendingSession(route, profile, resumeFrom)
     }
 
     fun pause() {
@@ -110,7 +131,7 @@ class MockSessionRepository @Inject constructor() {
         _error.value = null
     }
 
-    internal fun consumePendingRoute(): Route? = pendingRoute.also { pendingRoute = null }
+    internal fun consumePendingSession(): PendingSession? = pendingSession.also { pendingSession = null }
 
     internal fun playingStarted(engine: SimulationEngine) {
         this.engine = engine

@@ -16,12 +16,15 @@ import dagger.hilt.android.AndroidEntryPoint
 import dev.mockarr.app.MainActivity
 import dev.mockarr.app.R
 import dev.mockarr.app.ui.Formatter
+import dev.mockarr.core.data.SessionSnapshotStore
 import dev.mockarr.core.data.SettingsRepository
 import dev.mockarr.core.mocklocation.MockLocationController
 import dev.mockarr.core.mocklocation.MockStartResult
 import dev.mockarr.core.model.LatLng
 import dev.mockarr.core.model.PlaybackState
 import dev.mockarr.core.model.Route
+import dev.mockarr.core.model.RoutingProfile
+import dev.mockarr.core.model.SessionSnapshot
 import dev.mockarr.core.model.SimulatedFix
 import dev.mockarr.core.model.progressOrZero
 import dev.mockarr.core.model.remainingSecondsOrNull
@@ -69,11 +72,19 @@ class MockSessionService : Service() {
     @Inject
     lateinit var geocoder: Geocoder
 
+    @Inject
+    lateinit var snapshotStore: SessionSnapshotStore
+
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     private var sessionJob: Job? = null
     private var holdJob: Job? = null
     private var wakeLock: PowerManager.WakeLock? = null
     private var routeDistanceMeters: Double = 0.0
+
+    /** The drive in flight, for snapshots; null while holding or idle. */
+    private var activeDrive: ActiveDrive? = null
+
+    private class ActiveDrive(val route: Route, val profile: RoutingProfile, val engine: SimulationEngine)
     private var lastNotified: Triple<Int, Int, Int>? = null
 
     /** The pin held when playback began — the fallback if "stay at destination" is off. */
@@ -143,8 +154,8 @@ class MockSessionService : Service() {
     private fun startRouteSession() {
         if (sessionJob?.isActive == true) return
         val previousHold = repository.session.value as? MockSessionState.Holding
-        val route = repository.consumePendingRoute()
-        if (route == null) {
+        val pending = repository.consumePendingSession()
+        if (pending == null) {
             if (previousHold == null) stopSelf()
             return
         }
@@ -154,7 +165,7 @@ class MockSessionService : Service() {
         // beginMocking() never touches already-registered providers (start() is
         // idempotent), so a Holding → Playing transition has no provider gap.
         if (beginMocking() && promoteToForeground()) {
-            runSession(route)
+            runSession(pending)
         } else if (previousHold != null && mockController.isRunning) {
             enterHold(previousHold.position, previousHold.source) // resume the hold untouched
         } else {
@@ -181,7 +192,8 @@ class MockSessionService : Service() {
         return error == null
     }
 
-    private fun runSession(route: Route) {
+    private fun runSession(pending: MockSessionRepository.PendingSession) {
+        val route = pending.route
         acquireWakeLock()
         routeDistanceMeters = route.distanceMeters
         val settings = settingsRepository.settings.value
@@ -206,22 +218,67 @@ class MockSessionService : Service() {
             random = Random(SystemClock.elapsedRealtimeNanos()),
             // The speed chips outlive a drive: start the next one at the pace they show.
             initialSpeedMultiplier = repository.speedMultiplier.value,
+            resumeFrom = pending.resumeFrom,
         )
+        activeDrive = ActiveDrive(route, pending.profile, engine)
         repository.playingStarted(engine)
+        saveSnapshot()
 
         sessionJob = scope.launch {
             val stateJob = launch {
-                engine.state.collect { repository.updateState(it) }
+                var lastKind: Class<out PlaybackState>? = null
+                engine.state.collect { state ->
+                    repository.updateState(state)
+                    // Pause, a wait starting or ending: worth a snapshot of its own.
+                    if (state::class.java != lastKind) {
+                        lastKind = state::class.java
+                        saveSnapshot()
+                    }
+                }
             }
             var tick = 0
             engine.fixes.collect { fix ->
                 mockController.push(fix)
                 repository.updateFix(fix)
-                if (tick++ % NOTIFICATION_UPDATE_TICKS == 0) refreshNotification()
+                if (tick++ % NOTIFICATION_UPDATE_TICKS == 0) {
+                    refreshNotification()
+                    saveSnapshot()
+                }
             }
             stateJob.cancel()
+            activeDrive = null
             onEngineEnded(stoppedEarly = engine.stoppedBeforeArrival)
         }
+    }
+
+    /**
+     * Writes down what the session is doing so a process death can be
+     * resumed. Cheap (one small file, off the main thread) and idempotent;
+     * [release] is the only thing that clears it — [onDestroy] deliberately
+     * leaves it behind.
+     */
+    private fun saveSnapshot() {
+        val drive = activeDrive
+        val holding = repository.session.value as? MockSessionState.Holding
+        val now = System.currentTimeMillis()
+        val snapshot = when {
+            drive != null && repository.state.value !is PlaybackState.Finished -> SessionSnapshot(
+                kind = SessionSnapshot.Kind.PLAYING,
+                route = drive.route,
+                profile = drive.profile,
+                speedMultiplier = repository.speedMultiplier.value,
+                distanceMeters = drive.engine.distanceMeters,
+                dwellSecondsLeft = drive.engine.activeDwellSecondsLeft,
+                savedAtEpochMillis = now,
+            )
+            holding != null -> SessionSnapshot(
+                kind = SessionSnapshot.Kind.HOLDING,
+                holdPosition = holding.position,
+                savedAtEpochMillis = now,
+            )
+            else -> null
+        }
+        if (snapshot != null) snapshotStore.write(snapshot)
     }
 
     /** End-of-route chain: destination hold → remembered pin → real location. */
@@ -241,6 +298,7 @@ class MockSessionService : Service() {
     private fun enterHold(position: LatLng, source: HoldSource) {
         holdJob?.cancel()
         repository.holdStarted(position, source)
+        saveSnapshot()
         var fix = SimulatedFix(
             position = position,
             speedMetersPerSecond = 0.0,
@@ -273,6 +331,7 @@ class MockSessionService : Service() {
             launch {
                 repository.holdMoves.collectLatest { target ->
                     delay(HOLD_SETTLE_MILLIS)
+                    saveSnapshot() // the nudged spot is the one to come back to
                     elevationClient.elevations(listOf(target)).getOrNull()?.firstOrNull()?.let {
                         fix = fix.copy(altitudeMeters = it)
                     }
@@ -304,6 +363,8 @@ class MockSessionService : Service() {
         holdJob?.cancel()
         holdJob = null
         rememberedPin = null
+        activeDrive = null
+        snapshotStore.clear() // ended on purpose: nothing to resume
         mockController.stop()
         repository.sessionReleased()
         releaseWakeLock()

@@ -297,7 +297,7 @@ fun MapScreen(
         routeAwaitingPermission = null
         if (grants[Manifest.permission.ACCESS_FINE_LOCATION] == true && route != null) {
             viewModel.setFollowCamera(true)
-            sessionViewModel.play(route)
+            sessionViewModel.play(route, viewModel.uiState.value.profile)
         } else {
             sessionViewModel.reportPermissionDenied()
         }
@@ -340,7 +340,7 @@ fun MapScreen(
             // No pin teardown here: the service hands Holding → Playing off
             // without ever touching the test providers.
             viewModel.setFollowCamera(true)
-            sessionViewModel.play(route)
+            sessionViewModel.play(route, viewModel.uiState.value.profile)
         } else {
             routeAwaitingPermission = route
             permissionLauncher.launch(needed.toTypedArray())
@@ -573,6 +573,25 @@ fun MapScreen(
             onDismiss = { waitEditIndex = null },
         )
     }
+    val interrupted by sessionViewModel.interrupted.collectAsStateWithLifecycle()
+    var showResume by remember { mutableStateOf(false) }
+    val resumeOffer = interrupted
+    if (showResume && resumeOffer != null) {
+        ResumeSessionDialog(
+            snapshot = resumeOffer,
+            units = units,
+            onResume = {
+                showResume = false
+                viewModel.setFollowCamera(true)
+                sessionViewModel.resumeInterrupted()
+            },
+            onDiscard = {
+                showResume = false
+                sessionViewModel.discardInterrupted()
+            },
+            onDismiss = { showResume = false },
+        )
+    }
     if (showSaveDialog) {
         SaveRouteDialog(
             suggestedName = saveName,
@@ -637,6 +656,7 @@ fun MapScreen(
         movingStop = movingWaypoint?.let { stopName(it, state.waypoints.size) },
         arrived = arrived,
         searchedPlace = searchedPlace?.name,
+        interrupted = interrupted,
     )
     var lastStrip by remember { mutableStateOf(nextStrip ?: StripModel("", StripTone.Neutral, hidden = true)) }
     val strip = nextStrip ?: lastStrip
@@ -988,6 +1008,9 @@ fun MapScreen(
                         StripAction.CANCEL_MOVE -> viewModel.interaction::cancelMove
                         StripAction.ADD_STOP -> viewModel::addSearchedPlaceAsStop
                         StripAction.SKIP_WAIT -> skipWait
+                        StripAction.RESUME_SESSION -> {
+                            { showResume = true }
+                        }
                         null -> null
                     },
                     onStatsClick = statsClick,

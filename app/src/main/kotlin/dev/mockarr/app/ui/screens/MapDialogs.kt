@@ -20,12 +20,17 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.KeyboardType
 import dev.mockarr.app.R
 import dev.mockarr.app.ui.formatRouteTimestamp
+import dev.mockarr.app.ui.rememberFormatter
 import dev.mockarr.app.ui.theme.DialogAction
 import dev.mockarr.app.ui.theme.MockarrDialog
 import dev.mockarr.app.ui.theme.Tokens
+import dev.mockarr.core.model.DistanceUnits
+import dev.mockarr.core.model.SessionSnapshot
+import kotlin.math.roundToInt
 
 private val WAIT_PRESET_MINUTES = listOf(1, 5, 15, 30)
 private const val SECONDS_PER_MINUTE = 60
+private const val PERCENT = 100
 
 /** Picks a dwell duration: preset chips or a free custom-minutes field. */
 @OptIn(ExperimentalLayoutApi::class)
@@ -140,6 +145,35 @@ internal fun SaveRouteDialog(
             singleLine = true,
         )
     }
+}
+
+/** Resume or discard a drive/hold that process death cut short. */
+@Composable
+internal fun ResumeSessionDialog(
+    snapshot: SessionSnapshot,
+    units: DistanceUnits,
+    onResume: () -> Unit,
+    onDiscard: () -> Unit,
+    onDismiss: () -> Unit,
+) {
+    val body = if (snapshot.kind == SessionSnapshot.Kind.HOLDING) {
+        stringResource(R.string.dialog_resume_hold_body)
+    } else {
+        val total = snapshot.route?.distanceMeters ?: 0.0
+        val left = (total - snapshot.distanceMeters).coerceAtLeast(0.0)
+        stringResource(
+            R.string.dialog_resume_drive_body,
+            (snapshot.progress * PERCENT).roundToInt(),
+            rememberFormatter().distance(left, units),
+        )
+    }
+    MockarrDialog(
+        title = stringResource(R.string.dialog_resume_title),
+        text = body,
+        onDismissRequest = onDismiss,
+        confirm = DialogAction(stringResource(R.string.dialog_resume), onResume),
+        dismiss = DialogAction(stringResource(R.string.dialog_resume_discard), onDiscard, destructive = true),
+    )
 }
 
 /** "1", "0.5", "0.25", "2" — no trailing zeros, no scientific notation. */
