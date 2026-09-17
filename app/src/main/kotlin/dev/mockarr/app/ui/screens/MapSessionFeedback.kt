@@ -52,7 +52,9 @@ internal fun rememberArrived(session: MockSessionState, playbackState: PlaybackS
     // Keyed on playing too: a new drive starting mid-window drops the flag.
     LaunchedEffect(arrivedTick, playing) {
         if (arrivedTick > 0 && !playing) {
-            haptic.performHapticFeedback(HapticFeedbackType.Confirm)
+            // The end-of-drive chain (engine ended → hold) relaunches this once
+            // more within the window: the band stays, the tick is not repeated.
+            if (!arrived) haptic.performHapticFeedback(HapticFeedbackType.Confirm)
             arrived = true
             delay(ARRIVED_MILLIS)
             arrived = false

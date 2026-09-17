@@ -22,6 +22,8 @@ data class MapPalette(
     val offRoad: Int,
     val position: Int,
     val positionRing: Int,
+    /** The heading beam ahead of the puck: a lighter tint of the accent so it reads over the route line. */
+    val heading: Int,
     val holdPin: Int,
     val stopStart: Int,
     val stopVia: Int,

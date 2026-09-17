@@ -4,11 +4,13 @@ import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.graphics.Paint
 import android.graphics.Path
+import android.os.SystemClock
 import android.view.Gravity
 import android.view.ViewConfiguration
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -53,9 +55,9 @@ import kotlin.math.roundToInt
 import org.maplibre.android.geometry.LatLng as MapLibreLatLng
 
 internal const val ROUTE_SOURCE = "route-source"
-private const val ROUTE_LAYER = "route-layer"
+internal const val ROUTE_LAYER = "route-layer"
 private const val ROUTE_CASING_LAYER = "route-casing-layer"
-private const val ROUTE_GLOW_LAYER = "route-glow-layer"
+internal const val ROUTE_GLOW_LAYER = "route-glow-layer"
 private const val ROUTE_ARROW_LAYER = "route-arrow-layer"
 private const val ROUTE_ARROW_ICON = "route-chevron"
 private const val ROUTE_ARROW_SPACING_DP = 72f
@@ -122,6 +124,8 @@ fun MockarrMap(
     playbackBearing: Double? = null,
     /** 0–1 of the route driven, or null to paint the whole line in the accent. */
     playbackProgress: Float? = null,
+    /** True while fixes are advancing (not paused, not waiting at a stop): the beam breathes. */
+    playbackMoving: Boolean = false,
     cameraFollow: Boolean = false,
     animateCamera: Boolean = true,
     dragEnabled: Boolean = true,
@@ -321,9 +325,13 @@ fun MockarrMap(
     }
 
     // Theme switches re-tint the live layers in place; a style reload rebuilds them.
+    val puck = remember { PuckMotion() }
+    SideEffect { puck.palette = palette }
     LaunchedEffect(style, palette) {
         val loadedStyle = style ?: return@LaunchedEffect
         applyPalette(loadedStyle, palette, density)
+        // A theme change keeps the puck and the shaded stretch where they are.
+        puck.repaint(loadedStyle)
     }
 
     val markerStyle = remember(density, palette) { MarkerStyle(density, palette) }
@@ -379,24 +387,17 @@ fun MockarrMap(
         }
     }
 
-    LaunchedEffect(style, playbackPosition, playbackBearing) {
+    // Each fix cancels the glide in flight and starts a new one from where the
+    // puck was drawn; the road shade behind it moves in the same frames.
+    LaunchedEffect(style, playbackPosition, playbackBearing, playbackProgress) {
         val loadedStyle = style ?: return@LaunchedEffect
-        updatePlayback(loadedStyle, playbackPosition, playbackBearing)
+        val fix = PuckFix(playbackPosition, playbackBearing, playbackProgress)
+        puck.moveTo(loadedStyle, fix, animate = animateCamera, nowMillis = SystemClock.uptimeMillis())
     }
-    // The road behind the puck goes quiet: one gradient update per fix.
-    LaunchedEffect(style, palette, playbackProgress) {
-        val loadedStyle = style ?: return@LaunchedEffect
-        val gradient = routeGradient(palette, playbackProgress)
-        loadedStyle.getLayer(ROUTE_LAYER)?.setProperties(PropertyFactory.lineGradient(gradient))
-    }
-    // The heading cone breathes while driving (reduce-motion: steady).
-    LaunchedEffect(style, playbackPosition != null, animateCamera) {
+    // The beam breathes while moving, settles dim while paused or waiting (reduce-motion: steady).
+    LaunchedEffect(style, playbackPosition != null, playbackMoving, animateCamera) {
         val layer = style?.getLayer(PLAYBACK_HEADING_LAYER) ?: return@LaunchedEffect
-        if (playbackPosition != null && animateCamera) {
-            breathe(layer)
-        } else {
-            layer.setProperties(PropertyFactory.iconOpacity(1f))
-        }
+        puck.breathe(layer, moving = playbackPosition != null && playbackMoving, animate = animateCamera)
     }
 
     // Read at apply time, not as a key: a taller overlay must not re-run the last fit.
@@ -565,11 +566,9 @@ private fun applyPalette(style: Style, palette: MapPalette, density: Float) {
     style.getLayer(ROUTE_CASING_LAYER)?.setProperties(
         PropertyFactory.lineColor(MapPalette.css(palette.routeCasing)),
     )
-    style.getLayer(ROUTE_LAYER)?.setProperties(
-        PropertyFactory.lineColor(MapPalette.css(palette.route)),
-        PropertyFactory.lineGradient(routeGradient(palette, null)),
-    )
+    style.getLayer(ROUTE_LAYER)?.setProperties(PropertyFactory.lineColor(MapPalette.css(palette.route)))
     style.getLayer(ROUTE_GLOW_LAYER)?.setProperties(PropertyFactory.lineColor(MapPalette.css(palette.routeGlow)))
+    applyRouteShade(style, palette, progress = null)
     style.getLayer(FALLBACK_LAYER)?.setProperties(
         PropertyFactory.lineColor(MapPalette.css(palette.fallbackRoute)),
     )
@@ -580,13 +579,14 @@ private fun applyPalette(style: Style, palette: MapPalette, density: Float) {
         PropertyFactory.circleColor(MapPalette.css(palette.position)),
         PropertyFactory.circleStrokeColor(MapPalette.css(palette.positionRing)),
     )
+    style.getLayer(PLAYBACK_HALO_LAYER)?.setProperties(PropertyFactory.circleColor(MapPalette.css(palette.position)))
     style.getLayer(PIN_LAYER)?.setProperties(
         PropertyFactory.circleColor(MapPalette.css(palette.holdPin)),
         PropertyFactory.circleStrokeColor(MapPalette.css(palette.positionRing)),
     )
     style.addImage(ROUTE_ARROW_ICON, chevronBitmap(palette.routeCasing, density))
     style.addImage(SEARCH_PIN_ICON, searchPinBitmap(MarkerStyle(density, palette)))
-    style.addImage(PLAYBACK_HEADING_ICON, headingConeBitmap(palette.position, density))
+    style.addImage(PLAYBACK_HEADING_ICON, headingConeBitmap(palette.heading, density))
 }
 
 /** A ">" pointing along +x; MapLibre rotates it to the line's bearing. */
@@ -653,11 +653,12 @@ private fun addPointLayers(style: Style) {
             PropertyFactory.circleStrokeWidth(3f),
         ),
     )
-    // The heading cone sits under the live dot and turns with the fix's bearing.
+    // The puck: a soft halo, the heading beam turning with the fix's bearing, the dot on top.
+    style.addLayer(haloLayer())
     style.addLayer(headingLayer())
     style.addLayer(
         CircleLayer(PLAYBACK_LAYER, PLAYBACK_SOURCE).withProperties(
-            PropertyFactory.circleRadius(8f),
+            PropertyFactory.circleRadius(7f),
             PropertyFactory.circleStrokeWidth(3f),
         ),
     )

@@ -1634,3 +1634,53 @@ start as a start-time choice.
 - **Verifier friction this session:** `tapon "Route start"` needs ~1.5 s after Start (the chooser
   animates in); `tapon Stop` can match the trio's "Stops" label — tap the band's Stop by
   coordinates; a scratch `drive.sh build|start|hold` helper made reruns cheap.
+
+### 2026-09-16 — Session 39 (premium polish of the effects pass)
+Ethan asked for a review of session 38's effects (D1–D5) and a polish pass "into a premium feel".
+Plan file: `~/.claude/plans/precious-sprouting-wigderson.md`. What held them back and what changed:
+- **The puck jumped once a second** (fixes at `tickHz`, `setGeoJson` snaps, camera eases 900 ms).
+  Now `PuckMotion` (`MapPuck.kt`) **glides** between fixes from wherever the puck was last drawn,
+  over the real fix interval (150–1500 ms, linear; shortest-arc bearing via `lerpBearing`); a
+  first fix, a jump > 200 m or reduce-motion sets it directly. `PuckFix(position, bearing,
+  progress)` is the per-fix input. Verified from a 4 s recording: beam-to-marker distance grows
+  every frame with no once-a-second step; with animator scale 0 (after a home/relaunch — the flag
+  refreshes on resume only) the puck holds still and cuts at each fix.
+- **Travelled seam glides and feathers**: `MapRouteShade.kt` (new) — `routeGradient(behind,
+  ahead, progress)` is an `interpolate` over 0.4 % of the line instead of a `step`; the rendered
+  progress is interpolated in the same frames as the puck; the dark glow gets the same gradient
+  (transparent behind). `shadeStops()` keeps the two stops strictly increasing (tested). A theme
+  switch mid-drive keeps the shade (`puck.repaint` after `applyPalette`) — verified on a
+  spans-free route. Routes with off-road spans still paint the whole line (line-progress is per
+  piece) — that is what fooled me twice while verifying.
+- **Beam, not smudge**: cone 56 → 88 dp, half-angle 28° → 38°, painted in a new
+  `MapPalette.heading` (light `0xFF8C96E0`, dark `0xFFDCE0FF`) so it reads over the route line;
+  alpha `0xC0`, solid core to 0.35 (first pass at `0xA0`/0.3 was still faint in dark). Static
+  **halo** `CircleLayer` (radius 16, blur 1, 22 % of `position`) under the beam; dot radius 8 → 7.
+- **Breath**: sine easing, 1.6 s, 0.7↔1.0, only while `playbackMoving` (new `MockarrMap` param =
+  `playbackState is Playing`); paused/dwelling eases once to 0.7; reduce-motion holds steady.
+- **Odometer done properly**: `RollingText.kt` (new) rolls only the glyphs that changed, **up
+  when the number grew and down when it shrank** — `StatCell` gained `magnitude: Double?` (raw
+  seconds / metres / m/s / count) so the direction is exact; a length change rolls the whole
+  value once (`contentKey = length`); each glyph clips to its line box (`Motion.roll(up)`
+  replaces `rollUp()`, `SizeTransform(clip = true)`); font size is fitted with a
+  `TextMeasurer` (28 → 18 sp in 2 sp steps) since autoSize cannot apply per glyph; tabular
+  figures (`tnum`) are now actually set on the value style (DESIGN.md claimed them; nothing set
+  them). Verified in a 30 fps recording: "6 s" → "5 s" rolls the digit down, "110 ft" → "90 ft"
+  rolls the whole value, "13 mph" stays still. Font scale 1.3 fits.
+- **Haptics**: one `SegmentTick` as each intermediate stop is driven straight through
+  (`SessionHaptics` gains `stops`); the count is only trusted between two moving readings (null
+  while paused/waiting/idle), so a wait, a pause or any transient never ticks twice. Vibrator
+  log: one tick (constant 26) exactly when `passed` went 0 → 1; a font-scale change mid-drive
+  (Activity recreation) added none. **Unexplained:** one earlier drive on a route with off-road
+  spans at every stop logged three constant-26 ticks (two 2 s apart) — could not reproduce
+  before the hardening; if it recurs, log `passed`/`playbackState` in `SessionHaptics`.
+- **Found while verifying (fixed):** every arrival fired the `Confirm` haptic **twice** 40–100 ms
+  apart (the vibrator history showed a pair at each of five arrivals) — `rememberArrived`'s
+  effect relaunches during the engine-ended → hold chain; it now ticks only when `arrived`
+  flips false → true. Verified: one `constant=16` per arrival.
+- Tests: `MapPuckTest` (bearing lerp, glide clamp), `MapRouteShadeTest`, `RollTrackerTest`.
+  DESIGN.md Motion section documents the puck, the roll direction rule and the haptic vocabulary.
+- Release build (`assembleRelease` + `installapk`): one drive, beam breathing, no crashes.
+- **Verifier friction:** `tapon "Route start"` after `waitfor "Route start"` + `sleep 2` is the
+  reliable form; a reinstall mid-drive leaves a "Drive interrupted" band on the next launch
+  (expected). Detekt: `TextUnit` is not `Comparable` — pass sp floats as a range.

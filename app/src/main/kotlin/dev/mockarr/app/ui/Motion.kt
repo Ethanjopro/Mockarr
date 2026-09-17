@@ -52,11 +52,16 @@ object Motion {
         return fadeThroughIn.togetherWith(fadeOut(tween(FADE_THROUGH_DELAY)))
     }
 
-    /** A stat value ticking over: the new one rolls up from below like an odometer wheel. */
-    fun <T> AnimatedContentTransitionScope<T>.rollUp(): ContentTransform {
-        val enter = slideInVertically(tween(QUICK_MILLIS)) { it / ROLL_FRACTION } + fadeIn(tween(QUICK_MILLIS))
-        val exit = slideOutVertically(tween(QUICK_MILLIS)) { -it / ROLL_FRACTION } + fadeOut(tween(QUICK_MILLIS))
-        return (enter togetherWith exit).using(SizeTransform(clip = false))
+    /**
+     * A stat glyph ticking over like an odometer wheel: the new one rolls in
+     * from below when the value grew ([up]) and from above when it shrank,
+     * clipped to its own line box so it emerges from a mask.
+     */
+    fun <T> AnimatedContentTransitionScope<T>.roll(up: Boolean): ContentTransform {
+        val sign = if (up) 1 else -1
+        val enter = slideInVertically(tween(QUICK_MILLIS)) { sign * it / ROLL_FRACTION } + fadeIn(tween(QUICK_MILLIS))
+        val exit = slideOutVertically(tween(QUICK_MILLIS)) { -sign * it / ROLL_FRACTION } + fadeOut(tween(QUICK_MILLIS))
+        return (enter togetherWith exit).using(SizeTransform(clip = true))
     }
 
     private const val ROLL_FRACTION = 2

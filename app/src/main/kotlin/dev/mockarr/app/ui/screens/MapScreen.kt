@@ -244,6 +244,7 @@ fun MapLayer(
         } else {
             null
         },
+        playbackMoving = playing && playbackState is PlaybackState.Playing,
         cameraFollow = followCamera && playing,
         animateCamera = rememberSystemAnimationsEnabled(),
         dragEnabled = !playing,
@@ -631,7 +632,8 @@ fun MapScreen(
         scope.launch { snackbarHostState.showSnackbar(savedTemplate.format(name)) }
     }
     ReleaseSnackbar(session = session, snackbarHostState = snackbarHostState)
-    SessionHaptics(session = session, playbackState = playbackState)
+    val hapticStops = remember(state.route) { stopFractions(state.route) }
+    SessionHaptics(session = session, playbackState = playbackState, stops = hapticStops)
     val expanded = sheetState.currentValue == SheetValue.Expanded
     var peekHeightPx by remember { mutableIntStateOf(0) }
     val density = LocalDensity.current

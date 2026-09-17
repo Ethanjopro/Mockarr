@@ -363,17 +363,21 @@ internal fun PlaybackStats(
     val progress = playbackState.progressOrZero
     val total = route?.distanceMeters ?: 0.0
     val remainingMeters = (total * (1 - progress)).coerceAtLeast(0.0)
-    val timeLeft = playbackState.remainingSecondsOrNull?.let(formatter::duration)
-        ?: stringResource(R.string.stat_placeholder)
+    val secondsLeft = playbackState.remainingSecondsOrNull
+    val timeLeft = secondsLeft?.let(formatter::duration) ?: stringResource(R.string.stat_placeholder)
     // Only this composable follows every fix; the rest of the overlay stays still.
     val fix by sessionViewModel.latestFix.collectAsStateWithLifecycle()
-    val speed = fix?.speedMetersPerSecond?.let { formatSpeed(it, units) }
-        ?: stringResource(R.string.stat_placeholder)
+    val speedMps = fix?.speedMetersPerSecond
+    val speed = speedMps?.let { formatSpeed(it, units) } ?: stringResource(R.string.stat_placeholder)
     StatTrio(
         cells = listOf(
-            StatCell(stringResource(R.string.stat_time_left), timeLeft),
-            StatCell(stringResource(R.string.stat_distance_left), formatter.distance(remainingMeters, units)),
-            StatCell(stringResource(R.string.stat_speed), speed),
+            StatCell(stringResource(R.string.stat_time_left), timeLeft, magnitude = secondsLeft),
+            StatCell(
+                stringResource(R.string.stat_distance_left),
+                formatter.distance(remainingMeters, units),
+                magnitude = remainingMeters,
+            ),
+            StatCell(stringResource(R.string.stat_speed), speed, magnitude = speedMps),
         ),
     )
     Spacer(Modifier.height(Tokens.space3))

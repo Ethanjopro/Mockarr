@@ -490,6 +490,33 @@ Resume + Finish with the same fade-through. Compose animations follow the system
 "Remove animations" setting on their own; MapLibre camera moves are gated by
 `rememberSystemAnimationsEnabled()` and cut instead of easing when it is off.
 
+**The drive's continuous motion** (not a moment, so not counted against the budget) lives in
+`ui/map/MapPuck.kt` and `MapRouteShade.kt`. The **puck** is three layers on one source: a
+static soft halo (`position` at 22 %, blurred), the **heading beam** — an 88dp wedge in
+`MapPalette.heading` (a lighter tint of the accent, so it reads over the route line itself)
+rotating with the fix's bearing — and the accent disc on top. Fixes arrive at the engine's
+tick rate; the puck **glides** between them over the real fix interval (150–1500ms, linear,
+shortest-arc bearing) from wherever it was last drawn, so an early fix shortens a glide
+rather than snapping; a jump over 200m (resume, restart) sets it directly. The **road shade**
+moves in the same frames: `routeTravelled` behind the puck feathering into the accent over
+0.4 % of the line, and the dark theme's `routeGlow` goes out behind it the same way. The beam
+**breathes** (0.7↔1.0, 1.6s, sine) only while fixes advance — the one pulse the brief allows —
+and settles dim while paused or waiting at a stop, like an engine idling. Reduce-motion: the
+puck snaps, the beam holds steady.
+
+**Numerals roll** (`ui/screens/RollingText.kt`): a stat value ticks over like an instrument
+wheel — only the glyphs that changed roll, **up when the number grew and down when it
+shrank** (each `StatCell` carries its raw magnitude, so the direction is exact, never parsed
+from text), each out of its own clipped line box; a change of length rolls the whole value
+once. Tabular figures (`tnum`) are set on the value style so a rolling `1` is as wide as a
+`7` and the row never shifts.
+
+**Haptic vocabulary** (`ui/screens/MapHaptics.kt`, plus arrival in `MapSessionFeedback.kt`):
+drive start (`GestureThresholdActivate`), a wait beginning and ending, and each intermediate
+stop driven straight through (`SegmentTick`); a stop placed on the map (`ContextClick`); the
+thumbstick's dead-zone edge (`SegmentFrequentTick`); arrival (`Confirm`). Nothing else
+vibrates; the system haptic setting silences all of it.
+
 ### Stat Card (signature)
 Strava's "run box": a 16dp-corner `surface-container-lowest` card with the soft lift,
 floating `map-edge` above the sheet — **in every state, from cold start to Stop**. With
@@ -513,8 +540,8 @@ tappable** — it opens the expanded sheet's stop list (`Role.Button`, "Edit the
 the in-drive stats are inert.
 
 ### Stat Trio
-Three equal `weight(1f)` centred columns; Headline value (700, tabular) over its Label
-(on-surface-variant). Under it while driving, a 4dp `LinearProgressIndicator` with a
+Three equal `weight(1f)` centred columns; Headline value (700, tabular, rolling — see
+Motion) over its Label (on-surface-variant). Under it while driving, a 4dp `LinearProgressIndicator` with a
 `surface-container-highest` track and no stop indicator. Hidden entirely when the numbers
 are undefined (nothing loaded).
 
