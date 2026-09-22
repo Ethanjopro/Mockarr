@@ -371,13 +371,10 @@ internal fun PlaybackStats(
     val speed = speedMps?.let { formatSpeed(it, units) } ?: stringResource(R.string.stat_placeholder)
     StatTrio(
         cells = listOf(
-            StatCell(stringResource(R.string.stat_time_left), timeLeft, magnitude = secondsLeft),
-            StatCell(
-                stringResource(R.string.stat_distance_left),
-                formatter.distance(remainingMeters, units),
-                magnitude = remainingMeters,
-            ),
-            StatCell(stringResource(R.string.stat_speed), speed, magnitude = speedMps),
+            StatCell(stringResource(R.string.stat_time_left), timeLeft),
+            StatCell(stringResource(R.string.stat_distance_left), formatter.distance(remainingMeters, units)),
+            // Only speed rolls (Ethan): the one number that should feel like an instrument.
+            StatCell(stringResource(R.string.stat_speed), speed, magnitude = speedMps, rolls = true),
         ),
     )
     Spacer(Modifier.height(Tokens.space3))

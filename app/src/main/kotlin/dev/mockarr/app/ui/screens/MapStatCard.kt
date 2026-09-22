@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.text.TextAutoSize
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
@@ -175,10 +176,11 @@ internal fun SpeedPopover(
 }
 
 /**
- * One value-over-label cell of the stat trio. [magnitude] is the number behind
- * [value] in any unit, so a change knows whether to roll up or down.
+ * One value-over-label cell of the stat trio. Only a cell that [rolls] animates
+ * its value like a speedometer wheel (the drive's speed); [magnitude] is the
+ * number behind [value] in any unit, so a change knows whether to roll up or down.
  */
-data class StatCell(val label: String, val value: String, val magnitude: Double? = null)
+data class StatCell(val label: String, val value: String, val magnitude: Double? = null, val rolls: Boolean = false)
 
 /** Three equal cells: bold tabular value with its label under it (Strava's trio); no hero numeral. */
 @Composable
@@ -186,20 +188,34 @@ fun StatTrio(cells: List<StatCell>, modifier: Modifier = Modifier) {
     Row(modifier = modifier.fillMaxWidth()) {
         cells.forEach { cell ->
             Column(modifier = Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally) {
-                // The value rolls over like an instrument wheel when it changes; tabular
-                // figures keep every digit the same width so nothing else shifts.
-                RollingText(
-                    text = cell.value,
-                    magnitude = cell.magnitude,
-                    style = MaterialTheme.typography.headlineMedium.copy(
-                        fontWeight = FontWeight.Bold,
-                        fontFeatureSettings = TABULAR_FIGURES,
-                    ),
-                    color = MaterialTheme.colorScheme.onSurface,
-                    // "1 h 12 min" overflows a third of the card at 28sp: shrink, never clip.
-                    minFontSize = TRIO_MIN_FONT,
-                    maxFontSize = TRIO_MAX_FONT,
+                // Tabular figures keep every digit the same width so nothing shifts;
+                // "1 h 12 min" overflows a third of the card at 28sp: shrink, never clip.
+                val style = MaterialTheme.typography.headlineMedium.copy(
+                    fontWeight = FontWeight.Bold,
+                    fontFeatureSettings = TABULAR_FIGURES,
                 )
+                if (cell.rolls) {
+                    // The speedometer: the value rolls over like an instrument wheel.
+                    RollingText(
+                        text = cell.value,
+                        magnitude = cell.magnitude,
+                        style = style,
+                        color = MaterialTheme.colorScheme.onSurface,
+                        minFontSize = TRIO_MIN_FONT,
+                        maxFontSize = TRIO_MAX_FONT,
+                    )
+                } else {
+                    Text(
+                        text = cell.value,
+                        style = style,
+                        color = MaterialTheme.colorScheme.onSurface,
+                        textAlign = TextAlign.Center,
+                        maxLines = 1,
+                        softWrap = false,
+                        autoSize = TextAutoSize.StepBased(TRIO_MIN_FONT, TRIO_MAX_FONT, TRIO_FONT_STEP),
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                }
                 Text(
                     text = cell.label,
                     style = MaterialTheme.typography.labelMedium,
@@ -256,17 +272,9 @@ internal fun recordCells(state: MapViewModel.UiState, units: DistanceUnits): Lis
     val seconds = route.durationSeconds * state.trafficFactor + route.waypointWaitsSeconds.sum()
     val minutes = (seconds / SECONDS_PER_MINUTE).roundToInt().coerceAtLeast(1)
     return listOf(
-        StatCell(
-            stringResource(R.string.stat_distance),
-            formatter.distance(route.distanceMeters, units),
-            magnitude = route.distanceMeters,
-        ),
-        StatCell(
-            stringResource(R.string.stat_duration),
-            formatter.duration(minutes * SECONDS_PER_MINUTE.toDouble()),
-            magnitude = minutes.toDouble(),
-        ),
-        StatCell(stringResource(R.string.stat_stops), state.waypoints.size.toString(), state.waypoints.size.toDouble()),
+        StatCell(stringResource(R.string.stat_distance), formatter.distance(route.distanceMeters, units)),
+        StatCell(stringResource(R.string.stat_duration), formatter.duration(minutes * SECONDS_PER_MINUTE.toDouble())),
+        StatCell(stringResource(R.string.stat_stops), state.waypoints.size.toString()),
     )
 }
 
@@ -274,4 +282,7 @@ private const val SECONDS_PER_MINUTE = 60
 private const val TABULAR_FIGURES = "tnum"
 private val TRIO_MIN_FONT = 18.sp
 private val TRIO_MAX_FONT = 28.sp
+
+// RollingText fits in the same 2 sp steps, so a rolling and a still value settle at one size.
+private val TRIO_FONT_STEP = 2.sp
 private val PROGRESS_HEIGHT = 4.dp

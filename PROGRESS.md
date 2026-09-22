@@ -1761,3 +1761,10 @@ road-centred circle, and no red buttons at all.
     - the held pin has its amber circle
     - wobble off → no circle
     - the slider defaults to 1.5 m
+- **Speed-only roll (§4):** `StatCell.rolls` (a flag, not "magnitude != null": speed has no
+  magnitude until the first fix, and switching composables would reset the roll tracker).
+  - Only the drive's speed cell sets it. Every other value is a plain `Text` in the same
+    style, with `TextAutoSize.StepBased(18..28 sp, 2 sp)` matching RollingText's fit steps.
+  - The record cells lost their magnitudes.
+  - **Verified from a 15 fps recording at 4×:** "59 s" → "58 s" cuts with no in-between
+    frame, "0.6 mi" holds, and "34 mph" → "38 mph" rolls over about 8 frames.

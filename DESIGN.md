@@ -506,11 +506,13 @@ were last drawn, so an early fix shortens a glide rather than snapping; a jump o
 dark theme's `routeGlow` goes out behind it the same way. Nothing pulses (session 40: the
 heading beam and its breath read as noise and went). Reduce-motion: the puck snaps.
 
-**Numerals roll** (`ui/screens/RollingText.kt`): a stat value ticks over like an instrument
-wheel — only the glyphs that changed roll, **up when the number grew and down when it
-shrank** (each `StatCell` carries its raw magnitude, so the direction is exact, never parsed
-from text), each out of its own clipped line box; a change of length rolls the whole value
-once. Tabular figures (`tnum`) are set on the value style so a rolling `1` is as wide as a
+**Speed rolls** (`ui/screens/RollingText.kt`) — and only speed (session 40, Ethan: time and
+distance rolling too was noise): the drive's mph / km/h ticks over like a speedometer wheel
+— only the glyphs that changed roll, **up when the number grew and down when it shrank**
+(the `StatCell` with `rolls = true` carries its raw magnitude, so the direction is exact,
+never parsed from text), each out of its own clipped line box; a change of length rolls the
+whole value once. Every other value is a plain `Text` in the same style and 2sp autosize
+steps. Tabular figures (`tnum`) are set on the value style so a rolling `1` is as wide as a
 `7` and the row never shifts.
 
 **Haptic vocabulary** (`ui/screens/MapHaptics.kt`, plus arrival in `MapSessionFeedback.kt`):
@@ -542,7 +544,7 @@ tappable** — it opens the expanded sheet's stop list (`Role.Button`, "Edit the
 the in-drive stats are inert.
 
 ### Stat Trio
-Three equal `weight(1f)` centred columns; Headline value (700, tabular, rolling — see
+Three equal `weight(1f)` centred columns; Headline value (700, tabular; speed rolls — see
 Motion) over its Label (on-surface-variant). Under it while driving, a 4dp `LinearProgressIndicator` with a
 `surface-container-highest` track and no stop indicator. Hidden entirely when the numbers
 are undefined (nothing loaded).
