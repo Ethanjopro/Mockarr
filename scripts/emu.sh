@@ -1,11 +1,12 @@
 #!/usr/bin/env bash
 # Drive the mockarr_test emulator like a human: boot, tap, swipe, type, look.
 # Usage: scripts/emu.sh <command> [args]
+# MOCKARR_AVD=Pixel_8a picks another AVD (API 37.1: Android 16+ Live Updates).
 set -euo pipefail
 
 SDK="${ANDROID_SDK_ROOT:-$HOME/Library/Android/sdk}"
 ADB="$SDK/platform-tools/adb"
-AVD="mockarr_test"
+AVD="${MOCKARR_AVD:-mockarr_test}"
 
 case "${1:-help}" in
   # One emulator per machine. Reuses a running one, recovers an offline one,
@@ -14,7 +15,14 @@ case "${1:-help}" in
   boot)
     state=$("$ADB" devices | awk '/^emulator-/ { print $2; exit }')
     case "$state" in
-      device) echo "already booted"; exit 0 ;;
+      device)
+        running=$("$ADB" emu avd name 2>/dev/null | head -1 | tr -d '\r')
+        if [ -n "$running" ] && [ "$running" != "$AVD" ]; then
+          echo "already booted — but it is $running, not $AVD (scripts/emu.sh kill first to switch)" >&2
+        else
+          echo "already booted"
+        fi
+        exit 0 ;;
       offline|unauthorized)
         echo "device $state — restarting adb" >&2
         "$ADB" kill-server; "$ADB" start-server; "$ADB" reconnect offline >/dev/null 2>&1 || true
@@ -214,19 +222,21 @@ case "${1:-help}" in
     esac
     "$ADB" install -r "$apk"
     ;;
-  launch)    "$ADB" shell am start -n dev.mockarr.app/.MainActivity ;;
+  # Launch the way the home screen does (MAIN + LAUNCHER): a bare -n start
+  # matches a different root intent and hides task-reuse bugs.
+  launch)    "$ADB" shell am start -a android.intent.action.MAIN -c android.intent.category.LAUNCHER -n dev.mockarr.app/.MainActivity ;;
   mockallow) "$ADB" shell settings put global development_settings_enabled 1 && "$ADB" shell appops set dev.mockarr.app android:mock_location allow ;;
   mockdeny)  "$ADB" shell appops set dev.mockarr.app android:mock_location deny ;;
   *)
     cat <<'USAGE'
 usage: scripts/emu.sh <command> [args]
-  boot                       boot mockarr_test (reuses a running one; 180 s deadline)
+  boot                       boot $MOCKARR_AVD (default mockarr_test; reuses a running one; 180 s deadline)
   settle [timeout=20]        wait until the app has drawn (do this before the first tap)
   tab Map|Routes|Settings    open a screen (Map = back to root; others via the sheet's drag-up rows)
   shell <adb shell args…>    raw adb shell passthrough
   record <secs> [out.mp4]    screen recording (blocks for <secs>) for motion checks
   kill                       shut the emulator down
-  launch                     start the Mockarr main activity
+  launch                     start the Mockarr main activity as the launcher does
   install                    :app:installDebug via scripts/gradle (refuses while Gradle is busy)
   installapk [apk]           install a release APK (default: the unsigned assembleRelease output, debug-signed on the fly)
   mockallow | mockdeny       grant/revoke the mock-location appop

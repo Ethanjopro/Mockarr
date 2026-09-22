@@ -23,6 +23,13 @@ emulator binary yourself.
    tap — the map swallows touches while it warms up.
 4. When finished: `scripts/emu.sh kill`. Never TaskStop the boot task — that
    kills the emulator child process.
+5. **Android 16+ features** (the promoted Live Update notification, its status
+   chip): `scripts/emu.sh kill`, then `MOCKARR_AVD=Pixel_8a scripts/emu.sh boot`
+   (API 37.1, same 1080×2400 screen, so the swipe coordinates hold). `boot`
+   warns when it reuses a different AVD. Check a notification with
+   `shell "dumpsys notification --noredact | grep -A60 'pkg=dev.mockarr.app'"`
+   sampled twice; `launch` starts the app as the launcher does (MAIN +
+   LAUNCHER), which is what makes a notification tap reuse the task.
 
 ## Interaction rules (hard-won — do not rediscover these)
 - **Wait for UI states with `scripts/emu.sh waitfor "text" [timeout]`** — it

@@ -1684,3 +1684,40 @@ Plan file: `~/.claude/plans/precious-sprouting-wigderson.md`. What held them bac
 - **Verifier friction:** `tapon "Route start"` after `waitfor "Route start"` + `sleep 2` is the
   reliable form; a reinstall mid-drive leaves a "Drive interrupted" band on the next launch
   (expected). Detekt: `TextUnit` is not `Comparable` — pass sp floats as a range.
+
+### 2026-09-22 — Session 40 (notification fix, snapping, wobble circle, speed-only roll, one button system)
+Ethan's six asks; plan file `~/.claude/plans/zesty-wibbling-star.md`. His calls: stops were
+jumping onto the road (keep them where tapped), the dot keeps jittering inside a steady
+road-centred circle, and no red buttons at all.
+- **Notification (§1), three real bugs.**
+  - **The tap stacked a second, empty MainActivity.** The content intent was a bare component
+    intent, which never matches the launcher's MAIN+LAUNCHER root intent. `emu.sh launch` used
+    `am start -n`, which happens to match, and that hid the bug in every earlier session.
+    - The tap now uses `Intent.makeMainActivity(...)`, and MainActivity is `singleTop`.
+    - `emu.sh launch` now starts the app the way the launcher does.
+    - `MOCKARR_AVD=Pixel_8a` boots the API 37.1 AVD, so the Live Update can be checked.
+  - **A map that opens mid-drive adopts the drive.** `MockSessionRepository.liveDrive` holds the
+    route, profile and saved flag. `MapViewModel.loadRoute(frame = false)` is shared with
+    RouteHandoff, with the pure `UiState.withLoadedRoute`.
+  - **The bar moved about 1 % a minute.**
+    - Before: refreshes ran every 5th fix and were skipped unless the whole percent or whole
+      minutes changed.
+    - Now: a 1 s wall-clock ticker, keyed by `driveNotificationKey` (per-mille, phase, time left
+      as the copy words it, tenths of a unit driven).
+    - The key is null while Stopping/Finished, which kept the last content and stopped the flash
+      to "0.0 / X".
+  - **False "Arrived".** Stop pressed in the notification while the app was away came back as
+    "Arrived" and cleared the route. The UI only guessed from the `Stopping` frames it saw.
+    - The repository now records `DriveOutcome` (a `stop()` request → STOPPED, a release
+      mid-drive → STOPPED, otherwise ARRIVED) before the session leaves Playing.
+    - `ArrivalEffect` reads that outcome.
+  - **Verified on the Pixel_8a AVD (API 37.1):**
+    - The Live Update is promoted (ProgressStyle, flag `PROMOTED_ONGOING`).
+    - Away from the app, progress went 68 → 85 → 108 m, and the car moved along the bar.
+    - Tapping the notification kept one MainActivity with the route, stats and follow camera.
+    - A forced fresh Activity (NEW_TASK|CLEAR_TASK) adopted the drive.
+    - Notification Stop while away: "Holding at Avenue Des Champs Elysées" with the route kept,
+      and the bar held at 1236 m through the deceleration.
+    - A natural arrival at 4× while away: "Arrived at Avenue de la Motte-Picquet" on return.
+    - Note: `always_finish_activities` did NOT destroy the Activity on API 37. Force a fresh one
+      with `am start -f 0x10008000`.

@@ -5,6 +5,7 @@ import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
 import android.app.Service
+import android.content.ComponentName
 import android.content.Intent
 import android.content.pm.ServiceInfo
 import android.os.IBinder
@@ -89,7 +90,7 @@ class MockSessionService : Service() {
     private var activeDrive: ActiveDrive? = null
 
     private class ActiveDrive(val route: Route, val profile: RoutingProfile, val engine: SimulationEngine)
-    private var lastNotified: Triple<Int, Int, Int>? = null
+    private var lastNotified: DriveNotificationKey? = null
 
     /** The pin held when playback began — the fallback if "stay at destination" is off. */
     private var rememberedPin: LatLng? = null
@@ -97,11 +98,15 @@ class MockSessionService : Service() {
     /** A parked receiver still wobbles: the hold keepalive reports a jittered copy of the spot. */
     private val holdJitter = Jitter(Random(SystemClock.elapsedRealtimeNanos()))
 
+    // The launcher's own intent (MAIN + LAUNCHER): Android matches it to the
+    // running task and brings that forward. A bare component intent does not
+    // match, and stacks a second, empty MainActivity on top of the drive.
     private val contentIntent by lazy {
         PendingIntent.getActivity(
             this,
             0,
-            Intent(this, MainActivity::class.java),
+            Intent.makeMainActivity(ComponentName(this, MainActivity::class.java))
+                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
             PendingIntent.FLAG_IMMUTABLE,
         )
     }
@@ -202,8 +207,20 @@ class MockSessionService : Service() {
     private fun runSession(pending: MockSessionRepository.PendingSession) {
         val route = pending.route
         acquireWakeLock()
+        lastNotified = null
         routeDistanceMeters = route.distanceMeters
         progressLayout = progressLayoutOf(route, pending.profile)
+        val engine = buildSimulationEngine(route, pending)
+        activeDrive = ActiveDrive(route, pending.profile, engine)
+        repository.playingStarted(engine, MockSessionRepository.LiveDrive(route, pending.profile, pending.saved))
+        saveSnapshot()
+        launchSessionJob(engine)
+    }
+
+    private fun buildSimulationEngine(
+        route: Route,
+        pending: MockSessionRepository.PendingSession,
+    ): SimulationEngine {
         val settings = settingsRepository.settings.value
         // Congestion factor is captured once at playback start, never mid-route.
         val trafficFactor = if (settings.trafficSimEnabled) {
@@ -212,7 +229,7 @@ class MockSessionService : Service() {
         } else {
             1.0
         }
-        val engine = SimulationEngine(
+        return SimulationEngine(
             route = route,
             params = SimulationParams(
                 tickHz = settings.tickHz,
@@ -228,32 +245,40 @@ class MockSessionService : Service() {
             initialSpeedMultiplier = repository.speedMultiplier.value,
             resumeFrom = pending.resumeFrom,
         )
-        activeDrive = ActiveDrive(route, pending.profile, engine)
-        repository.playingStarted(engine)
-        saveSnapshot()
+    }
 
+    private fun launchSessionJob(engine: SimulationEngine) {
         sessionJob = scope.launch {
             val stateJob = launch {
                 var lastKind: Class<out PlaybackState>? = null
                 engine.state.collect { state ->
                     repository.updateState(state)
-                    // Pause, a wait starting or ending: worth a snapshot of its own.
+                    // Pause, a wait starting or ending: worth a snapshot of its own,
+                    // and shown in the notification now rather than at the next second.
                     if (state::class.java != lastKind) {
                         lastKind = state::class.java
                         saveSnapshot()
+                        refreshNotification()
                     }
                 }
             }
-            var tick = 0
+            // Wall-clock cadence, whatever the tick rate: the bar and the time left
+            // move every second while the app is away (refreshNotification skips
+            // posts that would change nothing).
+            val notifyJob = launch {
+                var seconds = 0
+                while (isActive) {
+                    refreshNotification()
+                    if (seconds++ % SNAPSHOT_EVERY_SECONDS == 0) saveSnapshot()
+                    delay(NOTIFICATION_REFRESH_MILLIS)
+                }
+            }
             engine.fixes.collect { fix ->
                 mockController.push(fix)
                 repository.updateFix(fix)
-                if (tick++ % NOTIFICATION_UPDATE_TICKS == 0) {
-                    refreshNotification()
-                    saveSnapshot()
-                }
             }
             stateJob.cancel()
+            notifyJob.cancel()
             activeDrive = null
             onEngineEnded(stoppedEarly = engine.stoppedBeforeArrival)
         }
@@ -379,6 +404,7 @@ class MockSessionService : Service() {
         holdJob = null
         rememberedPin = null
         activeDrive = null
+        lastNotified = null
         snapshotStore.clear() // ended on purpose: nothing to resume
         mockController.stop()
         repository.sessionReleased()
@@ -418,17 +444,8 @@ class MockSessionService : Service() {
     }
 
     private fun refreshNotification() {
-        val state = repository.state.value
-        val stateOrdinal = when (state) {
-            is PlaybackState.Paused -> 1
-            is PlaybackState.Dwelling -> 2
-            else -> 0
-        }
-        val key = Triple(
-            (state.progressOrZero * PROGRESS_MAX).toInt(),
-            stateOrdinal,
-            ((state.remainingSecondsOrNull ?: 0.0) / SECONDS_PER_MINUTE).toInt(),
-        )
+        val units = settingsRepository.settings.value.units
+        val key = driveNotificationKey(repository.state.value, routeDistanceMeters, units) ?: return
         if (key == lastNotified) return
         lastNotified = key
         getSystemService(NotificationManager::class.java)
@@ -530,12 +547,12 @@ class MockSessionService : Service() {
         const val EXTRA_LNG = "lng"
         private const val CHANNEL_ID = "playback"
         private const val NOTIFICATION_ID = 42
-        private const val NOTIFICATION_UPDATE_TICKS = 5
-        private const val PROGRESS_MAX = 100
+        private const val NOTIFICATION_REFRESH_MILLIS = 1_000L
+        private const val SNAPSHOT_EVERY_SECONDS = 5
+        private const val PROGRESS_MAX = 1_000
         private const val HOLD_TICK_MILLIS = 1_000L
         private const val HOLD_SETTLE_MILLIS = 1_500L
         private const val HOLD_NAME_TIMEOUT_MILLIS = 5_000L
-        private const val SECONDS_PER_MINUTE = 60.0
         private const val SPEED_VARIANCE_FRACTION = 0.08
         private const val OFF_ROAD_PAUSE_SECONDS = 2
         private const val HOLD_ACCURACY_METERS = 5.0

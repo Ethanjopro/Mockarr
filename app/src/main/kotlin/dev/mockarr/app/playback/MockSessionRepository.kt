@@ -38,6 +38,9 @@ sealed interface MockSessionState {
 
 enum class HoldSource { PIN, DESTINATION, STOPPED }
 
+/** How the last drive ended: on its own at the destination, or cut short (Stop, Finish, a release). */
+enum class DriveOutcome { ARRIVED, STOPPED }
+
 /**
  * Single source of truth for the active mock session. The service hosts the
  * engine/hold ticker and pushes state here; ViewModels observe and send
@@ -60,6 +63,23 @@ class MockSessionRepository @Inject constructor() {
 
     private var engine: SimulationEngine? = null
 
+    /**
+     * The drive being played, so a map that opens mid-drive (a new Activity,
+     * a recreation) can draw it; null outside a drive.
+     */
+    data class LiveDrive(val route: Route, val profile: RoutingProfile, val saved: Boolean)
+
+    private val _liveDrive = MutableStateFlow<LiveDrive?>(null)
+    val liveDrive: StateFlow<LiveDrive?> = _liveDrive.asStateFlow()
+
+    /**
+     * Set before the session leaves Playing, so whoever sees the drive end can
+     * tell an arrival from a Stop — even when it was not watching the deceleration.
+     */
+    private val _driveOutcome = MutableStateFlow<DriveOutcome?>(null)
+    val driveOutcome: StateFlow<DriveOutcome?> = _driveOutcome.asStateFlow()
+    private var stopRequested = false
+
     // Latest-wins thumbstick nudge targets. Only the service's hold job
     // collects, so nudges are structurally dead outside a hold.
     private val _holdMoves = MutableSharedFlow<LatLng>(
@@ -74,6 +94,8 @@ class MockSessionRepository @Inject constructor() {
         val profile: RoutingProfile,
         /** Set when picking an interrupted drive back up; null starts from the route's beginning. */
         val resumeFrom: SimulationEngine.ResumePoint? = null,
+        /** The route is in Saved routes as-is (so a map adopting the drive won't offer Save). */
+        val saved: Boolean = false,
     )
 
     private var pendingSession: PendingSession? = null
@@ -96,8 +118,13 @@ class MockSessionRepository @Inject constructor() {
     }
 
     /** Stage the next session; the caller then starts the service. */
-    fun requestStart(route: Route, profile: RoutingProfile, resumeFrom: SimulationEngine.ResumePoint? = null) {
-        pendingSession = PendingSession(route, profile, resumeFrom)
+    fun requestStart(
+        route: Route,
+        profile: RoutingProfile,
+        resumeFrom: SimulationEngine.ResumePoint? = null,
+        saved: Boolean = false,
+    ) {
+        pendingSession = PendingSession(route, profile, resumeFrom, saved)
     }
 
     fun pause() {
@@ -109,7 +136,9 @@ class MockSessionRepository @Inject constructor() {
     }
 
     fun stop() {
-        engine?.stop()
+        val running = engine ?: return
+        stopRequested = true
+        running.stop()
     }
 
     /** Playback pace, owned here so the chips, the running engine and the next drive agree. */
@@ -133,8 +162,11 @@ class MockSessionRepository @Inject constructor() {
 
     internal fun consumePendingSession(): PendingSession? = pendingSession.also { pendingSession = null }
 
-    internal fun playingStarted(engine: SimulationEngine) {
+    internal fun playingStarted(engine: SimulationEngine, drive: LiveDrive) {
         this.engine = engine
+        stopRequested = false
+        _driveOutcome.value = null
+        _liveDrive.value = drive
         _error.value = null
         _session.value = MockSessionState.Playing
     }
@@ -169,13 +201,17 @@ class MockSessionRepository @Inject constructor() {
 
     /** The playback engine is done; the session may continue as a hold. */
     internal fun engineEnded() {
+        if (engine != null) _driveOutcome.value = if (stopRequested) DriveOutcome.STOPPED else DriveOutcome.ARRIVED
         engine = null
+        _liveDrive.value = null
         _state.value = null
         _latestFix.value = null
     }
 
     /** Test providers were removed — the device is back on its real location. */
     internal fun sessionReleased() {
+        // A release mid-drive (an error, a system kill) is never an arrival.
+        if (engine != null) stopRequested = true
         engineEnded()
         _session.value = MockSessionState.Idle
     }

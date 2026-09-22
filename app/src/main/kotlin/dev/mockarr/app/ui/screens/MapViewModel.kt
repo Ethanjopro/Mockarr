@@ -7,6 +7,7 @@ import android.os.Build
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
+import dev.mockarr.app.playback.MockSessionRepository
 import dev.mockarr.app.ui.RouteHandoff
 import dev.mockarr.app.ui.map.CameraCommand
 import dev.mockarr.core.data.SavedRoutesRepository
@@ -58,6 +59,7 @@ class MapViewModel @Inject constructor(
     private val settingsRepository: SettingsRepository,
     private val savedRoutesRepository: SavedRoutesRepository,
     private val routeHandoff: RouteHandoff,
+    sessionRepository: MockSessionRepository,
     backend: BackendConfig,
 ) : ViewModel() {
 
@@ -157,32 +159,18 @@ class MapViewModel @Inject constructor(
             routeHandoff.pending.collect { loaded ->
                 if (loaded != null) {
                     routeHandoff.clear()
-                    // A saved route arrives loaded, not built: builder closed,
-                    // history gone, camera framing it (was loadSavedRoute).
-                    _builderMode.value = false
-                    _searchedPlace.value = null
-                    history.clear()
-                    routeJob?.cancel()
-                    profileTouched = true
-                    val route = loaded.route
-                    val anchors = route.snappedWaypoints
-                        .ifEmpty { listOf(route.points.first(), route.points.last()) }
-                    val waits = route.waypointWaitsSeconds
-                    _uiState.update {
-                        it.copy(
-                            waypoints = anchors.mapIndexed { i, p -> Waypoint(p, waits.getOrElse(i) { 0 }) },
-                            profile = loaded.profile,
-                            route = route,
-                            routeIsFallback = false,
-                            routedFor = anchors,
-                            isRouting = false,
-                            routingError = null,
-                            routeSaved = loaded.saved,
-                            trafficFactor = settingsRepository.currentTrafficFactor(),
-                        )
-                    }
-                    _cameraCommand.value = CameraCommand.FitRoute(route.points, seq = cameraSeq++)
-                    enrichWithElevations(route)
+                    loadRoute(loaded, frame = true)
+                }
+            }
+        }
+        // A map that opens mid-drive (the notification's tap, a recreated
+        // Activity) starts empty: draw the drive in flight. Unframed — the
+        // follow camera already has the dot.
+        viewModelScope.launch {
+            sessionRepository.liveDrive.filterNotNull().collect { drive ->
+                val state = _uiState.value
+                if (state.route == null && state.waypoints.isEmpty()) {
+                    loadRoute(RouteHandoff.LoadedRoute(drive.route, drive.profile, drive.saved), frame = false)
                 }
             }
         }
@@ -443,6 +431,24 @@ class MapViewModel @Inject constructor(
         mutate { it.asReversed() }
     }
 
+    /**
+     * A route that arrives loaded, not built (a saved route, an interrupted
+     * drive, the drive in flight): builder closed, history gone, and the camera
+     * framing it when [frame].
+     */
+    private fun loadRoute(loaded: RouteHandoff.LoadedRoute, frame: Boolean) {
+        _builderMode.value = false
+        _searchedPlace.value = null
+        history.clear()
+        routeJob?.cancel()
+        profileTouched = true
+        val route = loaded.route
+        val trafficFactor = settingsRepository.currentTrafficFactor()
+        _uiState.update { it.withLoadedRoute(route, loaded.profile, loaded.saved, trafficFactor) }
+        if (frame) _cameraCommand.value = CameraCommand.FitRoute(route.points, seq = cameraSeq++)
+        enrichWithElevations(route)
+    }
+
     /** Fetches terrain elevations for [route] and attaches them once resolved. */
     private fun enrichWithElevations(route: Route) {
         if (route.altitudes != null) return
@@ -533,6 +539,28 @@ class MapViewModel @Inject constructor(
 private const val LOCATE_TIMEOUT_MILLIS = 5_000L
 
 /** The same stops with [index] relocated to [point]; its wait is kept. Out-of-range → unchanged. */
+/** [route] as the loaded state: its snapped stops (or its ends) with their waits, nothing in flight. */
+internal fun MapViewModel.UiState.withLoadedRoute(
+    route: Route,
+    profile: RoutingProfile,
+    saved: Boolean,
+    trafficFactor: Double,
+): MapViewModel.UiState {
+    val anchors = route.snappedWaypoints.ifEmpty { listOf(route.points.first(), route.points.last()) }
+    val waits = route.waypointWaitsSeconds
+    return copy(
+        waypoints = anchors.mapIndexed { i, p -> Waypoint(p, waits.getOrElse(i) { 0 }) },
+        profile = profile,
+        route = route,
+        routeIsFallback = false,
+        routedFor = anchors,
+        isRouting = false,
+        routingError = null,
+        routeSaved = saved,
+        trafficFactor = trafficFactor,
+    )
+}
+
 internal fun List<Waypoint>.movedTo(index: Int, point: LatLng): List<Waypoint> =
     if (index !in indices) this else mapIndexed { i, w -> if (i == index) w.copy(position = point) else w }
 

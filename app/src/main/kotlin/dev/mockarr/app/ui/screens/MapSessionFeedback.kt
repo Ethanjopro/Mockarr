@@ -3,7 +3,6 @@ package dev.mockarr.app.ui.screens
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -12,27 +11,25 @@ import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.stringResource
 import dev.mockarr.app.R
+import dev.mockarr.app.playback.DriveOutcome
 import dev.mockarr.app.playback.MockSessionState
-import dev.mockarr.core.model.PlaybackState
 import kotlinx.coroutines.delay
 
 /**
  * Invokes [onArrived] once each time playback ends by reaching its destination
- * on its own — never after Finish or Stop. Both endings finish in the same
- * engine state, but a Stop's multi-second deceleration always shows the UI
- * `Stopping` frames first; a natural arrival never does.
+ * on its own — never after Finish or Stop. [outcome] is read when the drive
+ * ends: the repository records it before the session leaves Playing, so this
+ * holds even when the app was away for the whole deceleration (Stop pressed in
+ * the notification).
  */
 @Composable
-internal fun ArrivalEffect(session: MockSessionState, playbackState: PlaybackState?, onArrived: () -> Unit) {
+internal fun ArrivalEffect(session: MockSessionState, outcome: () -> DriveOutcome?, onArrived: () -> Unit) {
     val playing = session is MockSessionState.Playing
     var wasPlaying by remember { mutableStateOf(playing) }
-    // The engine's last word before it ended: Stopping means the user cut the drive short.
-    var lastPlayback by remember { mutableStateOf(playbackState) }
-    SideEffect { if (playbackState != null) lastPlayback = playbackState }
     LaunchedEffect(playing) {
         val ended = wasPlaying && !playing
         wasPlaying = playing
-        if (ended && lastPlayback !is PlaybackState.Stopping) onArrived()
+        if (ended && outcome() == DriveOutcome.ARRIVED) onArrived()
     }
 }
 
@@ -43,10 +40,10 @@ internal fun ArrivalEffect(session: MockSessionState, playbackState: PlaybackSta
  * the one that gets remembered.
  */
 @Composable
-internal fun rememberArrived(session: MockSessionState, playbackState: PlaybackState?): Boolean {
+internal fun rememberArrived(session: MockSessionState, outcome: () -> DriveOutcome?): Boolean {
     val playing = session is MockSessionState.Playing
     var arrivedTick by remember { mutableStateOf(0) }
-    ArrivalEffect(session, playbackState) { arrivedTick++ }
+    ArrivalEffect(session, outcome) { arrivedTick++ }
     var arrived by remember { mutableStateOf(false) }
     val haptic = LocalHapticFeedback.current
     // Keyed on playing too: a new drive starting mid-window drops the flag.

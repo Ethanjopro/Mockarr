@@ -142,7 +142,7 @@ fun MapLayer(
     // Natural arrival ends like Finish does: the driven route leaves the map (a
     // stay-at-destination hold keeps holding). Hosted here, not in MapScreen —
     // this layer stays composed while Routes/Settings cover the map.
-    ArrivalEffect(session, playbackState) { viewModel.clearWaypoints() }
+    ArrivalEffect(session, outcome = { sessionViewModel.driveOutcome.value }) { viewModel.clearWaypoints() }
     var holdAwaitingPermission by remember { mutableStateOf<LatLng?>(null) }
     val holdPermissionLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions(),
@@ -312,7 +312,7 @@ fun MapScreen(
         routeAwaitingPermission = null
         if (grants[Manifest.permission.ACCESS_FINE_LOCATION] == true && route != null) {
             viewModel.setFollowCamera(true)
-            sessionViewModel.play(route, viewModel.uiState.value.profile)
+            sessionViewModel.play(route, viewModel.uiState.value.profile, viewModel.uiState.value.routeSaved)
         } else {
             sessionViewModel.reportPermissionDenied()
         }
@@ -355,7 +355,7 @@ fun MapScreen(
             // No pin teardown here: the service hands Holding → Playing off
             // without ever touching the test providers.
             viewModel.setFollowCamera(true)
-            sessionViewModel.play(route, viewModel.uiState.value.profile)
+            sessionViewModel.play(route, viewModel.uiState.value.profile, viewModel.uiState.value.routeSaved)
         } else {
             routeAwaitingPermission = route
             permissionLauncher.launch(needed.toTypedArray())
@@ -657,7 +657,7 @@ fun MapScreen(
 
     // The strip never shows raw coordinates: while a hold's name resolves,
     // stripFor returns null and the previous line stays on screen.
-    val arrived = rememberArrived(session = session, playbackState = playbackState)
+    val arrived = rememberArrived(session = session, outcome = { sessionViewModel.driveOutcome.value })
     val nextStrip = stripFor(
         state = state,
         playbackState = playbackState,

@@ -8,6 +8,7 @@ import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import dev.mockarr.app.R
+import dev.mockarr.app.playback.DriveOutcome
 import dev.mockarr.app.playback.MockSessionRepository
 import dev.mockarr.app.playback.MockSessionService
 import dev.mockarr.app.playback.MockSessionState
@@ -73,9 +74,13 @@ class MockSessionViewModel @Inject constructor(
     /** The interrupted drive or hold on offer, until resumed, discarded, or overtaken by a new session. */
     val interrupted: StateFlow<SessionSnapshot?> = repository.interrupted
 
-    fun play(route: Route, profile: RoutingProfile) {
+    /** How the last drive ended, set before the session leaves Playing. */
+    val driveOutcome: StateFlow<DriveOutcome?> = repository.driveOutcome
+
+    /** [saved]: the route is in Saved routes as-is, so a map adopting the drive mid-way won't offer Save. */
+    fun play(route: Route, profile: RoutingProfile, saved: Boolean = false) {
         repository.clearInterrupted()
-        repository.requestStart(route, profile)
+        repository.requestStart(route, profile, saved = saved)
         startService(Intent(context, MockSessionService::class.java).setAction(MockSessionService.ACTION_START))
     }
 
