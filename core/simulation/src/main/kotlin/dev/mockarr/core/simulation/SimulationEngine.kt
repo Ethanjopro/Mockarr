@@ -333,6 +333,7 @@ class SimulationEngine(
             .coerceIn(params.minAccuracyMeters, params.maxAccuracyMeters)
         return SimulatedFix(
             position = reported,
+            truePosition = truePosition,
             speedMetersPerSecond = speed,
             bearingDegrees = smoothedBearing,
             accuracyMeters = accuracy,

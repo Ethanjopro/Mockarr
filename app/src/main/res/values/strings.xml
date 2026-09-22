@@ -222,7 +222,7 @@
     <string name="settings_wobble">Realistic GPS wobble</string>
     <string name="settings_wobble_desc">Tiny random offsets so positions look like real GPS, not a perfect line</string>
     <string name="settings_wobble_amount">Wobble amount</string>
-    <string name="settings_wobble_amount_desc">How far the offsets can wander from the true position</string>
+    <string name="settings_wobble_amount_desc">How far positions can wander from the true one — the circle around the dot on the map</string>
     <string name="settings_wobble_value">%1$.1f m</string>
     <string name="settings_wobble_cd">Wobble amount, %1$.1f metres</string>
     <string name="settings_mode">Default travel mode</string>

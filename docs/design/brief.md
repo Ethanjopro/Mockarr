@@ -51,8 +51,8 @@ surface. Numerals use `displaySmall`/`headlineMedium` with tabular figures; labe
   on the right edge. "Following" becomes a recenter toggle FAB, not a text button.
 - **Map language:** route line in accent with direction chevrons; start = green dot, end =
   chequered flag, vias = numbered accent discs; selected stop gets a halo; wait badge is
-  an amber pill; position marker = accent disc with white ring + heading cone; hold marker
-  = amber. All derived from theme roles, both modes.
+  an amber pill; position marker = accent disc with white ring on a see-through wobble-range
+  circle (session 40: the heading cone went); hold marker = amber. All derived from theme roles, both modes.
 - **Idle sheet** is an illustrated empty state ("Tap the map to add stops") — not a hint
   inside a disabled control bar.
 - **Stop options** open inside the sheet (half), not as another card.
@@ -67,8 +67,8 @@ accent, camera eases to follow. This is the one choreographed transition.
 - Untouched: three-tab IA; playback semantics; zero-leak mock ownership; copy voice.
 - Anti-goals: no anti-detection UI; no Strava orange; no photo thumbnails; no social
   affordances; no iOS chrome (wheel pickers, Cancel/Done headers).
-- Pulsing pin: allowed back only as the position marker's heading cone breathing — decide
-  in the motion pass.
+- Pulsing pin: none. (The heading cone's breathing was tried in sessions 38–39 and removed
+  in session 40 as distracting.)
 
 ## 5. States and ranges
 Not set up · Idle (0 stops) · 1 stop (hold hint) · Planned (2–10 stops, 0.1–200 mi, wait

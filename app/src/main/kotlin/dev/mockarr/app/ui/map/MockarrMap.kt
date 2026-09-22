@@ -120,12 +120,14 @@ fun MockarrMap(
     pinPosition: LatLng? = null,
     searchedPlace: LatLng? = null,
     onSearchPinTap: () -> Unit = {},
+    /** The reported (wobbled) fix: where the dot draws. */
     playbackPosition: LatLng? = null,
-    playbackBearing: Double? = null,
+    /** The true route position: the centre of the wobble range, and what the follow camera tracks. */
+    playbackCenter: LatLng? = null,
     /** 0–1 of the route driven, or null to paint the whole line in the accent. */
     playbackProgress: Float? = null,
-    /** True while fixes are advancing (not paused, not waiting at a stop): the beam breathes. */
-    playbackMoving: Boolean = false,
+    /** How far the GPS wobble reaches (metres) around the dot and the held pin; null hides the circle. */
+    wobbleRadiusMeters: Double? = null,
     cameraFollow: Boolean = false,
     animateCamera: Boolean = true,
     dragEnabled: Boolean = true,
@@ -388,16 +390,19 @@ fun MockarrMap(
     }
 
     // Each fix cancels the glide in flight and starts a new one from where the
-    // puck was drawn; the road shade behind it moves in the same frames.
-    LaunchedEffect(style, playbackPosition, playbackBearing, playbackProgress) {
+    // puck was drawn; the range and the road shade move in the same frames.
+    LaunchedEffect(style, playbackPosition, playbackCenter, playbackProgress) {
         val loadedStyle = style ?: return@LaunchedEffect
-        val fix = PuckFix(playbackPosition, playbackBearing, playbackProgress)
+        val fix = PuckFix(playbackPosition, playbackCenter, playbackProgress)
         puck.moveTo(loadedStyle, fix, animate = animateCamera, nowMillis = SystemClock.uptimeMillis())
     }
-    // The beam breathes while moving, settles dim while paused or waiting (reduce-motion: steady).
-    LaunchedEffect(style, playbackPosition != null, playbackMoving, animateCamera) {
-        val layer = style?.getLayer(PLAYBACK_HEADING_LAYER) ?: return@LaunchedEffect
-        puck.breathe(layer, moving = playbackPosition != null && playbackMoving, animate = animateCamera)
+    // The range is metre-true, and metres per dp shrink with cos(latitude):
+    // re-size per half-degree of latitude (~1 %), not per fix.
+    val rangeLatitude = (playbackCenter ?: pinPosition)?.latitude ?: 0.0
+    val latitudeBucket = (rangeLatitude * LATITUDE_BUCKETS_PER_DEGREE).roundToInt()
+    LaunchedEffect(style, wobbleRadiusMeters, latitudeBucket) {
+        val loadedStyle = style ?: return@LaunchedEffect
+        applyWobbleRadius(loadedStyle, wobbleRadiusMeters, rangeLatitude)
     }
 
     // Read at apply time, not as a key: a taller overlay must not re-run the last fit.
@@ -415,9 +420,12 @@ fun MockarrMap(
     LaunchedEffect(cameraFollow) {
         if (!cameraFollow) followEngaged = false
     }
-    LaunchedEffect(map, playbackPosition, cameraFollow) {
+    // The camera tracks the true position, not the wobbling report: the map
+    // stays steady while the dot jitters inside its range.
+    val followTarget = playbackCenter ?: playbackPosition
+    LaunchedEffect(map, followTarget, cameraFollow) {
         val libreMap = map ?: return@LaunchedEffect
-        val position = playbackPosition ?: return@LaunchedEffect
+        val position = followTarget ?: return@LaunchedEffect
         if (!cameraFollow) return@LaunchedEffect
         val update = if (followEngaged) {
             CameraUpdateFactory.newLatLng(position.toMapLibre())
@@ -437,6 +445,7 @@ private const val GLOW_Z10 = 10f
 private const val GLOW_Z15 = 18f
 private const val GLOW_Z19 = 34f
 private const val FOLLOW_MIN_ZOOM = 15.0
+private const val LATITUDE_BUCKETS_PER_DEGREE = 2
 private const val FOLLOW_EASE_MILLIS = 900
 private const val KEEP_IN_VIEW_MARGIN = 0.2f
 private const val KEEP_IN_VIEW_EASE_MILLIS = 400
@@ -579,14 +588,20 @@ private fun applyPalette(style: Style, palette: MapPalette, density: Float) {
         PropertyFactory.circleColor(MapPalette.css(palette.position)),
         PropertyFactory.circleStrokeColor(MapPalette.css(palette.positionRing)),
     )
-    style.getLayer(PLAYBACK_HALO_LAYER)?.setProperties(PropertyFactory.circleColor(MapPalette.css(palette.position)))
+    style.getLayer(PLAYBACK_RANGE_LAYER)?.setProperties(
+        PropertyFactory.circleColor(MapPalette.css(palette.position)),
+        PropertyFactory.circleStrokeColor(MapPalette.css(palette.position)),
+    )
+    style.getLayer(PIN_RANGE_LAYER)?.setProperties(
+        PropertyFactory.circleColor(MapPalette.css(palette.holdPin)),
+        PropertyFactory.circleStrokeColor(MapPalette.css(palette.holdPin)),
+    )
     style.getLayer(PIN_LAYER)?.setProperties(
         PropertyFactory.circleColor(MapPalette.css(palette.holdPin)),
         PropertyFactory.circleStrokeColor(MapPalette.css(palette.positionRing)),
     )
     style.addImage(ROUTE_ARROW_ICON, chevronBitmap(palette.routeCasing, density))
     style.addImage(SEARCH_PIN_ICON, searchPinBitmap(MarkerStyle(density, palette)))
-    style.addImage(PLAYBACK_HEADING_ICON, headingConeBitmap(palette.heading, density))
 }
 
 /** A ">" pointing along +x; MapLibre rotates it to the line's bearing. */
@@ -647,19 +662,20 @@ private fun addPointLayers(style: Style) {
     )
     // The mocked location is the top of the stack: the hold pin and the live
     // dot draw over stop discs and wait chips, never under them.
+    // Each marker sits on its see-through wobble range (sized by applyWobbleRadius).
+    style.addLayer(rangeLayer(PIN_RANGE_LAYER, PIN_SOURCE, kind = null))
     style.addLayer(
         CircleLayer(PIN_LAYER, PIN_SOURCE).withProperties(
             PropertyFactory.circleRadius(9f),
             PropertyFactory.circleStrokeWidth(3f),
         ),
     )
-    // The puck: a soft halo, the heading beam turning with the fix's bearing, the dot on top.
-    style.addLayer(haloLayer())
-    style.addLayer(headingLayer())
+    // The puck: the range steady on the true position, the dot on top where other apps are told.
+    style.addLayer(rangeLayer(PLAYBACK_RANGE_LAYER, PLAYBACK_SOURCE, kind = PUCK_RANGE))
     style.addLayer(
         CircleLayer(PLAYBACK_LAYER, PLAYBACK_SOURCE).withProperties(
             PropertyFactory.circleRadius(7f),
             PropertyFactory.circleStrokeWidth(3f),
-        ),
+        ).apply { setFilter(Expression.eq(Expression.get(PUCK_KIND_KEY), PUCK_DOT)) },
     )
 }

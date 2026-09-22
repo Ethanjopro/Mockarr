@@ -491,18 +491,20 @@ Resume + Finish with the same fade-through. Compose animations follow the system
 `rememberSystemAnimationsEnabled()` and cut instead of easing when it is off.
 
 **The drive's continuous motion** (not a moment, so not counted against the budget) lives in
-`ui/map/MapPuck.kt` and `MapRouteShade.kt`. The **puck** is three layers on one source: a
-static soft halo (`position` at 22 %, blurred), the **heading beam** — an 88dp wedge in
-`MapPalette.heading` (a lighter tint of the accent, so it reads over the route line itself)
-rotating with the fix's bearing — and the accent disc on top. Fixes arrive at the engine's
-tick rate; the puck **glides** between them over the real fix interval (150–1500ms, linear,
-shortest-arc bearing) from wherever it was last drawn, so an early fix shortens a glide
-rather than snapping; a jump over 200m (resume, restart) sets it directly. The **road shade**
-moves in the same frames: `routeTravelled` behind the puck feathering into the accent over
-0.4 % of the line, and the dark theme's `routeGlow` goes out behind it the same way. The beam
-**breathes** (0.7↔1.0, 1.6s, sine) only while fixes advance — the one pulse the brief allows —
-and settles dim while paused or waiting at a stop, like an engine idling. Reduce-motion: the
-puck snaps, the beam holds steady.
+`ui/map/MapPuck.kt` and `MapRouteShade.kt`. The **puck** is two points on one source (a
+`kind` property splits them): the **wobble range** — a see-through `position` disc (15 %
+fill, 1dp rim at 40 %) whose radius is 2σ of the GPS wobble in true metres (95 % of the
+wobbled fixes land inside), floored at 16dp so it never hides under the dot — centred on the
+**true** route position, and the accent **dot** on top at the **reported** (wobbled) fix. So
+the dot jitters inside a circle that glides steadily down the road, and the follow camera
+tracks the circle, not the jitter. No wobble (off, or σ 0) → no circle. The held pin gets
+the same circle in `map-hold-pin`. Fixes arrive at the engine's tick rate; dot and circle
+**glide** between them over the real fix interval (150–1500ms, linear) from wherever they
+were last drawn, so an early fix shortens a glide rather than snapping; a jump over 200m
+(resume, restart) sets it directly. The **road shade** moves in the same frames:
+`routeTravelled` behind the puck feathering into the accent over 0.4 % of the line, and the
+dark theme's `routeGlow` goes out behind it the same way. Nothing pulses (session 40: the
+heading beam and its breath read as noise and went). Reduce-motion: the puck snaps.
 
 **Numerals roll** (`ui/screens/RollingText.kt`): a stat value ticks over like an instrument
 wheel — only the glyphs that changed roll, **up when the number grew and down when it
@@ -599,7 +601,8 @@ are undefined (nothing loaded).
   (between the top chrome and the card/sheet stack), at z17 for a place or address, z16
   for a street, z13 for a city. Tapping it, or the band's *Add stop*, drops a stop exactly
   there; it leaves when it becomes a stop, a new pick replaces it, or the builder closes.
-- **Position:** 8dp `map-position` circle with a 3dp ground-colour ring. **Hold pin:** 9dp
+- **Position:** 7dp `map-position` circle with a 3dp ground-colour ring, on its see-through
+  wobble range (see Motion). **Hold pin:** 9dp
   `map-hold-pin` circle, same ring. **Wait chip:** amber rounded pill, 11dp bold countdown
   with a clock glyph, above the one stop playback is dwelling at — the amount shows only
   while it counts down.

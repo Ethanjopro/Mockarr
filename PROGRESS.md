@@ -1726,3 +1726,38 @@ road-centred circle, and no red buttons at all.
   dotted spur. Boundary tests at 11 and 14 m.
   - Found on sight: README still said "OSRM finds the road route", "Open-Meteo" elevation and
     "Photon geocoding". Now Geoapify with OSRM/Photon fallback, and AWS Terrarium.
+  - **Verified (Pixel_8a):** a stop on Rue de Grenelle landed on the road. A stop about 20 m up
+    on the building frontage stayed on the building; at 25 m it would have been drawn on the
+    road.
+- **Wobble circle (§3):** the heading cone, its bitmap, the halo, the breath animation,
+  bearing interpolation and `MapPalette.heading` are gone.
+  - **The fix carries both positions.** `SimulatedFix.truePosition` is the clean route
+    position; `position` is still what gets reported.
+  - **Two points, one source.** `PLAYBACK_SOURCE` holds two features (a `kind` of dot or
+    range):
+    - the **dot** at the reported fix
+    - a see-through **range** circle (15 % fill, 1dp rim at 40 %) on the true position
+  - **Glide and camera.** `PuckMotion` glides both points. The follow camera tracks the range
+    centre, so the map no longer shakes with the jitter.
+  - **Radius** = 2σ in true metres, via `wobbleRadiusStops`:
+    - an `interpolate(exponential(2), zoom)` whose stops build in a 16dp floor (MapLibre
+      rejects `zoom` inside `max`)
+    - metres per dp = 78,271.517·cos φ / 2^z (512-dp tiles)
+    - re-applied per half-degree of latitude
+  - **Held pin:** the same circle, in `holdPin`. No wobble → both circles are hidden.
+  - **Default σ 3.0 → 1.5 m.** The settings copy now names the circle.
+  - **Fixed on sight:** the destination hold started at the last *wobbled* fix; it now uses
+    `truePosition`.
+  - **Tests:** 5 new in `MapPuckTest` (the radius math evaluated with MapLibre's exponential
+    formula; the bearing tests went) and 2 new in `SimulationEngineTest` (true position
+    unaffected by jitter).
+  - **Build fixes:** `SpreadOperator` forced `wobbleRadiusExpression` to use explicit 2- or
+    3-stop overloads, and `LongMethod` split `runSession` into `buildSimulationEngine` and
+    `launchSessionJob`. The service class is now at 25 functions, with no headroom left.
+  - **Verified (Pixel_8a, wobble 9.8 m):**
+    - three frames 0.7 s apart show the circle turning the corner on the road while the dot
+      jitters inside it
+    - dark mode reads
+    - the held pin has its amber circle
+    - wobble off → no circle
+    - the slider defaults to 1.5 m

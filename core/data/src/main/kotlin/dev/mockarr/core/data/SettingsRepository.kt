@@ -23,7 +23,7 @@ data class MockarrSettings(
     val tileStyleUrl: String = DEFAULT_TILE_STYLE_URL,
     val tickHz: Double = 1.0,
     val jitterEnabled: Boolean = true,
-    val jitterSigmaMeters: Double = 3.0,
+    val jitterSigmaMeters: Double = 1.5,
     val defaultProfile: RoutingProfile = RoutingProfile.DRIVING,
     val units: DistanceUnits = DistanceUnits.defaultForCountry(Locale.getDefault().country),
     val lastCamera: MapCamera? = null,

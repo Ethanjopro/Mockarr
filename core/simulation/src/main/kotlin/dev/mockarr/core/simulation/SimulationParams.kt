@@ -14,7 +14,7 @@ data class SimulationParams(
     /** Brief stop where the route leaves the road for an off-road connector; 0 = off. */
     val offRoadPauseSeconds: Int = 0,
     val jitterEnabled: Boolean = true,
-    val jitterSigmaMeters: Double = 3.0,
+    val jitterSigmaMeters: Double = 1.5,
     val minAccuracyMeters: Double = 3.0,
     val maxAccuracyMeters: Double = 8.0,
 )

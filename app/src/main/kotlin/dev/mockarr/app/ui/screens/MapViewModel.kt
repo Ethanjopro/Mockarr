@@ -10,6 +10,7 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import dev.mockarr.app.playback.MockSessionRepository
 import dev.mockarr.app.ui.RouteHandoff
 import dev.mockarr.app.ui.map.CameraCommand
+import dev.mockarr.app.ui.map.wobbleRadiusOf
 import dev.mockarr.core.data.SavedRoutesRepository
 import dev.mockarr.core.data.SettingsRepository
 import dev.mockarr.core.model.DistanceUnits
@@ -124,6 +125,15 @@ class MapViewModel @Inject constructor(
             viewModelScope,
             SharingStarted.Eagerly,
             settingsRepository.settings.value.units,
+        )
+
+    /** How far the GPS wobble reaches, for the circle around the dot and the held pin; null when it's off. */
+    val wobbleRadiusMeters: StateFlow<Double?> = settingsRepository.settings
+        .map { wobbleRadiusOf(it.jitterEnabled, it.jitterSigmaMeters) }
+        .stateIn(
+            viewModelScope,
+            SharingStarted.Eagerly,
+            settingsRepository.settings.value.let { wobbleRadiusOf(it.jitterEnabled, it.jitterSigmaMeters) },
         )
 
     val map3dEnabled: StateFlow<Boolean> = settingsRepository.settings

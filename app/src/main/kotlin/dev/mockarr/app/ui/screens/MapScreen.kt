@@ -124,6 +124,7 @@ fun MapLayer(
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val tileStyleUrl by viewModel.tileStyleUrl.collectAsStateWithLifecycle()
     val map3d by viewModel.map3dEnabled.collectAsStateWithLifecycle()
+    val wobbleRadius by viewModel.wobbleRadiusMeters.collectAsStateWithLifecycle()
     val followCamera by viewModel.followCamera.collectAsStateWithLifecycle()
     val cameraCommand by viewModel.cameraCommand.collectAsStateWithLifecycle()
     val searchedPlace by viewModel.searchedPlace.collectAsStateWithLifecycle()
@@ -237,14 +238,14 @@ fun MapLayer(
         searchedPlace = searchedPlace?.position,
         onSearchPinTap = viewModel::addSearchedPlaceAsStop,
         playbackPosition = if (playing) latestFix?.position else null,
-        playbackBearing = if (playing) latestFix?.bearingDegrees else null,
+        playbackCenter = if (playing) latestFix?.truePosition else null,
         // Off-road spans split the drawn line into pieces, and line-progress is per piece.
         playbackProgress = if (playing && state.route?.offRoadSpans.isNullOrEmpty()) {
             playbackState.progressOrZero.toFloat()
         } else {
             null
         },
-        playbackMoving = playing && playbackState is PlaybackState.Playing,
+        wobbleRadiusMeters = wobbleRadius,
         cameraFollow = followCamera && playing,
         animateCamera = rememberSystemAnimationsEnabled(),
         dragEnabled = !playing,

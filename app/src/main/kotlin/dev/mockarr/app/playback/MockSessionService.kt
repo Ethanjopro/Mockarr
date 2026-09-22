@@ -316,7 +316,8 @@ class MockSessionService : Service() {
 
     /** End-of-route chain: destination hold → remembered pin → real location. */
     private fun onEngineEnded(stoppedEarly: Boolean) {
-        val endPosition = repository.latestFix.value?.position
+        // The clean spot, not the last wobbled report: the hold scatters around it by itself.
+        val endPosition = repository.latestFix.value?.truePosition
         repository.engineEnded()
         lastNotified = null
         val pin = rememberedPin
@@ -334,6 +335,7 @@ class MockSessionService : Service() {
         saveSnapshot()
         var fix = SimulatedFix(
             position = position,
+            truePosition = position,
             speedMetersPerSecond = 0.0,
             bearingDegrees = 0.0,
             accuracyMeters = HOLD_ACCURACY_METERS,
@@ -354,7 +356,7 @@ class MockSessionService : Service() {
             // below re-pushes it. Lives in holdJob, so it dies with the hold.
             launch {
                 repository.holdMoves.collect { target ->
-                    fix = fix.copy(position = target)
+                    fix = fix.copy(position = target, truePosition = target)
                     mockController.push(fix)
                     repository.holdMoved(target)
                 }

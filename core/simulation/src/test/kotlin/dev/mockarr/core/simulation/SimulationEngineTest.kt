@@ -214,4 +214,21 @@ class SimulationEngineTest {
         val end = route.points.last()
         assertTrue(GeoMath.distanceMeters(withJitter.last().position, end) < 15.0)
     }
+
+    @Test
+    fun `jitter moves the reported position but never the true one`() = runTest {
+        // The map centres the wobble circle on truePosition: it must stay on the road.
+        val route = straightRoute(500.0) // due east along the equator
+        val fixes = collectAll(
+            SimulationEngine(route, SimulationParams(jitterSigmaMeters = 3.0), testClock(), Random(7)),
+        )
+        fixes.forEach { assertEquals(0.0, it.truePosition.latitude, 1e-9) }
+        assertTrue(fixes.any { it.position != it.truePosition })
+    }
+
+    @Test
+    fun `without jitter the reported and true positions agree`() = runTest {
+        val fixes = collectAll(SimulationEngine(straightRoute(500.0), noJitter, testClock()))
+        fixes.forEach { assertEquals(it.truePosition, it.position) }
+    }
 }
