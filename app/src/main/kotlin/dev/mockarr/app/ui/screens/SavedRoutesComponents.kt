@@ -15,7 +15,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.DropdownMenu
@@ -54,6 +53,7 @@ import dev.mockarr.app.ui.theme.DialogAction
 import dev.mockarr.app.ui.theme.MapPalette
 import dev.mockarr.app.ui.theme.MockarrDialog
 import dev.mockarr.app.ui.theme.MockarrTheme
+import dev.mockarr.app.ui.theme.Pill
 import dev.mockarr.app.ui.theme.Tokens
 import dev.mockarr.core.data.SavedRouteEntity
 import dev.mockarr.core.model.DistanceUnits
@@ -199,7 +199,8 @@ private fun CardOverflow(name: String, onRename: () -> Unit, onDelete: () -> Uni
                 },
             )
             DropdownMenuItem(
-                text = { Text(stringResource(R.string.routes_delete), color = MaterialTheme.colorScheme.error) },
+                text = { Text(stringResource(R.string.routes_delete)) },
+                leadingIcon = { Icon(painterResource(R.drawable.ic_delete), contentDescription = null) },
                 onClick = {
                     open = false
                     onDelete()
@@ -260,11 +261,11 @@ fun RoutesEmptyState(hasAnyRoutes: Boolean, onPlanDrive: () -> Unit, modifier: M
         )
         if (!hasAnyRoutes) {
             Spacer(Modifier.height(Tokens.space6))
-            Button(onClick = onPlanDrive) {
-                Icon(painterResource(R.drawable.ic_add_route), contentDescription = null)
-                Spacer(Modifier.width(Tokens.space2))
-                Text(stringResource(R.string.routes_empty_cta))
-            }
+            Pill(
+                label = stringResource(R.string.routes_empty_cta),
+                onClick = onPlanDrive,
+                iconRes = R.drawable.ic_add_route,
+            )
         }
     }
 }

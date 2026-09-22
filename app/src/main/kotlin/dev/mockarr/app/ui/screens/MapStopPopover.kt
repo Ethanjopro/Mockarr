@@ -4,8 +4,6 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.IconButtonDefaults
@@ -86,12 +84,12 @@ internal fun StopPopover(
                 Icon(painterResource(R.drawable.ic_schedule), contentDescription = waitDescription)
             }
             if (!playing) {
-                IconButton(
-                    onClick = onDelete,
-                    colors = IconButtonDefaults.iconButtonColors(contentColor = scheme.error),
-                    modifier = Modifier.size(Tokens.touchTarget),
-                ) {
-                    Icon(Icons.Filled.Delete, contentDescription = stringResource(R.string.stop_menu_delete))
+                // Neutral like its neighbours: the glyph says "remove", no red needed.
+                IconButton(onClick = onDelete, modifier = Modifier.size(Tokens.touchTarget)) {
+                    Icon(
+                        painterResource(R.drawable.ic_delete),
+                        contentDescription = stringResource(R.string.stop_menu_delete),
+                    )
                 }
             }
         }

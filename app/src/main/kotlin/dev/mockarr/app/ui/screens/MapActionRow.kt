@@ -14,7 +14,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
-import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledIconButton
@@ -40,7 +39,7 @@ import androidx.compose.ui.unit.dp
 import dev.mockarr.app.R
 import dev.mockarr.app.ui.Motion.fadeThrough
 import dev.mockarr.app.ui.theme.ActionPill
-import dev.mockarr.app.ui.theme.MockarrTheme
+import dev.mockarr.app.ui.theme.OutlinedActionPill
 import dev.mockarr.app.ui.theme.Tokens
 import dev.mockarr.core.model.RoutingProfile
 
@@ -127,30 +126,22 @@ private fun StartChoiceRow(choice: StartChoice) {
 
 @Composable
 private fun RowScope.StartChoicePills(choice: StartChoice) {
+    // Equal choices, one system: the alternative outlined on the left, the
+    // route's own start filled on the right (no amber / pale / black fills).
     when (choice.origin) {
-        // Amber Hold: the pill wears the held spot's colour, like the pin and the strip.
-        StartOrigin.HELD_SPOT -> ActionPill(
+        StartOrigin.HELD_SPOT -> OutlinedActionPill(
             label = stringResource(R.string.row_start_from_hold),
             iconRes = R.drawable.ic_stat_pin,
             enabled = true,
             onClick = choice.onFromOrigin,
             contentDescription = stringResource(R.string.row_start_from_hold_cd),
-            colors = ButtonDefaults.buttonColors(
-                containerColor = MockarrTheme.colors.holdContainer,
-                contentColor = MockarrTheme.colors.onHoldContainer,
-            ),
         )
-        // Primary, not amber: locating is where the device really is, no hold involved.
-        StartOrigin.MY_LOCATION -> ActionPill(
+        StartOrigin.MY_LOCATION -> OutlinedActionPill(
             label = stringResource(R.string.row_start_from_me),
             iconRes = R.drawable.ic_target,
             enabled = true,
             onClick = choice.onFromOrigin,
             contentDescription = stringResource(R.string.row_start_from_me_cd),
-            colors = ButtonDefaults.buttonColors(
-                containerColor = MaterialTheme.colorScheme.primaryContainer,
-                contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
-            ),
         )
     }
     ActionPill(
@@ -159,10 +150,6 @@ private fun RowScope.StartChoicePills(choice: StartChoice) {
         enabled = true,
         onClick = choice.onFromRouteStart,
         contentDescription = stringResource(R.string.row_start_from_route_cd),
-        colors = ButtonDefaults.buttonColors(
-            containerColor = MaterialTheme.colorScheme.inverseSurface,
-            contentColor = MaterialTheme.colorScheme.inverseOnSurface,
-        ),
     )
 }
 

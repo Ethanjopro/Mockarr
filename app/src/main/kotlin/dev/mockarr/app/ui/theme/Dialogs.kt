@@ -10,7 +10,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.material3.BasicAlertDialog
-import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -82,7 +81,7 @@ fun MockarrDialog(
     }
 }
 
-/** Resume / Finish, Held spot / Route start — and Cancel / Discard: the same equal-weight pill row. */
+/** Cancel / Save, Cancel / Clear route — the same equal-weight pill row as End drive / Resume. */
 @Composable
 private fun DialogActions(confirm: DialogAction, dismiss: DialogAction?) {
     Row(
@@ -90,16 +89,18 @@ private fun DialogActions(confirm: DialogAction, dismiss: DialogAction?) {
         horizontalArrangement = Arrangement.spacedBy(Tokens.space2),
     ) {
         if (dismiss != null) {
-            OutlinedActionPill(label = dismiss.label, enabled = dismiss.enabled, onClick = dismiss.onClick)
-        }
-        val colors = if (confirm.destructive) {
-            ButtonDefaults.buttonColors(
-                containerColor = MaterialTheme.colorScheme.error,
-                contentColor = MaterialTheme.colorScheme.onError,
+            OutlinedActionPill(
+                label = dismiss.label,
+                enabled = dismiss.enabled,
+                onClick = dismiss.onClick,
+                iconRes = dismiss.iconRes,
             )
-        } else {
-            ButtonDefaults.buttonColors()
         }
-        ActionPill(label = confirm.label, enabled = confirm.enabled, onClick = confirm.onClick, colors = colors)
+        ActionPill(
+            label = confirm.label,
+            enabled = confirm.enabled,
+            onClick = confirm.onClick,
+            iconRes = confirm.iconRes,
+        )
     }
 }

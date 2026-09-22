@@ -23,7 +23,6 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CenterAlignedTopAppBar
@@ -31,7 +30,6 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBarDefaults
@@ -51,6 +49,8 @@ import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dev.mockarr.app.R
 import dev.mockarr.app.ui.theme.MockarrTheme
+import dev.mockarr.app.ui.theme.OutlinedPill
+import dev.mockarr.app.ui.theme.Pill
 import dev.mockarr.app.ui.theme.Tokens
 
 /**
@@ -238,9 +238,9 @@ private fun SetupStep(
                 Text(instructions, style = MaterialTheme.typography.bodyMedium)
                 Spacer(Modifier.height(Tokens.space3))
                 if (required) {
-                    Button(onClick = onAction) { Text(actionLabel) }
+                    Pill(label = actionLabel, onClick = onAction, modifier = Modifier.fillMaxWidth())
                 } else {
-                    OutlinedButton(onClick = onAction) { Text(actionLabel) }
+                    OutlinedPill(label = actionLabel, onClick = onAction, modifier = Modifier.fillMaxWidth())
                 }
             }
         }

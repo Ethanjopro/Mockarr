@@ -154,7 +154,7 @@ fun MapPopover(
     }
 }
 
-/** One popover row: label left, glyph right; destructive rows use the error role. */
+/** One popover row: label left, glyph right, one ink (no red rows: DESIGN.md → Buttons). */
 @Composable
 fun PopoverRow(
     label: String,
@@ -162,15 +162,10 @@ fun PopoverRow(
     modifier: Modifier = Modifier,
     icon: Painter? = null,
     enabled: Boolean = true,
-    destructive: Boolean = false,
     divider: Boolean = true,
 ) {
     val scheme = MaterialTheme.colorScheme
-    val ink = when {
-        !enabled -> scheme.onSurface.copy(alpha = DISABLED_ALPHA)
-        destructive -> scheme.error
-        else -> scheme.onSurface
-    }
+    val ink = if (enabled) scheme.onSurface else scheme.onSurface.copy(alpha = DISABLED_ALPHA)
     if (divider) HorizontalDivider(color = scheme.outlineVariant)
     Row(
         modifier = modifier

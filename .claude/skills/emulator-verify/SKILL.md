@@ -84,7 +84,7 @@ emulator binary yourself.
 - The stat card (strip + trio) hides behind an *expanded* sheet: collapse the
   sheet (`swipe 540 1500 540 2350 300`) before polling strip text during
   playback, or the poll reads the options list and never sees "Holding …".
-- Finish (from Pause) clears the loaded route; to drive the same route again,
+- End drive (from Pause; "End walk" / "End ride" by mode) clears the loaded route; to drive the same route again,
   Pause → Stop the hold / rebuild, or use Save before finishing.
 - For strip text that appears later in playback (dwell, arrival), poll
   `scripts/emu.sh ui` in a `for` loop with `shell sleep 5`; `waitfor` returned

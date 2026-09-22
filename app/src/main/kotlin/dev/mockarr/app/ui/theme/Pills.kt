@@ -6,8 +6,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.text.TextAutoSize
 import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonColors
-import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
@@ -21,30 +19,61 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.sp
 
 /**
- * A 56dp pill filling its share of a row (DESIGN.md → Buttons → Pill): Pause /
- * Resume / Finish, the Start choice, and every dialog verb. [iconRes] is
- * optional — dialog verbs (Save, Set, Discard) carry none.
+ * The app's one labelled button (DESIGN.md → Buttons): a 56dp full pill with a
+ * bold one-line label and an optional leading glyph. Filled indigo is the one
+ * verb that moves you forward on a surface; [OutlinedPill] is its alternative
+ * or back-out, always to its left. There is no colour parameter on purpose:
+ * no screen repaints a pill (no red, no amber, no black) — a destructive verb
+ * says what it loses and carries the trash glyph instead.
  */
+@Composable
+fun Pill(
+    label: String,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    enabled: Boolean = true,
+    iconRes: Int? = null,
+    contentDescription: String? = null,
+) {
+    Button(
+        onClick = onClick,
+        enabled = enabled,
+        modifier = modifier.pillModifier(contentDescription),
+    ) {
+        PillContent(label, iconRes)
+    }
+}
+
+/** The pill's secondary form: transparent with the outline stroke and indigo ink. */
+@Composable
+fun OutlinedPill(
+    label: String,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    enabled: Boolean = true,
+    iconRes: Int? = null,
+    contentDescription: String? = null,
+) {
+    OutlinedButton(
+        onClick = onClick,
+        enabled = enabled,
+        modifier = modifier.pillModifier(contentDescription),
+    ) {
+        PillContent(label, iconRes)
+    }
+}
+
+/** A [Pill] taking an equal share of a two-up row: Resume, Start of route, every dialog verb. */
 @Composable
 fun RowScope.ActionPill(
     label: String,
     enabled: Boolean,
     onClick: () -> Unit,
     iconRes: Int? = null,
-    colors: ButtonColors = ButtonDefaults.buttonColors(),
     contentDescription: String? = null,
-) {
-    Button(
-        onClick = onClick,
-        enabled = enabled,
-        colors = colors,
-        modifier = pillModifier(contentDescription),
-    ) {
-        PillContent(label, iconRes)
-    }
-}
+) = Pill(label, onClick, Modifier.weight(1f), enabled, iconRes, contentDescription)
 
-/** The pill's secondary form: transparent with the outline stroke — Cancel beside a dialog's verb. */
+/** An [OutlinedPill] taking an equal share of a two-up row: Cancel, End drive, Held spot. */
 @Composable
 fun RowScope.OutlinedActionPill(
     label: String,
@@ -52,23 +81,15 @@ fun RowScope.OutlinedActionPill(
     onClick: () -> Unit,
     iconRes: Int? = null,
     contentDescription: String? = null,
-) {
-    OutlinedButton(
-        onClick = onClick,
-        enabled = enabled,
-        modifier = pillModifier(contentDescription),
-    ) {
-        PillContent(label, iconRes)
-    }
-}
+) = OutlinedPill(label, onClick, Modifier.weight(1f), enabled, iconRes, contentDescription)
 
-private fun RowScope.pillModifier(contentDescription: String?): Modifier {
+private fun Modifier.pillModifier(contentDescription: String?): Modifier {
     val semantics = if (contentDescription != null) {
         Modifier.semantics { this.contentDescription = contentDescription }
     } else {
         Modifier
     }
-    return Modifier.weight(1f).height(Tokens.pillHeight).then(semantics)
+    return height(Tokens.pillHeight).then(semantics)
 }
 
 @Composable

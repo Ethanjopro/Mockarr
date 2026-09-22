@@ -194,12 +194,6 @@ components:
     rounded: "{rounded.full}"
     height: "56dp"
     padding: "0 24dp"
-  button-pill-inverse:
-    backgroundColor: "{colors.paper-on}"
-    textColor: "{colors.paper}"
-    rounded: "{rounded.full}"
-    height: "56dp"
-    padding: "0 24dp"
   card:
     backgroundColor: "{colors.surface-container}"
     textColor: "{colors.paper-on}"
@@ -248,7 +242,7 @@ indigo scheme on every API level; dynamic colour is off so the map palette never
 wallpaper. Dark is designed as its own set, not an inversion: the evening-on-the-couch
 scene is the primary one. **Strava's Record screen is the layout, matched exactly** (brief
 3, 2026-08-28): a stat card with a coloured strip floating above a separate sheet whose
-peek is the action row; Pause is one full-width pill that splits into Resume + Finish. Only
+peek is the action row; Pause is one full-width pill that splits into End drive + Resume. Only
 the palette and the components are Material. Confirmed anti-references: the pre-2026-08
 card stack, Strava orange, hero numerals, a bottom navigation bar, iOS wheel pickers and
 Cancel/Done headers.
@@ -279,8 +273,8 @@ borrow the accent.
 
 ### Tertiary
 - **Amber Hold** (`{colors.amber-hold}` / `{colors.amber-hold-dark}`): "you are parked
-  somewhere" — Holding and Waiting strips, the hold pin, live wait chips and the
-  *Held spot* start pill (the one button that wears it: it names the held place).
+  somewhere" — Holding and Waiting strips, the hold pin and its wobble range, and live wait
+  chips. Never a button (session 40: one button system).
 - **Error** (`{colors.error}` / `{colors.error-dark}`): not-set-up strip, routing failures.
 
 ### Neutral
@@ -350,7 +344,7 @@ the sheet (and by pushed screens). There is no navigation bar.
   sides, 16dp corners: the status strip on top, the trio (and progress while driving)
   below. It stays through playback and hides behind the sheet when it expands.
 - **Bottom sheet** (`{spacing.inset}` horizontal inset, 28dp top corners, drag handle) with
-  two states: *peek* — the action row (Mode · Start · Add route), or Pause / Resume + Finish
+  two states: *peek* — the action row (Mode · Start · Add route), or Pause / End drive + Resume
   while driving, measured at runtime and never assumed — and *expanded* — the same plus a
   scrollable options list — *Save route* first when a road route is loaded (reads *Saved*
   once it is), the drive switches, then *Saved routes ›* and *All settings ›*. The peek is
@@ -358,7 +352,7 @@ the sheet (and by pushed screens). There is no navigation bar.
   handle (36dp of layout, 48dp of touch) toggles peek ↔ expanded — two ways in, because a
   swipe alone is neither discoverable nor accessible. **While driving (Playing, Paused,
   Waiting) the sheet is inert**: swipe is disabled and the detail block measures zero, so
-  the peek — Pause, or Resume + Finish — is the whole sheet and a drag never lifts it into
+  the peek — Pause, or End drive + Resume — is the whole sheet and a drag never lifts it into
   an empty band. **Peek rhythm:** content sits under the 36dp handle (or, with no handle
   while driving, `{spacing.inset}` under the sheet edge) and ends `space3` above the
   navigation-bar inset, which the sheet applies once for peek and detail together; only
@@ -415,16 +409,30 @@ must read instantly, not only after a manual two-finger tilt; a hand-set tilt is
 ## Components
 
 ### Buttons
-- **Shape:** full pill (`{rounded.full}`), 40dp tall, 24dp horizontal padding.
-- **Primary:** Night Indigo fill, white text; one per surface (Start, Pause/Resume). Carries
-  a leading 24dp icon when the verb has one.
-- **Pill (playback):** 56dp tall, full width or half of a two-up row, Title bold label +
-  24dp icon. Primary = indigo (Pause, Resume); **inverse** = `inverseSurface` fill with
-  `inverseOnSurface` text (Finish) — Strava's black Finish, in the theme's own ink.
-- **Outlined:** transparent, 1dp `outline` stroke, indigo text — a secondary verb beside a
-  primary in dialogs.
-- **Text:** indigo text, no container — tertiary actions in rows (Save · Undo · Clear) and
-  the strip's action (Fix, Stop).
+One system (session 40, Ethan: "different button prompts have different colours and are
+formatted differently"). Every **labelled** button is a pill from `ui/theme/Pills.kt` —
+`Pill` / `OutlinedPill`, or `ActionPill` / `OutlinedActionPill` for an equal share of a
+two-up row — and the pills take **no colour parameter**, so no screen can repaint one.
+- **Shape:** full pill (`{rounded.full}`), **56dp** tall everywhere (sheet, dialogs,
+  builder, Setup, Saved routes), 24dp horizontal padding, Title bold one-line label that
+  shrinks (16 → 12sp) rather than wraps, leading 24dp glyph when the verb has one.
+- **Filled (indigo):** the one verb that moves you forward on a surface — Pause, Resume,
+  Start of route, Done, Save, Set wait, Start drive, Clear route, Plan a drive.
+- **Outlined:** the alternative or the way out, always **left** of the filled one — Cancel,
+  End drive, Held spot / My location, Forget it, optional Setup steps.
+- **Text:** indigo text, no container — tertiary actions inside rows and lists (Set wait ·
+  Remove wait · Move stop, Clear history). The strip's action (Set up, Stop holding, Skip
+  wait, Resume drive) is a text button in the **band's own ink**: the band's colour is the
+  signal, the button just names the verb.
+- **Never red, amber or black.** A destructive verb says what it loses ("Clear route",
+  "Delete route", "Remove stop") and carries the trash glyph (`ic_delete`) — Google's own
+  Android dialogs work this way. Red is for error *states* only (the not-set-up band,
+  routing failures, Setup's missing marks).
+- **Labels are verb + object** when the object isn't obvious from where the button sits
+  ("End drive", not "Finish"; "Skip wait", not "Skip"), and follow the travel mode where
+  the verb does (Start / End drive · walk · ride).
+- **Icon-only controls** (map pills, the action row's circles, the stop popover's glyphs)
+  are not "button prompts" and keep their own forms; their trash glyph is neutral ink too.
 - **Disabled:** Material's 38% alpha; never hidden to signal disabled.
 
 ### Dialog
@@ -434,12 +442,12 @@ must read instantly, not only after a manual two-finger tilt; a hand-set tilt is
   `Tokens.dialogMaxWidth` on tablets), 20dp inset; title `titleMedium` bold, body
   `bodyMedium` on `onSurfaceVariant`.
 - **Actions:** the sheet's two-up **56dp pill row** (`ActionPill` / `OutlinedActionPill`,
-  `ui/theme/Pills.kt`, equal weights): one filled primary (the verb: Save, Set, Discard)
-  beside one outlined **Cancel** — the same row as Resume · Finish, never two small
-  right-aligned buttons and never two flat text buttons. A tertiary verb (Use public
-  server) stays a text button inside the body.
-- **Destructive:** the primary wears `error` / `onError` (Discard); the label is the plain
-  verb, not a warning.
+  `ui/theme/Pills.kt`, equal weights): one outlined way out (**Cancel**, Forget it) on the
+  left beside one filled verb (Save, Set wait, Start drive, Clear route) on the right — the
+  same row as End drive · Resume, never two small right-aligned buttons and never two flat
+  text buttons.
+- **Destructive:** the same indigo pill; the label names the loss and `DialogAction.iconRes`
+  carries the trash glyph (Clear route). Never `error` fill.
 
 ### The Action Row (signature)
 Strava's Record screen, matched: the sheet's peek is one 120dp row of three equal slots in
@@ -448,14 +456,13 @@ a centred 320dp cluster — Mode (64dp tonal, 28dp icon + `titleSmall` label) ·
 above Strava `hud-048` (≈58/68pt) because M3 glyphs read smaller; circles top-aligned so
 each label sits under its own circle. The expanded sheet's detail column is capped at 60%
 of the window and scrolls, so the map is never buried. **Start while holding elsewhere**
-does not raise a dialog: the row fade-throughs into a "START THE DRIVE FROM" caption over
-two 56dp pills — **Held spot** (primary) · **Route start** (inverse) — and returns once one
-is picked; Back or a map tap cancels. In builder
-mode the row is ✕ (white circle, hairline) · **Save** (outlined, enabled once a road route
-exists) · **Done** (filled) — Strava keeps Save in the builder sheet (`map-348`). While
-driving the row is replaced by the **Pause pill**, which splits into **Resume** (primary) +
-**Finish** (inverse) when paused; the "1×" speed chip sits in the card's strip. Never stack
-actions vertically in the peek.
+does not raise a dialog: the row fade-throughs into a "START FROM" caption over two 56dp
+pills — **Held spot** or **My location** (outlined) · **Start of route** (filled) — and
+returns once one is picked; Back or a map tap cancels. In builder mode the row is ✕ (56dp
+white circle, hairline) · **Done** (filled pill); Save, Undo, Redo, Reverse and Clear route
+are map pills above the card. While driving the row is replaced by the **Pause pill**,
+which splits into **End drive** (outlined, left) + **Resume** (filled, right) when paused;
+the "1×" speed chip sits in the card's strip. Never stack actions vertically in the peek.
 
 ### Map Pill
 Strava's floating control: a 48dp `surface-container-lowest` circle with the floating
@@ -468,12 +475,12 @@ Strava's builder menu and its tap-a-point callout: a 16dp `surface-container-low
 with the popover shadow and a **caret** on its anchor (`MapPopover`), sitting above the
 anchor and flipping below when there is no room. The card hugs its widest row (intrinsic
 width, 280dp cap). Rows (`PopoverRow`) are label-left, glyph-right, 44dp min, hairline
-dividers between actions only — never directly under a header; a destructive row uses the
-error role and comes last. The **stop popover** (`StopPopover`) rides the selected marker
+dividers between actions only — never directly under a header; a destructive row comes
+last, in the same ink as the others. The **stop popover** (`StopPopover`) rides the selected marker
 on every camera frame and is **symbols only**: one row of three 48dp icon buttons —
 *Move* (four-way arrows, `ic_open_with`) · *Wait* (clock; hold-tinted once a wait is set,
-greyed on the destination while "Stay at destination" is on) · *Delete* (trash in the
-error role, last). No header: the selected disc says which stop, and the buttons'
+greyed on the destination while "Stay at destination" is on) · *Remove* (neutral trash,
+last). No header: the selected disc says which stop, and the buttons'
 descriptions carry the words ("Wait · 5 min", "Stop 2 options") for TalkBack. While a
 drive is playing only the clock shows — the route's shape is fixed mid-drive, but a coming
 stop's wait can still change. Outside tap and Back dismiss. Move puts the strip in "Drag
@@ -485,8 +492,8 @@ Play is the only choreographed transition, built from three reusable pieces in
 floating controls (3D toggle, builder pills, thumbstick) scale from 80% with a fade, and
 the sheet peek swaps content with a Material fade-through (90ms out, 300ms in from 96%) —
 the action row becomes the Pause pill. The card's strip crossfades to indigo, its trio
-animates in, and the camera eases; Finish reverses everything. Pause splits the pill into
-Resume + Finish with the same fade-through. Compose animations follow the system
+animates in, and the camera eases; End drive reverses everything. Pause splits the pill into
+End drive + Resume with the same fade-through. Compose animations follow the system
 "Remove animations" setting on their own; MapLibre camera moves are gated by
 `rememberSystemAnimationsEnabled()` and cut instead of easing when it is off.
 

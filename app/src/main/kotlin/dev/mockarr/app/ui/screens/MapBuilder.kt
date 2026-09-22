@@ -10,11 +10,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -29,7 +25,6 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.CompositingStrategy
 import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.graphics.vector.rememberVectorPainter
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
@@ -40,6 +35,7 @@ import dev.mockarr.app.ui.theme.DialogAction
 import dev.mockarr.app.ui.theme.MapIconPill
 import dev.mockarr.app.ui.theme.MapPill
 import dev.mockarr.app.ui.theme.MockarrDialog
+import dev.mockarr.app.ui.theme.Pill
 import dev.mockarr.app.ui.theme.Tokens
 
 /**
@@ -73,7 +69,8 @@ fun BuilderPeek(
                 shape = CircleShape,
                 color = MaterialTheme.colorScheme.surfaceContainerLowest,
                 border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
-                modifier = Modifier.size(Tokens.pillSize),
+                // The pill's height, so the row reads as one: ✕ · Done.
+                modifier = Modifier.size(Tokens.pillHeight),
             ) {
                 Box(contentAlignment = Alignment.Center) {
                     Icon(
@@ -82,11 +79,12 @@ fun BuilderPeek(
                     )
                 }
             }
-            Button(onClick = onDone, modifier = Modifier.weight(1f)) {
-                Icon(painterResource(R.drawable.ic_check), contentDescription = null)
-                Spacer(Modifier.width(Tokens.space2))
-                Text(stringResource(R.string.builder_done))
-            }
+            Pill(
+                label = stringResource(R.string.builder_done),
+                onClick = onDone,
+                iconRes = R.drawable.ic_check,
+                modifier = Modifier.weight(1f),
+            )
         }
     }
 }
@@ -141,7 +139,7 @@ fun BuilderTools(
 ) {
     Row(modifier = modifier, horizontalArrangement = Arrangement.spacedBy(Tokens.space3)) {
         MapIconPill(
-            painter = rememberVectorPainter(Icons.Filled.Delete),
+            painter = painterResource(R.drawable.ic_delete),
             contentDescription = stringResource(R.string.builder_clear_all),
             onClick = onClearAll,
             enabled = canClear,
@@ -178,14 +176,14 @@ fun BuilderTools(
     }
 }
 
-/** Leaving the builder with unsaved stops. */
+/** Clearing the stops (the trash pill, or ✕ with unsaved stops): says what it loses, never red. */
 @Composable
 fun DiscardRouteDialog(onDiscard: () -> Unit, onDismiss: () -> Unit) {
     MockarrDialog(
         title = stringResource(R.string.builder_discard_title),
         text = stringResource(R.string.builder_discard_body),
         onDismissRequest = onDismiss,
-        confirm = DialogAction(stringResource(R.string.builder_discard), onDiscard, destructive = true),
+        confirm = DialogAction(stringResource(R.string.builder_discard), onDiscard, iconRes = R.drawable.ic_delete),
         dismiss = DialogAction(stringResource(R.string.dialog_cancel), onDismiss),
     )
 }

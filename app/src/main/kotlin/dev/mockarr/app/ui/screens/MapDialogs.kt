@@ -25,6 +25,7 @@ import dev.mockarr.app.ui.theme.DialogAction
 import dev.mockarr.app.ui.theme.MockarrDialog
 import dev.mockarr.app.ui.theme.Tokens
 import dev.mockarr.core.model.DistanceUnits
+import dev.mockarr.core.model.RoutingProfile
 import dev.mockarr.core.model.SessionSnapshot
 import kotlin.math.roundToInt
 
@@ -96,24 +97,24 @@ internal fun WaypointWaitDialog(
 }
 
 @Composable
-internal fun RouteFromHoldDialog(onConfirm: () -> Unit, onDismiss: () -> Unit) {
+internal fun RouteFromHoldDialog(profile: RoutingProfile, onConfirm: () -> Unit, onDismiss: () -> Unit) {
     MockarrDialog(
         title = stringResource(R.string.dialog_route_from_hold_title),
         text = stringResource(R.string.dialog_route_from_hold_body),
         onDismissRequest = onDismiss,
-        confirm = DialogAction(stringResource(R.string.dialog_route_and_play), onConfirm),
+        confirm = DialogAction(stringResource(profile.startLabelRes()), onConfirm, iconRes = R.drawable.ic_play),
         dismiss = DialogAction(stringResource(R.string.dialog_cancel), onDismiss),
     )
 }
 
 /** One stop, nothing mocked: route there from the device's real position. */
 @Composable
-internal fun RouteFromMeDialog(onConfirm: () -> Unit, onDismiss: () -> Unit) {
+internal fun RouteFromMeDialog(profile: RoutingProfile, onConfirm: () -> Unit, onDismiss: () -> Unit) {
     MockarrDialog(
         title = stringResource(R.string.dialog_route_from_me_title),
         text = stringResource(R.string.dialog_route_from_me_body),
         onDismissRequest = onDismiss,
-        confirm = DialogAction(stringResource(R.string.dialog_route_and_play), onConfirm),
+        confirm = DialogAction(stringResource(profile.startLabelRes()), onConfirm, iconRes = R.drawable.ic_play),
         dismiss = DialogAction(stringResource(R.string.dialog_cancel), onDismiss),
     )
 }
@@ -172,7 +173,7 @@ internal fun ResumeSessionDialog(
         text = body,
         onDismissRequest = onDismiss,
         confirm = DialogAction(stringResource(R.string.dialog_resume), onResume),
-        dismiss = DialogAction(stringResource(R.string.dialog_resume_discard), onDiscard, destructive = true),
+        dismiss = DialogAction(stringResource(R.string.dialog_resume_discard), onDiscard),
     )
 }
 

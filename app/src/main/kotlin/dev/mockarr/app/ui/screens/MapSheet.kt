@@ -15,7 +15,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.requiredHeight
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -43,6 +42,7 @@ import dev.mockarr.app.ui.map.formatChipCountdown
 import dev.mockarr.app.ui.rememberFormatter
 import dev.mockarr.app.ui.theme.ActionPill
 import dev.mockarr.app.ui.theme.MockarrTheme
+import dev.mockarr.app.ui.theme.OutlinedActionPill
 import dev.mockarr.app.ui.theme.Tokens
 import dev.mockarr.core.model.DistanceUnits
 import dev.mockarr.core.model.PlaybackState
@@ -56,12 +56,13 @@ import kotlin.math.ceil
 import kotlin.math.roundToInt
 
 /**
- * Strava's pause control: one full-width Pause pill that splits into Resume
- * (filled) and Finish (inverse) while paused. Finish ends the drive; the
- * route stays loaded and the Record layout returns.
+ * Strava's pause control: one full-width Pause pill that splits into End
+ * drive (outlined, left) and Resume (filled, right) while paused. End drive
+ * finishes the drive and clears its route from the map.
  */
 @Composable
 fun PlaybackControls(
+    profile: RoutingProfile,
     paused: Boolean,
     stopping: Boolean,
     onPause: () -> Unit,
@@ -81,21 +82,18 @@ fun PlaybackControls(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             if (isPaused) {
+                // The way out on the left, outlined; the way on, filled — like every two-up row.
+                OutlinedActionPill(
+                    label = stringResource(profile.endLabelRes()),
+                    iconRes = R.drawable.ic_flag,
+                    enabled = !stopping,
+                    onClick = onFinish,
+                )
                 ActionPill(
                     label = stringResource(R.string.sheet_resume),
                     iconRes = R.drawable.ic_play,
                     enabled = !stopping,
                     onClick = onResume,
-                )
-                ActionPill(
-                    label = stringResource(R.string.sheet_finish),
-                    iconRes = R.drawable.ic_flag,
-                    enabled = !stopping,
-                    onClick = onFinish,
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = MaterialTheme.colorScheme.inverseSurface,
-                        contentColor = MaterialTheme.colorScheme.inverseOnSurface,
-                    ),
                 )
             } else {
                 ActionPill(
@@ -286,7 +284,11 @@ internal fun stripFor(
             stringResource(R.string.strip_interrupted_drive, (interrupted.progress * PERCENT).roundToInt())
         },
         tone = StripTone.Hold,
-        actionLabel = stringResource(R.string.strip_resume),
+        actionLabel = if (interrupted.kind == SessionSnapshot.Kind.HOLDING) {
+            stringResource(R.string.strip_resume_hold)
+        } else {
+            stringResource(R.string.strip_resume_drive)
+        },
         action = StripAction.RESUME_SESSION,
     )
     state.routingError != null -> StripModel(stringResource(state.routingError.stripRes()), StripTone.Error)

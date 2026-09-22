@@ -1768,3 +1768,46 @@ road-centred circle, and no red buttons at all.
   - The record cells lost their magnitudes.
   - **Verified from a 15 fps recording at 4×:** "59 s" → "58 s" cuts with no in-between
     frame, "0.6 mi" holds, and "34 mph" → "38 mph" rolls over about 8 frames.
+- **One button system (§5), no red (Ethan's pick).**
+  - Every labelled button is a 56dp pill from `Pills.kt`. `Pill` / `OutlinedPill` are new, and
+    `ActionPill` / `OutlinedActionPill` are the two-up-row forms. **None take a colour
+    parameter.**
+  - Filled indigo is the forward verb, on the right. Outlined is the alternative or the way out,
+    on the left.
+  - `DialogAction` lost `destructive` (the resume dialog was silently ignoring it anyway) and
+    gained `iconRes`. `PopoverRow` lost `destructive`.
+  - The recolouring sites:
+    - start-from row: amber / pale-indigo / black → outlined Held spot or My location + filled
+      Start of route
+    - playback: black Finish → outlined End drive (left) + filled Resume (right)
+    - builder Done, Plan a drive and the Setup steps were plain 40dp buttons; they are now pills,
+      and the builder ✕ is 56dp so the row reads as one
+    - neutral trash (`ic_delete`, new) on Clear route, the stop popover and Delete route
+  - **New labels:**
+    - Route and play → Start drive / walk / ride, with "Go here from the held spot?" / "Go here
+      from your real location?"
+    - Discard → Clear route ("Clear this route?")
+    - Finish → End drive / walk / ride
+    - Fix → Set up; Skip → Skip wait; Stop → Stop holding
+    - Resume → Resume drive / Resume hold
+    - Set → Set wait
+    - Discard (interrupted) → Forget it
+    - Route start → Start of route
+    - Clear → Clear history
+    - Delete → Delete route
+    - Delete stop → Remove stop
+    - The body copy no longer names the old verbs.
+  - DESIGN.md Buttons / Dialog / Action Row / Popover rewritten, and `button-pill-inverse` is
+    gone.
+  - **Left for `/impeccable document`:** `.impeccable/design.json` still describes the inverse
+    Finish pill. The impeccable skill says not to repair its sidecar as a side effect.
+  - **Verified (Pixel_8a):**
+    - light: 14 states (every dialog, strip actions, builder, start-from, paused row, stop
+      popover, Saved empty state, Setup)
+    - dark at font scale 1.3: builder, Clear route dialog, paused row
+    - no red, amber or black button anywhere, and nothing clipped at 1.3
+  - **Tooling:** the emulator-verifier agent stalled after 600 s with 13 of 14 light shots done.
+    The shots were usable; I finished the dark/1.3 set by hand.
+  - **Found while verifying:** after two idle hours the emulator's DNS died ("unknown host"
+    while ping 8.8.8.8 worked). The app showed "Can't reach the routing server" correctly.
+    Airplane-mode toggling didn't help; an emulator restart does.

@@ -29,3 +29,17 @@ internal fun RoutingProfile.readyLabelRes(): Int = when (this) {
     RoutingProfile.WALKING -> R.string.strip_ready_walk
     RoutingProfile.CYCLING -> R.string.strip_ready_cycle
 }
+
+/** The verb that starts a route from a prompt: "Start drive" / "Start walk" / "Start ride". */
+internal fun RoutingProfile.startLabelRes(): Int = when (this) {
+    RoutingProfile.DRIVING -> R.string.dialog_start_drive
+    RoutingProfile.WALKING -> R.string.dialog_start_walk
+    RoutingProfile.CYCLING -> R.string.dialog_start_ride
+}
+
+/** The paused drive's way out: "End drive" / "End walk" / "End ride". */
+internal fun RoutingProfile.endLabelRes(): Int = when (this) {
+    RoutingProfile.DRIVING -> R.string.sheet_end_drive
+    RoutingProfile.WALKING -> R.string.sheet_end_walk
+    RoutingProfile.CYCLING -> R.string.sheet_end_ride
+}

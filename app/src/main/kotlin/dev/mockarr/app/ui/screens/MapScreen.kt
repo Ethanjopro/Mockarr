@@ -512,6 +512,7 @@ fun MapScreen(
 
     if (showRouteFromHoldPrompt) {
         RouteFromHoldDialog(
+            profile = state.profile,
             onConfirm = {
                 showRouteFromHoldPrompt = false
                 currentHold()?.position?.let { hold ->
@@ -524,6 +525,7 @@ fun MapScreen(
     }
     routeFromMePosition?.let { realPosition ->
         RouteFromMeDialog(
+            profile = state.profile,
             onConfirm = {
                 routeFromMePosition = null
                 viewModel.addWaypoint(realPosition, atStart = true)
@@ -769,6 +771,7 @@ fun MapScreen(
                     ) { mode ->
                         when (mode) {
                             PeekMode.PLAYING -> PlaybackControls(
+                                profile = state.profile,
                                 paused = playbackState is PlaybackState.Paused,
                                 stopping = playbackState is PlaybackState.Stopping,
                                 onPause = sessionViewModel::pause,
