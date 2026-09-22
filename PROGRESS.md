@@ -1811,3 +1811,12 @@ road-centred circle, and no red buttons at all.
   - **Found while verifying:** after two idle hours the emulator's DNS died ("unknown host"
     while ping 8.8.8.8 worked). The app showed "Can't reach the routing server" correctly.
     Airplane-mode toggling didn't help; an emulator restart does.
+- **Release build (R8, `installapk`, Pixel_8a, dark at font scale 1.3 by accident):**
+  - search ("Musee d Orsay" → Add stop, then "Hôtel des Invalides" → Add stop)
+  - route: 1.2 mi, 3 stops
+  - Save ("Saved “Rue de Solférino to Rue de Grenelle, Paris”")
+  - drive, with the notification advancing in the background (40 → 47 m)
+  - notification tap → one MainActivity, drive intact
+  - End drive → hold → Stop holding
+- **Note for next time:** a `settings put` just before `emu.sh kill` doesn't persist. Reset
+  font scale and night mode after the reboot, not before.
