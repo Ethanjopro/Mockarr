@@ -1721,3 +1721,8 @@ road-centred circle, and no red buttons at all.
     - A natural arrival at 4× while away: "Arrived at Avenue de la Motte-Picquet" on return.
     - Note: `always_finish_activities` did NOT destroy the Activity on API 37. Force a fresh one
       with `am start -f 0x10008000`.
+- **Snapping (§2):** `OFF_ROAD_THRESHOLD_METERS` 25 → 12 m. A tap on the carriageway or
+  pavement still snaps; a tap on a building frontage or inside it keeps its stop with a short
+  dotted spur. Boundary tests at 11 and 14 m.
+  - Found on sight: README still said "OSRM finds the road route", "Open-Meteo" elevation and
+    "Photon geocoding". Now Geoapify with OSRM/Photon fallback, and AWS Terrarium.

@@ -116,8 +116,14 @@ private class OffRoadStitcher(
     }
 }
 
-/** Snap displacement beyond this is "the road doesn't go there" rather than kerb-to-centreline noise. */
-const val OFF_ROAD_THRESHOLD_METERS = 25.0
+/**
+ * Snap displacement beyond this is "the road doesn't go there" rather than a
+ * tap on the carriageway or pavement (half a two-lane road plus a sidewalk is
+ * ~8–10 m from the centreline). Kept tight on purpose (session 40, was 25 m):
+ * a stop on a building's frontage or inside it stays where it was put, with a
+ * short dotted connector, instead of jumping out onto the street.
+ */
+const val OFF_ROAD_THRESHOLD_METERS = 12.0
 
 /** Terrain is slower than the profile's typical road speed. */
 private const val OFF_ROAD_SPEED_FACTOR = 0.5

@@ -124,10 +124,30 @@ class OffRoadStitcherTest {
 
     @Test
     fun `a small kerb-distance snap is left alone`() {
-        val nearby = GeoMath.destination(roadC, 0.0, 10.0)
+        val nearby = GeoMath.destination(roadC, 0.0, 5.0)
         val route = roadRoute(snapped = listOf(roadA, roadB, roadC))
 
         assertSame(route, stitchOffRoad(route, listOf(roadA, roadB, nearby), RoutingProfile.DRIVING))
+    }
+
+    @Test
+    fun `a tap on the pavement just inside the cut-off stays on the road`() {
+        val pavement = GeoMath.destination(roadC, 0.0, 11.0)
+        val route = roadRoute()
+
+        assertSame(route, stitchOffRoad(route, listOf(roadA, roadB, pavement), RoutingProfile.DRIVING))
+    }
+
+    @Test
+    fun `a building frontage just past the cut-off keeps its stop with a short connector`() {
+        // Session 40: at 25 m, a stop on a house ~15 m off the street jumped onto the road.
+        val frontage = GeoMath.destination(roadC, 0.0, 14.0)
+
+        val stitched = stitchOffRoad(roadRoute(), listOf(roadA, roadB, frontage), RoutingProfile.DRIVING)
+
+        assertEquals(frontage, stitched.snappedWaypoints.last())
+        assertEquals(frontage, stitched.points.last())
+        assertEquals(1, stitched.offRoadSpans.size)
     }
 
     @Test

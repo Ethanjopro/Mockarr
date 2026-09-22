@@ -12,9 +12,9 @@ Stack: **Kotlin · Jetpack Compose · MapLibre · OpenStreetMap · Geoapify (rou
 
 ## Features
 
-- **Road-route playback** — tap two or more points; OSRM finds the road route; the simulation engine drives it with per-segment speeds, kinematic braking before turns, and a graceful stop (never a teleport)
-- **Realistic GPS** — Gaussian position jitter, plausible accuracy/speed/bearing and terrain elevation (Open-Meteo) on every fix; tune or disable it in Settings
-- **Place search** — find and add stops by name (Photon geocoding), ranked around what you're looking at
+- **Road-route playback** — tap two or more points; Geoapify (public OSRM as the fallback) finds the road route; the simulation engine drives it with per-segment speeds, kinematic braking before turns, and a graceful stop (never a teleport)
+- **Realistic GPS** — Gaussian position jitter, plausible accuracy/speed/bearing and terrain elevation (AWS Terrarium tiles) on every fix; tune or disable it in Settings
+- **Place search** — find and add stops by name (Geoapify, with Photon as the fallback), ranked around what you're looking at
 - **Wait times at stops** — give any stop a dwell; the drive pulls up, waits out the countdown, and moves on — and you can change a coming stop's wait mid-drive
 - **Off-road endings** — points beyond the road grid get dotted walking connectors at a believable pace instead of a snap to the nearest asphalt
 - **Route builder** — drag to move stops, undo/redo, reverse, and save; start from your real location or from a held spot
