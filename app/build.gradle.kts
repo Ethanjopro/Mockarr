@@ -42,7 +42,6 @@ dependencies {
     implementation(libs.compose.ui)
     implementation(libs.compose.material3)
     implementation(libs.compose.material3.adaptive)
-    implementation(libs.compose.material3.adaptive.navigation.suite)
     implementation(libs.compose.material.icons.core)
 
     implementation(libs.androidx.core.ktx)

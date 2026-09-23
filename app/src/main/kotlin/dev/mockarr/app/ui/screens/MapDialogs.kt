@@ -14,6 +14,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -46,10 +47,10 @@ internal fun WaypointWaitDialog(
     onDismiss: () -> Unit,
 ) {
     val initialMinutes = initialSeconds / SECONDS_PER_MINUTE
-    var selectedPreset by remember {
+    var selectedPreset by rememberSaveable {
         mutableStateOf(initialMinutes.takeIf { it in WAIT_PRESET_MINUTES })
     }
-    var customText by remember {
+    var customText by rememberSaveable {
         val custom = initialMinutes.takeIf { it > 0 && it !in WAIT_PRESET_MINUTES }
         mutableStateOf(custom?.toString().orEmpty())
     }
@@ -136,7 +137,7 @@ internal fun SaveRouteDialog(
     val defaultName = remember {
         defaultTemplate.format(formatRouteTimestamp(System.currentTimeMillis(), routeTimestampPattern(context)))
     }
-    var name by remember { mutableStateOf(suggestedName ?: defaultName) }
+    var name by rememberSaveable { mutableStateOf(suggestedName ?: defaultName) }
     MockarrDialog(
         title = stringResource(R.string.dialog_save_title),
         onDismissRequest = onDismiss,

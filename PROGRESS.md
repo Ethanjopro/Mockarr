@@ -1989,3 +1989,41 @@ polish). Ethan's calls are in memory `critique-2026-09-22-decisions`.
   - START FROM shows Cancel and the help line
   - drive notification: "Driving", [Pause] [End drive]
   - a background arrival shows "Drive again" on return, and so does the in-app End drive
+
+### 2026-09-22 — Session 41e (impeccable run 5/6: adapt — landscape, wide windows, large text)
+- **Short windows get a side panel.** `MapAdaptive.kt`: `rememberSidePanelWidth()` uses
+  `currentWindowAdaptiveInfo()` (material3-adaptive 1.3, now used): under 480dp tall and at
+  least 600dp wide.
+  - **Layout:**
+    - The `BottomSheetScaffold` becomes a start panel (half width, at most 420dp) inside a
+      full-screen `Box`.
+    - The FAB stack and thumbstick are lambdas (`controls` / `thumbstick`), drawn on the open
+      map at its top-end and centre-end instead of inside the panel.
+  - **Camera:**
+    - `FitPadding` gained `startObstructionPx`, which feeds fits and padded centring.
+    - The follow camera uses a padded `CameraPosition` only when a panel exists, so portrait
+      is unchanged.
+    - The pin keep-in-view check treats the panel as covered.
+  - The unused `material3-adaptive-navigation-suite` dependency and its catalog entry are gone.
+- **Insets and widths:**
+  - Horizontal safe-drawing insets on the map overlay and on pushed screens.
+  - Pushed screens are a centred column capped at `sheetMaxWidth` (`OpaqueScreen`).
+- **Large text:**
+  - The action row uses `heightIn(min = 120.dp)`, and stop rows `heightIn(min = touchTarget)`.
+  - Map markers scale with `fontScale` (≤1.3) through one `markerDensity`, used by both
+    `MarkerStyle` and the hit test.
+- **Dialogs:**
+  - The dialog body scrolls (`weight(fill = false)` + `verticalScroll`), so the pill row
+    stays visible.
+  - Dialog flags and inputs use `rememberSaveable`, so rotating no longer closes a dialog or
+    drops typed text.
+- **Verified on mockarr_test:**
+  - landscape hold: panel with search, band and sheet; 3D, locate and thumbstick on the open
+    map; "Stop holding" no longer covered
+  - portrait identical to before
+  - landscape Settings is a centred column
+  - font 1.3: stop rows fit, markers larger
+- **Known gap:** after rotating, the held pin can sit just off the top edge (the camera keeps
+  its target). Locate brings it back. Keep-in-view only reruns when the pin moves.
+- **Emulator note:** in landscape the gesture zone is the bottom ~120px. Swipes starting at
+  y ≥ 950 go home.

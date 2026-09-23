@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.safeDrawing
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
@@ -15,6 +16,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.navigation.NavDestination.Companion.hasRoute
@@ -34,6 +36,7 @@ import dev.mockarr.app.ui.screens.SavedRoutesScreen
 import dev.mockarr.app.ui.screens.SettingsScreen
 import dev.mockarr.app.ui.screens.SetupScreen
 import dev.mockarr.app.ui.screens.SetupViewModel
+import dev.mockarr.app.ui.theme.Tokens
 
 /**
  * The app is one map. There is no navigation bar (Strava's Record screen is
@@ -128,6 +131,15 @@ fun MockarrApp(setupViewModel: SetupViewModel = hiltViewModel()) {
 @Composable
 private fun OpaqueScreen(content: @Composable () -> Unit) {
     Surface(modifier = Modifier.fillMaxSize()) {
-        Box(modifier = Modifier.navigationBarsPadding()) { content() }
+        // A readable column on wide windows (tablets, landscape): a switch 1200dp from its
+        // title stops being one row. Side insets keep it clear of a cutout or side nav bar.
+        Box(
+            modifier = Modifier
+                .navigationBarsPadding()
+                .windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Horizontal)),
+            contentAlignment = Alignment.TopCenter,
+        ) {
+            Box(modifier = Modifier.widthIn(max = Tokens.sheetMaxWidth)) { content() }
+        }
     }
 }

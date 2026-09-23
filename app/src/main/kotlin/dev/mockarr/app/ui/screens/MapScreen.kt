@@ -16,6 +16,8 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.WindowInsetsSides
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -24,10 +26,13 @@ import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.offset
+import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -179,6 +184,10 @@ fun MapLayer(
     val displayed = remember(state.waypoints, state.route, state.routeIsFallback, state.routedFor) {
         displayWaypoints(state.waypoints, state.route, state.routeIsFallback, state.routedFor)
     }
+    // The side panel (short windows) covers the map's start edge: fits and the follow
+    // camera centre in the clear part to its right.
+    val panelWidth = rememberSidePanelWidth()
+    val startObstructionPx = with(LocalDensity.current) { panelWidth?.roundToPx() ?: 0 }
     MockarrMap(
         waypoints = displayed,
         routePoints = state.route?.points.orEmpty(),
@@ -243,6 +252,7 @@ fun MapLayer(
             ?.let { ActiveDwell(it.waypointIndex, it.secondsLeft) },
         cameraCommand = cameraCommand,
         bottomObstructionPx = overlayBottomPx,
+        startObstructionPx = startObstructionPx,
         pinPosition = (session as? MockSessionState.Holding)?.position,
         searchedPlace = searchedPlace?.position,
         onSearchPinTap = viewModel::addSearchedPlaceAsStop,
@@ -375,7 +385,7 @@ fun MapScreen(
 
     val playing = session is MockSessionState.Playing
     val holding = session as? MockSessionState.Holding
-    var showSaveDialog by remember { mutableStateOf(false) }
+    var showSaveDialog by rememberSaveable { mutableStateOf(false) }
     // Save resolves the place name first (spinner), then opens the dialog with
     // it — the field never changes under the user (Ethan, session 17).
     var naming by remember { mutableStateOf(false) }
@@ -396,7 +406,7 @@ fun MapScreen(
     // All session reads happen AT CLICK TIME via .value — never from
     // composition-captured vals — so the choice appears no matter which order
     // route and hold were created in (a stale capture previously ate the prompt).
-    var showRouteFromHoldPrompt by remember { mutableStateOf(false) }
+    var showRouteFromHoldPrompt by rememberSaveable { mutableStateOf(false) }
     var routeFromMePosition by remember { mutableStateOf<LatLng?>(null) }
     var playWhenRouteReady by remember { mutableStateOf(false) }
     val pendingRealStart by viewModel.interaction.startChoiceRealStart.collectAsStateWithLifecycle()
@@ -546,7 +556,7 @@ fun MapScreen(
         )
     }
 
-    var showModePicker by remember { mutableStateOf(false) }
+    var showModePicker by rememberSaveable { mutableStateOf(false) }
     if (showModePicker) {
         ModePickerSheet(
             selected = state.profile,
@@ -558,7 +568,7 @@ fun MapScreen(
             onDismiss = { showModePicker = false },
         )
     }
-    var showDiscard by remember { mutableStateOf(false) }
+    var showDiscard by rememberSaveable { mutableStateOf(false) }
     if (showDiscard) {
         DiscardRouteDialog(
             onDiscard = {
@@ -570,7 +580,7 @@ fun MapScreen(
         )
     }
     // The trash pill: same question, but the builder stays open afterwards.
-    var showClearAll by remember { mutableStateOf(false) }
+    var showClearAll by rememberSaveable { mutableStateOf(false) }
     if (showClearAll) {
         DiscardRouteDialog(
             onDiscard = {
@@ -580,7 +590,7 @@ fun MapScreen(
             onDismiss = { showClearAll = false },
         )
     }
-    var waitEditIndex by remember { mutableStateOf<Int?>(null) }
+    var waitEditIndex by rememberSaveable { mutableStateOf<Int?>(null) }
     val moveHereLabel = stringResource(R.string.strip_move_here_cd)
     val staysMessage = stringResource(R.string.snack_destination_stays)
     if (selectedWaypoint != null && state.waypoints.getOrNull(selectedWaypoint!!) == null) {
@@ -601,7 +611,7 @@ fun MapScreen(
     }
     val interrupted by sessionViewModel.interrupted.collectAsStateWithLifecycle()
     val drivenPoints by viewModel.interaction.drivenRoutePoints.collectAsStateWithLifecycle()
-    var showResume by remember { mutableStateOf(false) }
+    var showResume by rememberSaveable { mutableStateOf(false) }
     val resumeOffer = interrupted
     if (showResume && resumeOffer != null) {
         ResumeSessionDialog(
@@ -744,437 +754,468 @@ fun MapScreen(
         return lift.coerceAtMost(maxLift)
     }
 
-    BottomSheetScaffold(
-        modifier = Modifier.onSizeChanged { scaffoldHeightPx = it.height },
-        scaffoldState = scaffoldState,
-        sheetPeekHeight = peekHeight,
-        sheetMaxWidth = Tokens.sheetMaxWidth,
-        sheetShape = Tokens.sheetShape,
-        sheetContainerColor = MaterialTheme.colorScheme.surfaceContainerLow,
-        sheetShadowElevation = Tokens.sheetElevation,
-        sheetDragHandle = null,
-        // Inert while driving: the peek is the whole sheet (Pause / Resume +
-        // Finish), so a swipe must not lift it into an empty band.
-        sheetSwipeEnabled = !playing,
-        containerColor = Color.Transparent,
-        // Above the floating card, never on it: a confirmation must not garble the trio.
-        snackbarHost = {
-            SnackbarHost(
-                snackbarHostState,
-                modifier = Modifier.padding(bottom = cardBlock + toolsHeight),
+    // The FAB stack (3D, locate, follow): under the search field, or on the open map
+    // beside the side panel (short windows).
+    val controls: @Composable (Modifier) -> Unit = { modifier ->
+        MapControls(
+            playing = playing,
+            map3d = map3d,
+            followCamera = followCamera,
+            onToggle3d = viewModel::toggleMap3d,
+            onToggleFollow = { viewModel.setFollowCamera(!followCamera) },
+            onLocate = {
+                // Read at click time; collecting latestFix in composition
+                // would recompose the whole overlay on every fix.
+                val fineLocation = Manifest.permission.ACCESS_FINE_LOCATION
+                val mockedPosition = when (val current = sessionViewModel.session.value) {
+                    is MockSessionState.Holding -> current.position
+                    is MockSessionState.Playing -> sessionViewModel.latestFix.value?.position
+                    else -> null
+                }
+                when {
+                    mockedPosition != null -> viewModel.panTo(mockedPosition)
+                    context.hasPermission(fineLocation) -> viewModel.locateReal()
+                    else -> locatePermissionLauncher.launch(fineLocation)
+                }
+            },
+            modifier = modifier,
+        )
+    }
+    val thumbstick: @Composable (Modifier) -> Unit = { modifier ->
+        // Only while holding: the nudge control is chrome that must recede
+        // (design brief) rather than sit dimmed on every map state. It also
+        // yields to the builder's pills/card and hides behind an expanded
+        // sheet instead of floating dead on top of either.
+        AnimatedVisibility(
+            visible = holding != null && !playing && !builderMode && !expanded,
+            enter = Motion.floatingEnter,
+            exit = Motion.floatingExit,
+            modifier = modifier,
+        ) {
+            ThumbstickOverlay(
+                enabled = true,
+                onNudge = { bearingDegrees, deflection ->
+                    // Read the live hold at nudge time — the composition capture
+                    // would go stale as the dot moves.
+                    val hold = sessionViewModel.session.value as? MockSessionState.Holding
+                    if (hold != null) {
+                        val meters = nudgeMeters(
+                            deflection = deflection,
+                            zoom = viewModel.camera.value?.zoom ?: DEFAULT_NUDGE_ZOOM,
+                            latitudeDegrees = hold.position.latitude,
+                            dtSeconds = NUDGE_TICK_MILLIS / MILLIS_PER_SECOND,
+                        )
+                        if (meters > 0.0) {
+                            sessionViewModel.nudgeHold(
+                                GeoMath.destination(hold.position, bearingDegrees, meters),
+                            )
+                        }
+                    }
+                },
             )
-        },
-        sheetContent = {
-            fun toggleSheet() {
-                // Using the handle proves the point the hint makes.
-                if (sheetHintPending) optionsViewModel.markSheetHintSeen()
-                scope.launch { if (expanded) sheetState.partialExpand() else sheetState.expand() }
-            }
-            // clipToBounds: the always-composed detail column must never bleed
-            // past the sheet's rounded top while the peek re-anchors.
-            Column(modifier = Modifier.fillMaxWidth().clipToBounds()) {
-                // The measured peek is everything that must stay visible at rest:
-                // the handle, the peek content and (no navigation bar) the system inset.
+        }
+    }
+    // Short windows: the whole overlay becomes a start-side panel (see MapAdaptive.kt);
+    // either way it keeps clear of a side cutout or a side navigation bar.
+    val panelWidth = rememberSidePanelWidth()
+    val panelModifier = if (panelWidth != null) Modifier.fillMaxHeight().width(panelWidth) else Modifier
+    Box(modifier = Modifier.fillMaxSize()) {
+        BottomSheetScaffold(
+            modifier = panelModifier
+                .windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Horizontal))
+                .onSizeChanged { scaffoldHeightPx = it.height },
+            scaffoldState = scaffoldState,
+            sheetPeekHeight = peekHeight,
+            sheetMaxWidth = Tokens.sheetMaxWidth,
+            sheetShape = Tokens.sheetShape,
+            sheetContainerColor = MaterialTheme.colorScheme.surfaceContainerLow,
+            sheetShadowElevation = Tokens.sheetElevation,
+            sheetDragHandle = null,
+            // Inert while driving: the peek is the whole sheet (Pause / Resume +
+            // Finish), so a swipe must not lift it into an empty band.
+            sheetSwipeEnabled = !playing,
+            containerColor = Color.Transparent,
+            // Above the floating card, never on it: a confirmation must not garble the trio.
+            snackbarHost = {
+                SnackbarHost(
+                    snackbarHostState,
+                    modifier = Modifier.padding(bottom = cardBlock + toolsHeight),
+                )
+            },
+            sheetContent = {
+                fun toggleSheet() {
+                    // Using the handle proves the point the hint makes.
+                    if (sheetHintPending) optionsViewModel.markSheetHintSeen()
+                    scope.launch { if (expanded) sheetState.partialExpand() else sheetState.expand() }
+                }
+                // clipToBounds: the always-composed detail column must never bleed
+                // past the sheet's rounded top while the peek re-anchors.
+                Column(modifier = Modifier.fillMaxWidth().clipToBounds()) {
+                    // The measured peek is everything that must stay visible at rest:
+                    // the handle, the peek content and (no navigation bar) the system inset.
+                    Column(
+                        modifier = Modifier
+                            .onSizeChanged { peekHeightPx = it.height }
+                            .background(MaterialTheme.colorScheme.surfaceContainerLow)
+                            .navigationBarsPadding(),
+                    ) {
+                        // No grab pill while driving: the sheet has nothing to expand
+                        // to, so the affordance (and its TalkBack action) would lie.
+                        if (!playing) {
+                            SheetHandle(
+                                expanded = expanded,
+                                onToggle = ::toggleSheet,
+                                modifier = Modifier.onGloballyPositioned {
+                                    handleAnchor = it.boundsInWindow().topCenter
+                                },
+                            )
+                        }
+                        val peekMode = when {
+                            playing -> PeekMode.PLAYING
+                            builderMode -> PeekMode.BUILDER
+                            else -> PeekMode.RECORD
+                        }
+                        AnimatedContent(
+                            targetState = peekMode,
+                            transitionSpec = { fadeThrough() },
+                            label = "peek",
+                        ) { mode ->
+                            when (mode) {
+                                PeekMode.PLAYING -> PlaybackControls(
+                                    profile = state.profile,
+                                    paused = playbackState is PlaybackState.Paused,
+                                    stopping = playbackState is PlaybackState.Stopping,
+                                    onPause = sessionViewModel::pause,
+                                    onResume = sessionViewModel::resume,
+                                    onFinish = {
+                                        // End drive stops the drive, not the route: it stays for Drive again
+                                        // (the drive-outcome collector in MapLayer marks it driven).
+                                        sessionViewModel.stopPlayback()
+                                    },
+                                    // No handle here, so the pill takes the handle's room under the sheet edge.
+                                    modifier = Modifier.padding(
+                                        start = Tokens.inset,
+                                        top = Tokens.inset,
+                                        end = Tokens.inset,
+                                        bottom = Tokens.space3,
+                                    ),
+                                )
+                                PeekMode.BUILDER -> BuilderPeek(
+                                    state = state,
+                                    onDone = { viewModel.setBuilderMode(false) },
+                                    onClose = {
+                                        if (state.waypoints.isEmpty()) {
+                                            viewModel.setBuilderMode(false)
+                                        } else {
+                                            showDiscard = true
+                                        }
+                                    },
+                                )
+                                PeekMode.RECORD -> RecordPeek(
+                                    state = state,
+                                    again = state.route != null && drivenPoints === state.route?.points,
+                                    choice = startChoice,
+                                    locating = locatingStart,
+                                    onPickMode = { showModePicker = true },
+                                    onStart = ::playOrAskStart,
+                                    onEditRoute = { viewModel.setBuilderMode(true) },
+                                )
+                            }
+                        }
+                    }
+                    // Always composed: the sheet's Expanded anchor comes from its content
+                    // height, so an empty detail column left nothing to drag towards and
+                    // a slow drag did not move the sheet at all (session 15i).
+                    // The whole expanded sheet stops at 60% of the scaffold: a long stop
+                    // list scrolls inside it instead of burying the map. It also stops
+                    // under the card: the lift caps the card's top under the chrome, so
+                    // without this the sheet rose over the trio (session 31).
+                    val maxDetailHeight = with(density) {
+                        val scaffoldPx = if (scaffoldHeightPx > 0) {
+                            scaffoldHeightPx
+                        } else {
+                            LocalWindowInfo.current.containerSize.height
+                        }
+                        val fraction = scaffoldPx * SHEET_MAX_FRACTION - peekHeightPx
+                        val cardPx = if (strip.hidden) 0 else cardHeightPx + mapEdgePx
+                        val room = scaffoldPx - peekHeightPx - topChromeBottomPx - mapEdgePx - cardPx -
+                            toolsHeight.roundToPx()
+                        minOf(fraction, room.toFloat()).coerceAtLeast(0f).toDp()
+                    }
+                    // Nothing during playback: swipe is off above, and this block
+                    // measures zero (no hairline, no padding, no inset) so the
+                    // Expanded anchor collapses onto the peek (the speed presets
+                    // moved to the run box's popover).
+                    // A hairline where the detail list slides under the peek: the
+                    // scrolled-away rows end at a visible edge, not a hard clip.
+                    val detailInsets = if (playing) Modifier else Modifier.padding(bottom = Tokens.space4)
+                    // Slides up over the peek's inset during the first inset-worth of lift
+                    // (layout phase, like the card): collapsed, it sits below the band;
+                    // expanded, it starts right under the peek content.
+                    Column(modifier = Modifier.offset { IntOffset(0, -minOf(rawLiftPx(), navInsetPx)) }) {
+                        if (!playing) HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                        Column(
+                            modifier = Modifier
+                                .heightIn(max = maxDetailHeight)
+                                .verticalScroll(rememberScrollState())
+                                .then(detailInsets),
+                        ) {
+                            if (!playing && builderMode) {
+                                BuilderDetails(
+                                    state = state,
+                                    selectedWaypoint = selectedWaypoint,
+                                    stayAtDestination = options.stayAtDestination,
+                                    listScrollEnabled = expanded,
+                                    onSelectWaypoint = { viewModel.interaction.select(it, showPopover = false) },
+                                    onSetWait = { waitEditIndex = it },
+                                    onClearWait = { viewModel.setWaypointWait(it, 0) },
+                                    onRemoveStop = viewModel::removeWaypoint,
+                                    onMoveStop = viewModel.interaction::beginMove,
+                                )
+                            } else if (!playing) {
+                                OptionsList(
+                                    settings = options,
+                                    saveState = when {
+                                        state.route == null || state.routeIsFallback -> SaveRowState.HIDDEN
+                                        state.routeSaved -> SaveRowState.SAVED
+                                        else -> SaveRowState.UNSAVED
+                                    },
+                                    saving = naming,
+                                    onSaveRoute = ::beginSave,
+                                    onHoldAtCentre = ::holdAtCentre,
+                                    followCamera = followCamera,
+                                    onFollowChange = viewModel::setFollowCamera,
+                                    onStayChange = optionsViewModel::setStayAtDestination,
+                                    onTrafficChange = optionsViewModel::setTrafficSimEnabled,
+                                    onWobbleChange = optionsViewModel::setJitterEnabled,
+                                    onOpenRoutes = onOpenRoutes,
+                                    onOpenSettings = onOpenSettings,
+                                )
+                            }
+                        }
+                    }
+                }
+            },
+        ) { _ ->
+            Box(modifier = Modifier.fillMaxSize()) {
                 Column(
                     modifier = Modifier
-                        .onSizeChanged { peekHeightPx = it.height }
-                        .background(MaterialTheme.colorScheme.surfaceContainerLow)
-                        .navigationBarsPadding(),
+                        .align(Alignment.TopCenter)
+                        .fillMaxWidth()
+                        .padding(Tokens.mapEdge)
+                        .imePadding()
+                        .onGloballyPositioned { topChromeBottomPx = it.boundsInParent().bottom.roundToInt() },
                 ) {
-                    // No grab pill while driving: the sheet has nothing to expand
-                    // to, so the affordance (and its TalkBack action) would lie.
-                    if (!playing) {
-                        SheetHandle(
-                            expanded = expanded,
-                            onToggle = ::toggleSheet,
-                            modifier = Modifier.onGloballyPositioned {
-                                handleAnchor = it.boundsInWindow().topCenter
+                    AnimatedVisibility(
+                        visible = !playing,
+                        enter = Motion.topChromeEnter,
+                        exit = Motion.topChromeExit,
+                    ) {
+                        MapSearchBar(
+                            state = searchState,
+                            units = units,
+                            onQueryChange = searchViewModel::setQuery,
+                            onSearch = searchViewModel::submit,
+                            onFocusChange = searchViewModel::setFieldFocused,
+                            onResultSelected = {
+                                focusManager.clearFocus()
+                                searchViewModel.clearResults()
+                                searchViewModel.rememberPick(it)
+                                viewModel.selectSearchResult(it)
+                            },
+                            onClearRecents = searchViewModel::clearRecents,
+                            onDismiss = {
+                                focusManager.clearFocus()
+                                searchViewModel.clearResults()
                             },
                         )
                     }
-                    val peekMode = when {
-                        playing -> PeekMode.PLAYING
-                        builderMode -> PeekMode.BUILDER
-                        else -> PeekMode.RECORD
-                    }
-                    AnimatedContent(
-                        targetState = peekMode,
-                        transitionSpec = { fadeThrough() },
-                        label = "peek",
-                    ) { mode ->
-                        when (mode) {
-                            PeekMode.PLAYING -> PlaybackControls(
-                                profile = state.profile,
-                                paused = playbackState is PlaybackState.Paused,
-                                stopping = playbackState is PlaybackState.Stopping,
-                                onPause = sessionViewModel::pause,
-                                onResume = sessionViewModel::resume,
-                                onFinish = {
-                                    // End drive stops the drive, not the route: it stays for Drive again
-                                    // (the drive-outcome collector in MapLayer marks it driven).
-                                    sessionViewModel.stopPlayback()
-                                },
-                                // No handle here, so the pill takes the handle's room under the sheet edge.
-                                modifier = Modifier.padding(
-                                    start = Tokens.inset,
-                                    top = Tokens.inset,
-                                    end = Tokens.inset,
-                                    bottom = Tokens.space3,
-                                ),
-                            )
-                            PeekMode.BUILDER -> BuilderPeek(
-                                state = state,
-                                onDone = { viewModel.setBuilderMode(false) },
-                                onClose = {
-                                    if (state.waypoints.isEmpty()) {
-                                        viewModel.setBuilderMode(false)
-                                    } else {
-                                        showDiscard = true
-                                    }
-                                },
-                            )
-                            PeekMode.RECORD -> RecordPeek(
-                                state = state,
-                                again = state.route != null && drivenPoints === state.route?.points,
-                                choice = startChoice,
-                                locating = locatingStart,
-                                onPickMode = { showModePicker = true },
-                                onStart = ::playOrAskStart,
-                                onEditRoute = { viewModel.setBuilderMode(true) },
-                            )
-                        }
+                    if (panelWidth == null) {
+                        Spacer(Modifier.height(Tokens.space2))
+                        controls(Modifier.align(Alignment.End))
                     }
                 }
-                // Always composed: the sheet's Expanded anchor comes from its content
-                // height, so an empty detail column left nothing to drag towards and
-                // a slow drag did not move the sheet at all (session 15i).
-                // The whole expanded sheet stops at 60% of the scaffold: a long stop
-                // list scrolls inside it instead of burying the map. It also stops
-                // under the card: the lift caps the card's top under the chrome, so
-                // without this the sheet rose over the trio (session 31).
-                val maxDetailHeight = with(density) {
-                    val scaffoldPx = if (scaffoldHeightPx > 0) {
-                        scaffoldHeightPx
-                    } else {
-                        LocalWindowInfo.current.containerSize.height
-                    }
-                    val fraction = scaffoldPx * SHEET_MAX_FRACTION - peekHeightPx
-                    val cardPx = if (strip.hidden) 0 else cardHeightPx + mapEdgePx
-                    val room = scaffoldPx - peekHeightPx - topChromeBottomPx - mapEdgePx - cardPx -
-                        toolsHeight.roundToPx()
-                    minOf(fraction, room.toFloat()).coerceAtLeast(0f).toDp()
-                }
-                // Nothing during playback: swipe is off above, and this block
-                // measures zero (no hairline, no padding, no inset) so the
-                // Expanded anchor collapses onto the peek (the speed presets
-                // moved to the run box's popover).
-                // A hairline where the detail list slides under the peek: the
-                // scrolled-away rows end at a visible edge, not a hard clip.
-                val detailInsets = if (playing) Modifier else Modifier.padding(bottom = Tokens.space4)
-                // Slides up over the peek's inset during the first inset-worth of lift
-                // (layout phase, like the card): collapsed, it sits below the band;
-                // expanded, it starts right under the peek content.
-                Column(modifier = Modifier.offset { IntOffset(0, -minOf(rawLiftPx(), navInsetPx)) }) {
-                    if (!playing) HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-                    Column(
-                        modifier = Modifier
-                            .heightIn(max = maxDetailHeight)
-                            .verticalScroll(rememberScrollState())
-                            .then(detailInsets),
-                    ) {
-                        if (!playing && builderMode) {
-                            BuilderDetails(
-                                state = state,
-                                selectedWaypoint = selectedWaypoint,
-                                stayAtDestination = options.stayAtDestination,
-                                listScrollEnabled = expanded,
-                                onSelectWaypoint = { viewModel.interaction.select(it, showPopover = false) },
-                                onSetWait = { waitEditIndex = it },
-                                onClearWait = { viewModel.setWaypointWait(it, 0) },
-                                onRemoveStop = viewModel::removeWaypoint,
-                                onMoveStop = viewModel.interaction::beginMove,
-                            )
-                        } else if (!playing) {
-                            OptionsList(
-                                settings = options,
-                                saveState = when {
-                                    state.route == null || state.routeIsFallback -> SaveRowState.HIDDEN
-                                    state.routeSaved -> SaveRowState.SAVED
-                                    else -> SaveRowState.UNSAVED
-                                },
-                                saving = naming,
-                                onSaveRoute = ::beginSave,
-                                onHoldAtCentre = ::holdAtCentre,
-                                followCamera = followCamera,
-                                onFollowChange = viewModel::setFollowCamera,
-                                onStayChange = optionsViewModel::setStayAtDestination,
-                                onTrafficChange = optionsViewModel::setTrafficSimEnabled,
-                                onWobbleChange = optionsViewModel::setJitterEnabled,
-                                onOpenRoutes = onOpenRoutes,
-                                onOpenSettings = onOpenSettings,
-                            )
-                        }
-                    }
-                }
-            }
-        },
-    ) { _ ->
-        Box(modifier = Modifier.fillMaxSize()) {
-            Column(
-                modifier = Modifier
-                    .align(Alignment.TopCenter)
-                    .fillMaxWidth()
-                    .padding(Tokens.mapEdge)
-                    .imePadding()
-                    .onGloballyPositioned { topChromeBottomPx = it.boundsInParent().bottom.roundToInt() },
-            ) {
-                AnimatedVisibility(
-                    visible = !playing,
-                    enter = Motion.topChromeEnter,
-                    exit = Motion.topChromeExit,
-                ) {
-                    MapSearchBar(
-                        state = searchState,
-                        units = units,
-                        onQueryChange = searchViewModel::setQuery,
-                        onSearch = searchViewModel::submit,
-                        onFocusChange = searchViewModel::setFieldFocused,
-                        onResultSelected = {
-                            focusManager.clearFocus()
-                            searchViewModel.clearResults()
-                            searchViewModel.rememberPick(it)
-                            viewModel.selectSearchResult(it)
-                        },
-                        onClearRecents = searchViewModel::clearRecents,
-                        onDismiss = {
-                            focusManager.clearFocus()
-                            searchViewModel.clearResults()
-                        },
-                    )
-                }
-                Spacer(Modifier.height(Tokens.space2))
-                MapControls(
-                    playing = playing,
-                    map3d = map3d,
-                    followCamera = followCamera,
-                    onToggle3d = viewModel::toggleMap3d,
-                    onToggleFollow = { viewModel.setFollowCamera(!followCamera) },
-                    onLocate = {
-                        // Read at click time; collecting latestFix in composition
-                        // would recompose the whole overlay on every fix.
-                        val fineLocation = Manifest.permission.ACCESS_FINE_LOCATION
-                        val mockedPosition = when (val current = sessionViewModel.session.value) {
-                            is MockSessionState.Holding -> current.position
-                            is MockSessionState.Playing -> sessionViewModel.latestFix.value?.position
-                            else -> null
-                        }
-                        when {
-                            mockedPosition != null -> viewModel.panTo(mockedPosition)
-                            context.hasPermission(fineLocation) -> viewModel.locateReal()
-                            else -> locatePermissionLauncher.launch(fineLocation)
-                        }
-                    },
-                    modifier = Modifier.align(Alignment.End),
-                )
-            }
 
-            // Strava's "run box": floats above the sheet and rides its top edge,
-            // in every state — building, ready, driving, holding. With nothing
-            // loaded it is strip-only: the idle prompt is the empty card.
-            val speedText = formatMultiplier(speedMultiplier)
-            val speedDescription = stringResource(R.string.sheet_speed_cd, speedText)
-            var speedPopupOpen by remember { mutableStateOf(false) }
-            var speedPillAnchor by remember { mutableStateOf(Offset.Zero) }
-            LaunchedEffect(playing) { if (!playing) speedPopupOpen = false }
-            // While driving the strip's trailing slot is the speed pill, which
-            // opens the preset popover above the card; otherwise copy alone.
-            val speedPill: (@Composable () -> Unit)? = if (playing) {
-                {
-                    FilterChip(
-                        selected = speedPopupOpen,
-                        onClick = { speedPopupOpen = true },
-                        label = { Text(stringResource(R.string.sheet_speed_value, speedText)) },
-                        modifier = Modifier
-                            .onGloballyPositioned { speedPillAnchor = it.boundsInWindow().topCenter }
-                            .semantics { contentDescription = speedDescription },
-                    )
-                }
-            } else {
-                null
-            }
-            if (speedPopupOpen && playing && speedPillAnchor != Offset.Zero) {
-                SpeedPopover(
-                    anchor = speedPillAnchor,
-                    speedMultiplier = speedMultiplier,
-                    onSpeedChange = sessionViewModel::setSpeedMultiplier,
-                    onDismiss = { speedPopupOpen = false },
-                )
-            }
-            val recordCells = recordCells(state, units)
-            val stats: (@Composable () -> Unit)? = when {
-                playing -> {
-                    { PlaybackStats(playbackState, state.route, units, sessionViewModel) }
-                }
-                recordCells != null -> {
-                    { StatTrio(cells = recordCells) }
-                }
-                else -> null
-            }
-            // Only "Building a route" (one stop, nothing to count) shows no card at all.
-            AnimatedVisibility(
-                visible = !strip.hidden,
-                enter = Motion.floatingEnter,
-                exit = Motion.floatingExit,
-                modifier = Modifier
-                    .align(Alignment.BottomCenter)
-                    .widthIn(max = Tokens.sheetMaxWidth)
-                    .offset { IntOffset(0, -sheetLiftPx()) }
-                    .padding(horizontal = Tokens.mapEdge)
-                    .padding(bottom = peekHeight + Tokens.mapEdge),
-            ) {
-                // The loaded route's trio doubles as its edit-route entry; the
-                // in-drive stats stay inert (the drive's shape is fixed).
-                val statsClick = if (!playing && recordCells != null) {
+                // Strava's "run box": floats above the sheet and rides its top edge,
+                // in every state — building, ready, driving, holding. With nothing
+                // loaded it is strip-only: the idle prompt is the empty card.
+                val speedText = formatMultiplier(speedMultiplier)
+                val speedDescription = stringResource(R.string.sheet_speed_cd, speedText)
+                var speedPopupOpen by remember { mutableStateOf(false) }
+                var speedPillAnchor by remember { mutableStateOf(Offset.Zero) }
+                LaunchedEffect(playing) { if (!playing) speedPopupOpen = false }
+                // While driving the strip's trailing slot is the speed pill, which
+                // opens the preset popover above the card; otherwise copy alone.
+                val speedPill: (@Composable () -> Unit)? = if (playing) {
                     {
-                        viewModel.setBuilderMode(true)
-                        if (sheetHintPending) optionsViewModel.markSheetHintSeen()
-                        scope.launch { sheetState.expand() }
-                        Unit
+                        FilterChip(
+                            selected = speedPopupOpen,
+                            onClick = { speedPopupOpen = true },
+                            label = { Text(stringResource(R.string.sheet_speed_value, speedText)) },
+                            modifier = Modifier
+                                .onGloballyPositioned { speedPillAnchor = it.boundsInWindow().topCenter }
+                                .semantics { contentDescription = speedDescription },
+                        )
                     }
                 } else {
                     null
                 }
-                // Skip ends only this drive's wait at the stop; the route's saved wait is untouched.
-                val skipWait: () -> Unit = {
-                    val dwelling = playbackState as? PlaybackState.Dwelling
-                    if (dwelling != null) sessionViewModel.setWaypointWait(dwelling.waypointIndex, 0)
+                if (speedPopupOpen && playing && speedPillAnchor != Offset.Zero) {
+                    SpeedPopover(
+                        anchor = speedPillAnchor,
+                        speedMultiplier = speedMultiplier,
+                        onSpeedChange = sessionViewModel::setSpeedMultiplier,
+                        onDismiss = { speedPopupOpen = false },
+                    )
                 }
-                StatCard(
-                    strip = shownStrip,
-                    stats = stats,
-                    statsActions = if (playing) {
-                        upcomingWaitActions(state, playbackState, options.stayAtDestination) { waitEditIndex = it }
+                val recordCells = recordCells(state, units)
+                val stats: (@Composable () -> Unit)? = when {
+                    playing -> {
+                        { PlaybackStats(playbackState, state.route, units, sessionViewModel) }
+                    }
+                    recordCells != null -> {
+                        { StatTrio(cells = recordCells) }
+                    }
+                    else -> null
+                }
+                // Only "Building a route" (one stop, nothing to count) shows no card at all.
+                AnimatedVisibility(
+                    visible = !strip.hidden,
+                    enter = Motion.floatingEnter,
+                    exit = Motion.floatingExit,
+                    modifier = Modifier
+                        .align(Alignment.BottomCenter)
+                        .widthIn(max = Tokens.sheetMaxWidth)
+                        .offset { IntOffset(0, -sheetLiftPx()) }
+                        .padding(horizontal = Tokens.mapEdge)
+                        .padding(bottom = peekHeight + Tokens.mapEdge),
+                ) {
+                    // The loaded route's trio doubles as its edit-route entry; the
+                    // in-drive stats stay inert (the drive's shape is fixed).
+                    val statsClick = if (!playing && recordCells != null) {
+                        {
+                            viewModel.setBuilderMode(true)
+                            if (sheetHintPending) optionsViewModel.markSheetHintSeen()
+                            scope.launch { sheetState.expand() }
+                            Unit
+                        }
                     } else {
-                        emptyList()
-                    },
-                    stripActions = movingWaypoint?.let { index ->
-                        listOf(
-                            CustomAccessibilityAction(moveHereLabel) {
-                                mapCentre()?.let { viewModel.moveStop(index, it, settled = true) }
-                                true
-                            },
-                        )
-                    } ?: emptyList(),
-                    onStripAction = when (shownStrip.action) {
-                        StripAction.FIX -> onOpenSetup
-                        StripAction.RELEASE -> sessionViewModel::release
-                        StripAction.CANCEL_MOVE -> viewModel.interaction::cancelMove
-                        StripAction.ADD_STOP -> viewModel::addSearchedPlaceAsStop
-                        StripAction.SKIP_WAIT -> skipWait
-                        StripAction.RESUME_SESSION -> {
-                            { showResume = true }
-                        }
-                        null -> null
-                    },
-                    onStatsClick = statsClick,
-                    trailing = speedPill,
-                    modifier = Modifier.onSizeChanged { cardHeightPx = it.height },
-                )
-            }
-            // First run: point at the handle and say the sheet pulls up.
-            val hintAnchor = handleAnchor.takeIf { sheetHintPending && it != Offset.Zero }
-            if (hintAnchor != null && !playing && !builderMode) {
-                SheetHintPopover(anchor = hintAnchor, onDismiss = optionsViewModel::markSheetHintSeen)
-            }
-            // Strava's tap-a-point callout rides the selected marker; a pending
-            // Move hides it so the strip's instruction is what the user reads.
-            val popoverIndex = popoverWaypoint
-            val popoverAnchor = markerScreen
-            val popoverStop = popoverIndex?.let { state.waypoints.getOrNull(it) }
-            val popover = popoverIndex?.let { index ->
-                popoverStop?.let { waypoint ->
-                    popoverAnchor?.let { anchor -> Triple(index, waypoint, anchor) }
-                }
-            }
-            if (popover != null && movingWaypoint == null) {
-                val (index, waypoint, anchor) = popover
-                StopPopover(
-                    index = index,
-                    waypoint = waypoint,
-                    count = state.waypoints.size,
-                    anchor = anchor,
-                    stayAtDestination = options.stayAtDestination,
-                    playing = playing,
-                    onSetWait = {
-                        waitEditIndex = index
-                        viewModel.interaction.select(null)
-                    },
-                    onExplainStays = {
-                        viewModel.interaction.select(null)
-                        scope.launch { snackbarHostState.showSnackbar(staysMessage) }
-                    },
-                    onMove = { viewModel.interaction.beginMove(index) },
-                    onDelete = { viewModel.removeWaypoint(index) },
-                    onDismiss = { viewModel.interaction.select(null) },
-                )
-            }
-            AnimatedVisibility(
-                visible = builderMode && !playing,
-                enter = Motion.floatingEnter,
-                exit = Motion.floatingExit,
-                modifier = Modifier
-                    .align(Alignment.BottomCenter)
-                    .widthIn(max = Tokens.sheetMaxWidth)
-                    .offset { IntOffset(0, -sheetLiftPx()) }
-                    .padding(bottom = peekHeight + cardHeight + Tokens.mapEdge * 2),
-            ) {
-                BuilderTools(
-                    stopCount = state.waypoints.size,
-                    canSave = state.route != null && !state.routeIsFallback,
-                    saving = naming,
-                    canUndo = canUndo,
-                    canRedo = canRedo,
-                    onUndo = { viewModel.stepHistory(redo = false) },
-                    onRedo = { viewModel.stepHistory(redo = true) },
-                    onReverse = viewModel::reverseWaypoints,
-                    onSave = ::beginSave,
-                    onClearAll = { showClearAll = true },
-                )
-            }
-            // Only while holding: the nudge control is chrome that must recede
-            // (design brief) rather than sit dimmed on every map state. It also
-            // yields to the builder's pills/card and hides behind an expanded
-            // sheet instead of floating dead on top of either.
-            AnimatedVisibility(
-                visible = holding != null && !playing && !builderMode && !expanded,
-                enter = Motion.floatingEnter,
-                exit = Motion.floatingExit,
-                modifier = Modifier
-                    .align(Alignment.CenterEnd)
-                    .padding(Tokens.mapEdge),
-            ) {
-                ThumbstickOverlay(
-                    enabled = true,
-                    onNudge = { bearingDegrees, deflection ->
-                        // Read the live hold at nudge time — the composition capture
-                        // would go stale as the dot moves.
-                        val hold = sessionViewModel.session.value as? MockSessionState.Holding
-                        if (hold != null) {
-                            val meters = nudgeMeters(
-                                deflection = deflection,
-                                zoom = viewModel.camera.value?.zoom ?: DEFAULT_NUDGE_ZOOM,
-                                latitudeDegrees = hold.position.latitude,
-                                dtSeconds = NUDGE_TICK_MILLIS / MILLIS_PER_SECOND,
+                        null
+                    }
+                    // Skip ends only this drive's wait at the stop; the route's saved wait is untouched.
+                    val skipWait: () -> Unit = {
+                        val dwelling = playbackState as? PlaybackState.Dwelling
+                        if (dwelling != null) sessionViewModel.setWaypointWait(dwelling.waypointIndex, 0)
+                    }
+                    StatCard(
+                        strip = shownStrip,
+                        stats = stats,
+                        statsActions = if (playing) {
+                            upcomingWaitActions(state, playbackState, options.stayAtDestination) { waitEditIndex = it }
+                        } else {
+                            emptyList()
+                        },
+                        stripActions = movingWaypoint?.let { index ->
+                            listOf(
+                                CustomAccessibilityAction(moveHereLabel) {
+                                    mapCentre()?.let { viewModel.moveStop(index, it, settled = true) }
+                                    true
+                                },
                             )
-                            if (meters > 0.0) {
-                                sessionViewModel.nudgeHold(
-                                    GeoMath.destination(hold.position, bearingDegrees, meters),
-                                )
+                        } ?: emptyList(),
+                        onStripAction = when (shownStrip.action) {
+                            StripAction.FIX -> onOpenSetup
+                            StripAction.RELEASE -> sessionViewModel::release
+                            StripAction.CANCEL_MOVE -> viewModel.interaction::cancelMove
+                            StripAction.ADD_STOP -> viewModel::addSearchedPlaceAsStop
+                            StripAction.SKIP_WAIT -> skipWait
+                            StripAction.RESUME_SESSION -> {
+                                { showResume = true }
                             }
-                        }
-                    },
-                )
+                            null -> null
+                        },
+                        onStatsClick = statsClick,
+                        trailing = speedPill,
+                        modifier = Modifier.onSizeChanged { cardHeightPx = it.height },
+                    )
+                }
+                // First run: point at the handle and say the sheet pulls up.
+                val hintAnchor = handleAnchor.takeIf { sheetHintPending && it != Offset.Zero }
+                if (hintAnchor != null && !playing && !builderMode) {
+                    SheetHintPopover(anchor = hintAnchor, onDismiss = optionsViewModel::markSheetHintSeen)
+                }
+                // Strava's tap-a-point callout rides the selected marker; a pending
+                // Move hides it so the strip's instruction is what the user reads.
+                val popoverIndex = popoverWaypoint
+                val popoverAnchor = markerScreen
+                val popoverStop = popoverIndex?.let { state.waypoints.getOrNull(it) }
+                val popover = popoverIndex?.let { index ->
+                    popoverStop?.let { waypoint ->
+                        popoverAnchor?.let { anchor -> Triple(index, waypoint, anchor) }
+                    }
+                }
+                if (popover != null && movingWaypoint == null) {
+                    val (index, waypoint, anchor) = popover
+                    StopPopover(
+                        index = index,
+                        waypoint = waypoint,
+                        count = state.waypoints.size,
+                        anchor = anchor,
+                        stayAtDestination = options.stayAtDestination,
+                        playing = playing,
+                        onSetWait = {
+                            waitEditIndex = index
+                            viewModel.interaction.select(null)
+                        },
+                        onExplainStays = {
+                            viewModel.interaction.select(null)
+                            scope.launch { snackbarHostState.showSnackbar(staysMessage) }
+                        },
+                        onMove = { viewModel.interaction.beginMove(index) },
+                        onDelete = { viewModel.removeWaypoint(index) },
+                        onDismiss = { viewModel.interaction.select(null) },
+                    )
+                }
+                AnimatedVisibility(
+                    visible = builderMode && !playing,
+                    enter = Motion.floatingEnter,
+                    exit = Motion.floatingExit,
+                    modifier = Modifier
+                        .align(Alignment.BottomCenter)
+                        .widthIn(max = Tokens.sheetMaxWidth)
+                        .offset { IntOffset(0, -sheetLiftPx()) }
+                        .padding(bottom = peekHeight + cardHeight + Tokens.mapEdge * 2),
+                ) {
+                    BuilderTools(
+                        stopCount = state.waypoints.size,
+                        canSave = state.route != null && !state.routeIsFallback,
+                        saving = naming,
+                        canUndo = canUndo,
+                        canRedo = canRedo,
+                        onUndo = { viewModel.stepHistory(redo = false) },
+                        onRedo = { viewModel.stepHistory(redo = true) },
+                        onReverse = viewModel::reverseWaypoints,
+                        onSave = ::beginSave,
+                        onClearAll = { showClearAll = true },
+                    )
+                }
+                // In the side panel the thumbstick lives on the open map instead (below).
+                if (panelWidth == null) thumbstick(Modifier.align(Alignment.CenterEnd).padding(Tokens.mapEdge))
             }
+        }
+        if (panelWidth != null) {
+            controls(
+                Modifier
+                    .align(Alignment.TopEnd)
+                    .windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Horizontal))
+                    .padding(Tokens.mapEdge),
+            )
+            thumbstick(
+                Modifier
+                    .align(Alignment.CenterEnd)
+                    .windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Horizontal))
+                    .padding(Tokens.mapEdge),
+            )
         }
     }
 }
@@ -1298,7 +1339,7 @@ private fun StopRow(
             .padding(horizontal = Tokens.inset),
     ) {
         // Fixed row heights keep "three rows" true for the list cap.
-        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.height(Tokens.touchTarget)) {
+        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.heightIn(min = Tokens.touchTarget)) {
             StopDisc(number = index + 1, isStart = isStart, isEnd = isEnd)
             Spacer(Modifier.width(Tokens.space3))
             Column(modifier = Modifier.weight(1f)) {
@@ -1325,7 +1366,7 @@ private fun StopRow(
             // On-sheet equivalent of the marker popover (TalkBack path).
             Row(
                 horizontalArrangement = Arrangement.spacedBy(Tokens.space2),
-                modifier = Modifier.height(Tokens.touchTarget),
+                modifier = Modifier.heightIn(min = Tokens.touchTarget),
             ) {
                 val stays = stopStays(index, count, stayAtDestination)
                 TextButton(onClick = onSetWait, enabled = !stays) {

@@ -198,7 +198,7 @@ private fun ActionSlots(
         modifier = Modifier
             .widthIn(max = ROW_MAX_WIDTH)
             .fillMaxWidth()
-            .height(ROW_HEIGHT)
+            .heightIn(min = ROW_HEIGHT)
             .padding(horizontal = Tokens.inset),
         verticalAlignment = Alignment.Top,
     ) {

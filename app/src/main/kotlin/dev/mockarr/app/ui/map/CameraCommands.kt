@@ -22,15 +22,18 @@ private const val FIT_PADDING_BOTTOM_MIN_DP = 180f
 private const val FIT_CLEARANCE_DP = 24f
 
 /** Viewport margins a fit must respect, in px. */
-internal class FitPadding(density: Float, bottomObstructionPx: Int) {
+internal class FitPadding(density: Float, bottomObstructionPx: Int, startObstructionPx: Int = 0) {
     val side = (FIT_PADDING_SIDE_DP * density).toInt()
+
+    /** The start margin also clears a side panel (short windows) covering the map's start edge. */
+    val start = side + startObstructionPx
     val top = (FIT_PADDING_TOP_DP * density).toInt()
     val bottom = maxOf(
         (FIT_PADDING_BOTTOM_MIN_DP * density).toInt(),
         bottomObstructionPx + (FIT_CLEARANCE_DP * density).toInt(),
     )
 
-    fun toArray(): IntArray = intArrayOf(side, top, side, bottom)
+    fun toArray(): IntArray = intArrayOf(start, top, side, bottom)
 }
 
 internal fun applyCameraCommand(map: MapLibreMap, command: CameraCommand, padding: FitPadding, animate: Boolean) {
@@ -55,7 +58,7 @@ private fun centerOn(map: MapLibreMap, command: CameraCommand.Center, padding: F
             CameraPosition.Builder(map.cameraPosition)
                 .target(target)
                 .zoom(command.zoom)
-                .padding(side, padding.top.toDouble(), side, padding.bottom.toDouble())
+                .padding(padding.start.toDouble(), padding.top.toDouble(), side, padding.bottom.toDouble())
                 .build(),
         )
     } else {

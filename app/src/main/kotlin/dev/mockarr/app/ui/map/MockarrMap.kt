@@ -120,6 +120,8 @@ fun MockarrMap(
     activeDwell: ActiveDwell? = null,
     cameraCommand: CameraCommand? = null,
     bottomObstructionPx: Int = 0,
+    /** Width in px of an overlay panel covering the map's start edge (short windows), else 0. */
+    startObstructionPx: Int = 0,
     pinPosition: LatLng? = null,
     searchedPlace: LatLng? = null,
     onSearchPinTap: () -> Unit = {},
@@ -159,6 +161,10 @@ fun MockarrMap(
     var style by remember { mutableStateOf<Style?>(null) }
     var userMovedCamera by remember { mutableStateOf(false) }
     val density = LocalDensity.current.density
+    // Stop numbers and wait countdowns are drawn into bitmaps, so sp can't reach them:
+    // the whole marker (disc, ring, text) scales with the system font size, capped so
+    // the discs stay map-sized; the hit test uses the same size.
+    val markerDensity = density * LocalDensity.current.fontScale.coerceIn(1f, MAX_MARKER_TEXT_SCALE)
 
     val mapView = remember {
         MapView(context).apply {
@@ -175,7 +181,7 @@ fun MockarrMap(
                 // Hit-test against the drawn discs (not the icon quads), with
                 // whatever the stops and selection are at touch time.
                 val hitTest = { p: org.maplibre.android.geometry.LatLng ->
-                    libreMap.waypointIndexAt(p, currentWaypoints, currentSelectedWaypoint, density)
+                    libreMap.waypointIndexAt(p, currentWaypoints, currentSelectedWaypoint, markerDensity)
                 }
                 val handler = MarkerDragHandler(
                     map = libreMap,
@@ -342,7 +348,7 @@ fun MockarrMap(
         puck.repaint(loadedStyle)
     }
 
-    val markerStyle = remember(density, palette) { MarkerStyle(density, palette) }
+    val markerStyle = remember(markerDensity, palette) { MarkerStyle(markerDensity, palette) }
     LaunchedEffect(style, waypoints, selectedWaypoint, markerStyle) {
         val loadedStyle = style ?: return@LaunchedEffect
         updateWaypoints(loadedStyle, waypoints, selectedWaypoint, markerStyle)
@@ -379,6 +385,7 @@ fun MockarrMap(
         loadedStyle.getSourceAs<GeoJsonSource>(SEARCH_PIN_SOURCE)?.setGeoJson(searchedPlace.toFeatures())
     }
 
+    val currentStartObstruction by rememberUpdatedState(startObstructionPx)
     // Keep a nudged hold pin in view: when it crosses into the outer margin of
     // the viewport, ease the camera back onto it. A stationary pin never
     // triggers this — the effect only runs when pinPosition changes.
@@ -388,7 +395,8 @@ fun MockarrMap(
         val screen = libreMap.projection.toScreenLocation(pin.toMapLibre())
         val marginX = libreMap.width * KEEP_IN_VIEW_MARGIN
         val marginY = libreMap.height * KEEP_IN_VIEW_MARGIN
-        val outside = screen.x < marginX || screen.x > libreMap.width - marginX ||
+        // A side panel (short windows) covers the start edge: the pin must stay right of it.
+        val outside = screen.x < currentStartObstruction + marginX || screen.x > libreMap.width - marginX ||
             screen.y < marginY || screen.y > libreMap.height - marginY
         if (outside) {
             libreMap.move(CameraUpdateFactory.newLatLng(pin.toMapLibre()), animateCamera, KEEP_IN_VIEW_EASE_MILLIS)
@@ -417,7 +425,7 @@ fun MockarrMap(
         val libreMap = map ?: return@LaunchedEffect
         val command = cameraCommand ?: return@LaunchedEffect
         val obstruction = currentBottomObstruction
-        applyCameraCommand(libreMap, command, FitPadding(density, obstruction), animateCamera)
+        applyCameraCommand(libreMap, command, FitPadding(density, obstruction, currentStartObstruction), animateCamera)
         // A route loaded from Saved routes is framed while the sheet it was opened
         // from is still up; the sheet then drops to its peek. When the overlay shrinks
         // right after a fit, frame again for the room the user actually has.
@@ -427,7 +435,12 @@ fun MockarrMap(
             }
             if (shrank != null) {
                 delay(SHEET_SETTLE_MILLIS)
-                applyCameraCommand(libreMap, command, FitPadding(density, currentBottomObstruction), animateCamera)
+                applyCameraCommand(
+                    libreMap,
+                    command,
+                    FitPadding(density, currentBottomObstruction, currentStartObstruction),
+                    animateCamera,
+                )
             }
         }
     }
@@ -446,14 +459,21 @@ fun MockarrMap(
         val libreMap = map ?: return@LaunchedEffect
         val position = followTarget ?: return@LaunchedEffect
         if (!cameraFollow) return@LaunchedEffect
-        val update = if (followEngaged) {
-            CameraUpdateFactory.newLatLng(position.toMapLibre())
-        } else {
-            followEngaged = true
-            CameraUpdateFactory.newLatLngZoom(
-                position.toMapLibre(),
-                maxOf(libreMap.cameraPosition.zoom, FOLLOW_MIN_ZOOM),
+        val current = libreMap.cameraPosition.zoom
+        val zoom = if (followEngaged) current else maxOf(current, FOLLOW_MIN_ZOOM)
+        followEngaged = true
+        val start = currentStartObstruction.toDouble()
+        val update = if (start > 0.0) {
+            // Side panel: centre the dot in the clear map to its right.
+            CameraUpdateFactory.newCameraPosition(
+                CameraPosition.Builder(libreMap.cameraPosition)
+                    .target(position.toMapLibre())
+                    .zoom(zoom)
+                    .padding(start, 0.0, 0.0, 0.0)
+                    .build(),
             )
+        } else {
+            CameraUpdateFactory.newLatLngZoom(position.toMapLibre(), zoom)
         }
         libreMap.move(update, animateCamera, FOLLOW_EASE_MILLIS)
     }
@@ -468,6 +488,7 @@ private const val LATITUDE_BUCKETS_PER_DEGREE = 2
 
 // How long after a fit a collapsing sheet still earns a refit, and how long it takes to settle.
 private const val REFIT_WINDOW_MILLIS = 1_500L
+private const val MAX_MARKER_TEXT_SCALE = 1.3f
 private const val SHEET_SETTLE_MILLIS = 400L
 private const val FOLLOW_EASE_MILLIS = 900
 private const val KEEP_IN_VIEW_MARGIN = 0.2f

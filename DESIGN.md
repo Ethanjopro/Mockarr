@@ -340,6 +340,19 @@ Phone portrait first, one column. The map fills the window edge to edge behind
 everything; the status bar inset is applied by the app shell, the navigation-bar inset by
 the sheet (and by pushed screens). There is no navigation bar.
 
+**Short windows restructure, they don't stretch** (adapt, session 41). When the window is
+under 480dp tall and at least 600dp wide (a phone on its side; `rememberSidePanelWidth()` in
+`MapAdaptive.kt`, from the Material window size classes), the search field, card and sheet
+become a **start-side panel** (half the width, at most 420dp). The FAB stack and the
+thumbstick move onto the open map to its right, and fits, padded centring and the follow
+camera add the panel to their start padding, so the drive and the held pin stay in the
+clear. Tall windows (every portrait phone, tablets) keep the bottom sheet, capped at
+`sheetMaxWidth` and centred. **Pushed screens** (Saved routes, Settings, Setup) are a centred
+column of the same maximum width, never 1200dp-wide rows. The overlay and pushed screens pad
+the horizontal safe-drawing insets (a side cutout, side 3-button navigation). **Large text:**
+the action row and stop rows set minimum heights, not fixed ones, and map markers (stop
+numbers, wait chips) scale with the font size up to 1.3×.
+
 - **Stat card** floats `{spacing.map-edge}` above the sheet's top edge and inset from the
   sides, 16dp corners: the status strip on top, the trio (and progress while driving)
   below. It stays through playback and hides behind the sheet when it expands.

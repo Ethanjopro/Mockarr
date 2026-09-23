@@ -29,6 +29,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -218,7 +219,7 @@ private fun CardOverflow(name: String, onRename: () -> Unit, onDelete: () -> Uni
 
 @Composable
 fun RenameRouteDialog(initialName: String, onConfirm: (String) -> Unit, onDismiss: () -> Unit) {
-    var name by remember { mutableStateOf(initialName) }
+    var name by rememberSaveable { mutableStateOf(initialName) }
     MockarrDialog(
         title = stringResource(R.string.routes_rename_title),
         onDismissRequest = onDismiss,
