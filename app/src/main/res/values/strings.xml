@@ -156,6 +156,7 @@
     <string name="stop_menu_wait">Wait here…</string>
     <string name="stop_menu_wait_set">Wait · %1$s</string>
     <string name="stop_menu_stays">Stays at destination</string>
+    <string name="snack_destination_stays">Your destination already holds until you stop. Turn off Stay at destination to set a wait here.</string>
     <string name="stop_menu_move">Move stop</string>
     <string name="stop_menu_delete">Remove stop</string>
     <string name="stop_popover_cd">%1$s options</string>

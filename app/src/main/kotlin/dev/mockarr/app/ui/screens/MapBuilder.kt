@@ -1,5 +1,6 @@
 package dev.mockarr.app.ui.screens
 
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -31,6 +32,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import dev.mockarr.app.R
+import dev.mockarr.app.ui.Motion
 import dev.mockarr.app.ui.theme.DialogAction
 import dev.mockarr.app.ui.theme.MapIconPill
 import dev.mockarr.app.ui.theme.MapPill
@@ -118,18 +120,20 @@ private fun BuilderHint(titleRes: Int, bodyRes: Int) {
 }
 
 /**
- * Strava's builder tools, bottom-centre of the map: clear · save · reverse · undo · redo
- * as white shadowed pills. Clear asks first (the host shows the discard dialog).
- * Save waits for the route's place name; the spinner says so.
+ * Strava's builder tools, bottom-centre of the map, revealed as they start to
+ * mean something (distill, session 41): Undo / Redo once there is history to
+ * step through, and clear · save · reverse once there are two stops to act on —
+ * a first search pick used to land on five tools at once, most of them inert.
+ * Clear asks first (the host shows the dialog); Save waits for the route's
+ * place name, and the spinner says so.
  */
 @Composable
 fun BuilderTools(
-    canClear: Boolean,
+    stopCount: Int,
     canSave: Boolean,
     saving: Boolean,
     canUndo: Boolean,
     canRedo: Boolean,
-    canReverse: Boolean,
     onSave: () -> Unit,
     onUndo: () -> Unit,
     onRedo: () -> Unit,
@@ -137,42 +141,48 @@ fun BuilderTools(
     onClearAll: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val routeTools = stopCount >= 2
     Row(modifier = modifier, horizontalArrangement = Arrangement.spacedBy(Tokens.space3)) {
-        MapIconPill(
-            painter = painterResource(R.drawable.ic_delete),
-            contentDescription = stringResource(R.string.builder_clear_all),
-            onClick = onClearAll,
-            enabled = canClear,
-        )
-        MapPill(
-            onClick = onSave,
-            contentDescription = stringResource(R.string.builder_save_cd),
-            enabled = canSave && !saving,
-        ) {
-            if (saving) {
-                CircularProgressIndicator(modifier = Modifier.size(SPINNER_SIZE), strokeWidth = 2.dp)
-            } else {
-                Icon(painterResource(R.drawable.ic_save), contentDescription = null)
+        AnimatedVisibility(visible = routeTools, enter = Motion.floatingEnter, exit = Motion.floatingExit) {
+            Row(horizontalArrangement = Arrangement.spacedBy(Tokens.space3)) {
+                MapIconPill(
+                    painter = painterResource(R.drawable.ic_delete),
+                    contentDescription = stringResource(R.string.builder_clear_all),
+                    onClick = onClearAll,
+                )
+                MapPill(
+                    onClick = onSave,
+                    contentDescription = stringResource(R.string.builder_save_cd),
+                    // Visible but disabled for a straight-line fallback: it can't be saved yet.
+                    enabled = canSave && !saving,
+                ) {
+                    if (saving) {
+                        CircularProgressIndicator(modifier = Modifier.size(SPINNER_SIZE), strokeWidth = 2.dp)
+                    } else {
+                        Icon(painterResource(R.drawable.ic_save), contentDescription = null)
+                    }
+                }
+                MapIconPill(
+                    painter = painterResource(R.drawable.ic_swap),
+                    contentDescription = stringResource(R.string.builder_reverse_cd),
+                    onClick = onReverse,
+                )
             }
         }
-        MapIconPill(
-            painter = painterResource(R.drawable.ic_swap),
-            contentDescription = stringResource(R.string.builder_reverse_cd),
-            onClick = onReverse,
-            enabled = canReverse,
-        )
-        MapIconPill(
-            painter = painterResource(R.drawable.ic_undo),
-            contentDescription = stringResource(R.string.builder_undo_cd),
-            onClick = onUndo,
-            enabled = canUndo,
-        )
-        MapIconPill(
-            painter = painterResource(R.drawable.ic_redo),
-            contentDescription = stringResource(R.string.builder_redo_cd),
-            onClick = onRedo,
-            enabled = canRedo,
-        )
+        AnimatedVisibility(visible = canUndo, enter = Motion.floatingEnter, exit = Motion.floatingExit) {
+            MapIconPill(
+                painter = painterResource(R.drawable.ic_undo),
+                contentDescription = stringResource(R.string.builder_undo_cd),
+                onClick = onUndo,
+            )
+        }
+        AnimatedVisibility(visible = canRedo, enter = Motion.floatingEnter, exit = Motion.floatingExit) {
+            MapIconPill(
+                painter = painterResource(R.drawable.ic_redo),
+                contentDescription = stringResource(R.string.builder_redo_cd),
+                onClick = onRedo,
+            )
+        }
     }
 }
 

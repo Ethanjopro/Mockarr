@@ -477,7 +477,11 @@ pace. Never stack actions vertically in the peek.
 Strava's floating control: a 48dp `floating` circle (white in light; lifted and rimmed in
 dark — see the Soft Lift Rule) with the floating shadow and an on-surface glyph (`MapPill` / `MapIconPill` in `ui/theme/MapChrome.kt`).
 Disabled = glyph at 38%, never hidden; selected (follow) = indigo fill. Used for the FAB
-stack and the builder tools; never inside the sheet.
+stack and the builder tools; never inside the sheet. **Builder tools appear as they start to
+mean something** (distill, session 41): Undo once there is history, Redo once there is
+something to redo, and Clear route · Save · Reverse from two stops. "Never hidden" is about
+signalling a disabled state — a tool that applies but can't act yet stays visible and
+disabled (Save on a straight-line fallback); a tool that doesn't apply yet isn't shown.
 
 ### Popover
 Strava's builder menu and its tap-a-point callout: a 16dp `surface-container-lowest` card
@@ -488,7 +492,8 @@ dividers between actions only — never directly under a header; a destructive r
 last, in the same ink as the others. The **stop popover** (`StopPopover`) rides the selected marker
 on every camera frame and is **symbols only**: one row of three 48dp icon buttons —
 *Move* (four-way arrows, `ic_open_with`) · *Wait* (clock; hold-tinted once a wait is set,
-greyed on the destination while "Stay at destination" is on) · *Remove* (neutral trash,
+greyed on the destination while "Stay at destination" is on — still tappable, and a tap
+explains in a snackbar that the destination already holds) · *Remove* (neutral trash,
 last). No header: the selected disc says which stop, and the buttons'
 descriptions carry the words ("Wait · 5 min", "Stop 2 options") for TalkBack. While a
 drive is playing only the clock shows — the route's shape is fixed mid-drive, but a coming

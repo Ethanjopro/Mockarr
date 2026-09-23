@@ -577,6 +577,7 @@ fun MapScreen(
     }
     var waitEditIndex by remember { mutableStateOf<Int?>(null) }
     val moveHereLabel = stringResource(R.string.strip_move_here_cd)
+    val staysMessage = stringResource(R.string.snack_destination_stays)
     if (selectedWaypoint != null && state.waypoints.getOrNull(selectedWaypoint!!) == null) {
         // The list changed under the selection (undo/clear) — drop it.
         viewModel.interaction.select(null)
@@ -1103,6 +1104,10 @@ fun MapScreen(
                         waitEditIndex = index
                         viewModel.interaction.select(null)
                     },
+                    onExplainStays = {
+                        viewModel.interaction.select(null)
+                        scope.launch { snackbarHostState.showSnackbar(staysMessage) }
+                    },
                     onMove = { viewModel.interaction.beginMove(index) },
                     onDelete = { viewModel.removeWaypoint(index) },
                     onDismiss = { viewModel.interaction.select(null) },
@@ -1119,12 +1124,11 @@ fun MapScreen(
                     .padding(bottom = peekHeight + cardHeight + Tokens.mapEdge * 2),
             ) {
                 BuilderTools(
-                    canClear = state.waypoints.isNotEmpty(),
+                    stopCount = state.waypoints.size,
                     canSave = state.route != null && !state.routeIsFallback,
                     saving = naming,
                     canUndo = canUndo,
                     canRedo = canRedo,
-                    canReverse = state.waypoints.size >= 2,
                     onUndo = { viewModel.stepHistory(redo = false) },
                     onRedo = { viewModel.stepHistory(redo = true) },
                     onReverse = viewModel::reverseWaypoints,

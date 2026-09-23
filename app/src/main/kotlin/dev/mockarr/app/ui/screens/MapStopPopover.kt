@@ -43,6 +43,8 @@ internal fun StopPopover(
     stayAtDestination: Boolean,
     playing: Boolean,
     onSetWait: () -> Unit,
+    /** The destination holds anyway ("Stay at destination"): say why there's no wait to set. */
+    onExplainStays: () -> Unit,
     onMove: () -> Unit,
     onDelete: () -> Unit,
     onDismiss: () -> Unit,
@@ -57,7 +59,12 @@ internal fun StopPopover(
         else -> stringResource(R.string.stop_menu_wait)
     }
     val scheme = MaterialTheme.colorScheme
-    val waitInk = if (hasWait) MockarrTheme.colors.hold else scheme.onSurface
+    val waitInk = when {
+        // Still greyed — there's no wait to set — but a tap explains why instead of doing nothing.
+        stays -> scheme.onSurface.copy(alpha = STAYS_ALPHA)
+        hasWait -> MockarrTheme.colors.hold
+        else -> scheme.onSurface
+    }
     MapPopover(anchor = anchor, onDismiss = onDismiss, modal = false) {
         Row(
             modifier = Modifier
@@ -78,8 +85,7 @@ internal fun StopPopover(
                 }
             }
             IconButton(
-                onClick = onSetWait,
-                enabled = !stays,
+                onClick = if (stays) onExplainStays else onSetWait,
                 colors = IconButtonDefaults.iconButtonColors(contentColor = waitInk),
                 modifier = Modifier.size(Tokens.touchTarget),
             ) {
@@ -109,3 +115,5 @@ internal fun stopName(index: Int, count: Int): String = when {
     index == count - 1 && count >= 2 -> stringResource(R.string.sheet_destination)
     else -> stringResource(R.string.sheet_stop_n, index + 1)
 }
+
+private const val STAYS_ALPHA = 0.38f

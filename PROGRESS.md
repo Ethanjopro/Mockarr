@@ -1945,3 +1945,20 @@ polish). Ethan's calls are in memory `critique-2026-09-22-decisions`.
   - the dark builder shows lifted, rimmed pills, card and search field
   - during a wait the band text reads "Waiting at stop 2 · 0:59" while its node says
     "Waiting at stop 2"
+
+### 2026-09-22 — Session 41c (impeccable run 3/6: distill — the route builder)
+- **Builder tools appear as they start to mean something.**
+  - Undo once there is history, Redo once there is something to redo, and Clear route · Save
+    · Reverse from two stops.
+  - A first search pick used to land on five tools at once, most of them inert.
+  - Save stays visible but disabled on a straight-line fallback. DESIGN.md now separates "a
+    tool that doesn't apply yet isn't shown" from "never hide a disabled control".
+  - The tools strip keeps its reserved height, so the map doesn't reframe as tools appear.
+- **The greyed destination clock explains itself.** With "Stay at destination" on, it stays
+  greyed but a tap shows a snackbar: "Your destination already holds until you stop. Turn off
+  Stay at destination to set a wait here." Before, it did nothing.
+- **Verified on mockarr_test:**
+  - 1 stop → only Undo
+  - 2 stops → Clear route, Save route, Reverse route, Undo
+  - after Undo → Undo + Redo
+  - the destination popover's clock → the snackbar text in the UI dump
