@@ -62,7 +62,7 @@ Realism is the feature; honesty is the trust story.
   README's fair-use note; this is a product commitment, not just a rule.
 - Zero-leak mock ownership: hold/stop transitions must never let the real location leak.
 - Terminology: *stop* (a waypoint), *hold* / *holding* (pinned location), *wait* (pause at a
-  stop), *Play / Pause / Stop* for playback, *Following* (camera tracks the position).
+  stop), *Start / Pause / End drive* for playback (*Drive again* after an ending), *Stop holding* to hand the real location back, *Following* (camera tracks the position).
 - Decided (ADR 0002, provisional): Google Play is the primary channel via a personal developer
   account; free core with a one-time Pro unlock later, no ads. Backend provider choice is open
   until the production rollout (ADR 0003). Licence decided (ADR 0004): public repo under PolyForm

@@ -1962,3 +1962,30 @@ polish). Ethan's calls are in memory `critique-2026-09-22-decisions`.
   - 2 stops → Clear route, Save route, Reverse route, Undo
   - after Undo → Undo + Redo
   - the destination popover's clock → the snackbar text in the UI dump
+
+### 2026-09-22 — Session 41d (impeccable run 4/6: clarify — say what happens before it happens)
+- **START FROM:**
+  - One line under the pills: "Held spot drives from where you are holding. Start of route
+    jumps straight to the first stop." A My location variant covers that case.
+  - A **Cancel** text button beside the caption. Back and a map tap already cancelled, but
+    nothing said so.
+- **The notification uses the app's words.**
+  - Title: "Driving" / "Walking" / "Cycling" (the system header already names Mockarr), or
+    "Holding your location".
+  - Text: "At ‹place›" / "At your destination" / "Where you ended the drive".
+  - Actions: **End drive** (by travel mode) and **Stop holding**, replacing one ambiguous "Stop"
+    that ended a drive in one state and handed back the real location in the other.
+- **One phrase for a ready route:** "Ready to drive / walk / ride" in and out of the builder
+  (the loaded state used to say "Route ready").
+- **"Drive again" however the drive ended:** a `driveOutcome` collector in MapLayer
+  (`drop(1)`) replaces the per-path `markDriven` calls, so arrival, the in-app End drive and
+  the notification's End drive all count.
+- **PRODUCT.md terminology:** Start / Pause / End drive, Drive again, Stop holding.
+- **Build:** a `driveProfile()` helper tipped `MockSessionService` to 26 functions, so it's
+  inlined as a local `val`. **The service class has no headroom:** extract helpers to file
+  level before adding any function.
+- **Verified on mockarr_test:**
+  - hold notification: "Holding your location · At Harry Hines Boulevard · [Stop holding]"
+  - START FROM shows Cancel and the help line
+  - drive notification: "Driving", [Pause] [End drive]
+  - a background arrival shows "Drive again" on return, and so does the in-app End drive

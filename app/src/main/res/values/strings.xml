@@ -31,7 +31,11 @@
     <string name="strip_holding_destination">Holding at destination</string>
     <string name="strip_holding_pin">Holding at dropped pin</string>
     <string name="strip_holding_stopped">Holding where you stopped</string>
-    <string name="notification_holding_pending">Holding…</string>
+    <string name="notification_holding_pending">Looking up the place…</string>
+    <string name="notification_hold_at">At %1$s</string>
+    <string name="notification_hold_destination">At your destination</string>
+    <string name="notification_hold_stopped">Where you ended the drive</string>
+    <string name="notification_hold_pin">At a dropped pin</string>
     <string name="strip_stop_hold">Stop holding</string>
     <string name="strip_idle">Tap the map to add stops · long-press to hold</string>
     <string name="strip_arrived">Arrived</string>
@@ -141,6 +145,8 @@
     <string name="row_start_from_me">My location</string>
     <string name="row_start_from_me_cd">Start from your real location</string>
     <string name="row_start_choice_title">Start from</string>
+    <string name="row_start_choice_help_hold">Held spot drives from where you are holding. Start of route jumps straight to the first stop.</string>
+    <string name="row_start_choice_help_me">My location drives from where you really are. Start of route jumps straight to the first stop.</string>
     <string name="mode_picker_title">Travel mode</string>
     <string name="mode_locked">Not available in this build</string>
     <string name="builder_done">Done</string>
@@ -163,7 +169,6 @@
     <string name="strip_moving_stop">Drag %1$s or tap the map to move it</string>
     <string name="strip_cancel">Cancel</string>
     <string name="strip_building">Building a route</string>
-    <string name="strip_route_loaded">Route ready</string>
     <string name="strip_add_stop">Add stop</string>
     <string name="stat_placeholder">—</string>
     <string name="options_header">Options</string>
@@ -304,9 +309,7 @@
 
     <!-- Foreground service -->
     <string name="notification_channel">Mock location session</string>
-    <string name="notification_title_holding">Mockarr — holding location</string>
-    <string name="notification_title_driving">Mockarr — route in progress</string>
-    <string name="notification_action_stop">Stop</string>
+    <string name="notification_title_holding">Holding your location</string>
     <string name="notification_action_pause">Pause</string>
     <string name="notification_action_resume">Resume</string>
     <string name="notification_time_left">%1$s left</string>

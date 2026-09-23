@@ -3,6 +3,7 @@ package dev.mockarr.app.ui.screens
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
@@ -24,6 +25,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.rememberUpdatedState
@@ -54,6 +56,7 @@ data class StartChoice(
     val origin: StartOrigin,
     val onFromOrigin: () -> Unit,
     val onFromRouteStart: () -> Unit,
+    val onCancel: () -> Unit,
 )
 
 /**
@@ -110,14 +113,20 @@ private fun StartChoiceRow(choice: StartChoice) {
             .padding(bottom = Tokens.space3),
     ) {
         // Say what the two pills are for (Ethan): a centred section-header caption,
-        // and a heading to TalkBack (the column's own description was a duplicate stop).
-        Text(
-            text = stringResource(R.string.row_start_choice_title).uppercase(),
-            style = MaterialTheme.typography.labelSmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            textAlign = TextAlign.Center,
-            modifier = Modifier.fillMaxWidth().padding(bottom = Tokens.space2).semantics { heading() },
-        )
+        // a heading to TalkBack, and a visible way out beside it (Back and a map tap
+        // cancel too, but nothing said so).
+        Box(modifier = Modifier.fillMaxWidth()) {
+            Text(
+                text = stringResource(R.string.row_start_choice_title).uppercase(),
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.align(Alignment.Center).semantics { heading() },
+            )
+            TextButton(onClick = choice.onCancel, modifier = Modifier.align(Alignment.CenterEnd)) {
+                Text(stringResource(R.string.dialog_cancel))
+            }
+        }
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(Tokens.space2),
@@ -125,6 +134,20 @@ private fun StartChoiceRow(choice: StartChoice) {
         ) {
             StartChoicePills(choice)
         }
+        // The consequence, once: one choice drives there, the other jumps — and a jump
+        // is exactly what other apps would see.
+        Text(
+            text = stringResource(
+                when (choice.origin) {
+                    StartOrigin.HELD_SPOT -> R.string.row_start_choice_help_hold
+                    StartOrigin.MY_LOCATION -> R.string.row_start_choice_help_me
+                },
+            ),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            textAlign = TextAlign.Center,
+            modifier = Modifier.fillMaxWidth().padding(top = Tokens.space2),
+        )
     }
 }
 

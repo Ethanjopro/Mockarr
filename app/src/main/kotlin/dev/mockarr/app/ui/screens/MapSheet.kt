@@ -312,7 +312,7 @@ internal fun stripFor(
     )
     builder && state.route != null -> StripModel(stringResource(state.profile.readyLabelRes()), StripTone.Ready)
     builder -> StripModel(stringResource(R.string.strip_building), StripTone.Neutral, hidden = true)
-    state.route != null -> StripModel(stringResource(R.string.strip_route_loaded), StripTone.Ready)
+    state.route != null -> StripModel(stringResource(state.profile.readyLabelRes()), StripTone.Ready)
     // The empty card: the one instruction a cold start needs.
     else -> StripModel(stringResource(R.string.strip_idle), StripTone.Neutral)
 }

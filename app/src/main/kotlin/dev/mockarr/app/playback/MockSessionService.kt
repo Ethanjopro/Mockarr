@@ -17,6 +17,8 @@ import dagger.hilt.android.AndroidEntryPoint
 import dev.mockarr.app.MainActivity
 import dev.mockarr.app.R
 import dev.mockarr.app.ui.Formatter
+import dev.mockarr.app.ui.screens.endLabelRes
+import dev.mockarr.app.ui.screens.movingLabelRes
 import dev.mockarr.core.data.SessionSnapshotStore
 import dev.mockarr.core.data.SettingsRepository
 import dev.mockarr.core.mocklocation.MockLocationController
@@ -461,11 +463,11 @@ class MockSessionService : Service() {
 
     private fun holdingNotification(holding: MockSessionState.Holding): Notification {
         // Never raw coordinates: a generic label until (or unless) the name resolves.
-        val text = holding.placeName?.let { getString(R.string.strip_holding_at, it) }
+        val text = holding.placeName?.let { getString(R.string.notification_hold_at, it) }
             ?: when {
-                holding.source == HoldSource.DESTINATION -> getString(R.string.strip_holding_destination)
-                holding.source == HoldSource.STOPPED -> getString(R.string.strip_holding_stopped)
-                holding.nameFailed -> getString(R.string.strip_holding_pin)
+                holding.source == HoldSource.DESTINATION -> getString(R.string.notification_hold_destination)
+                holding.source == HoldSource.STOPPED -> getString(R.string.notification_hold_stopped)
+                holding.nameFailed -> getString(R.string.notification_hold_pin)
                 else -> getString(R.string.notification_holding_pending)
             }
         return NotificationCompat.Builder(this, CHANNEL_ID)
@@ -475,7 +477,8 @@ class MockSessionService : Service() {
             .setOngoing(true)
             .setOnlyAlertOnce(true)
             .setContentIntent(contentIntent)
-            .addAction(NotificationCompat.Action(0, getString(R.string.notification_action_stop), releaseIntent))
+            // The app's own words: this one hands the real location back.
+            .addAction(NotificationCompat.Action(0, getString(R.string.strip_stop_hold), releaseIntent))
             .build()
     }
 
@@ -507,16 +510,19 @@ class MockSessionService : Service() {
         // left, lock-screen card whose bar has the legs as segments and the stops
         // as points. Older versions ignore the style and keep the plain bar.
         val chip = if (paused) getString(R.string.notification_chip_paused) else timeLeft
+        val profile = activeDrive?.profile ?: repository.liveDrive.value?.profile ?: RoutingProfile.DRIVING
         return NotificationCompat.Builder(this, CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_stat_pin)
-            .setContentTitle(getString(R.string.notification_title_driving))
+            // "Driving" / "Walking" / "Cycling", as the app's band says it (the header already names Mockarr).
+            .setContentTitle(getString(profile.movingLabelRes()))
             .setContentText(text)
             .setOngoing(true)
             .setOnlyAlertOnce(true)
             .setProgress(PROGRESS_MAX, (progress * PROGRESS_MAX).toInt(), false)
             .setContentIntent(contentIntent)
             .addAction(toggleAction)
-            .addAction(NotificationCompat.Action(0, getString(R.string.notification_action_stop), stopIntent))
+            // "End drive", as in the app: the drive stops, and the location holds or returns per the setting.
+            .addAction(NotificationCompat.Action(0, getString(profile.endLabelRes()), stopIntent))
             .setRequestPromotedOngoing(true)
             .apply { chip?.let(::setShortCriticalText) }
             .apply { progressLayout?.let { setStyle(progressStyle(it, progress)) } }

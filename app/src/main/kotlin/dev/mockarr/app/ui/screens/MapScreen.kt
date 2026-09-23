@@ -109,6 +109,7 @@ import dev.mockarr.core.model.Route
 import dev.mockarr.core.model.Waypoint
 import dev.mockarr.core.model.progressOrZero
 import kotlinx.coroutines.flow.drop
+import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.launch
 import kotlin.math.roundToInt
 
@@ -143,11 +144,14 @@ fun MapLayer(
     val haptic = LocalHapticFeedback.current
 
     val playing = session is MockSessionState.Playing
-    // A natural arrival keeps the route (Ethan, 2026-09-22): it stays loaded and
-    // Start offers to drive it again. Hosted here, not in MapScreen — this layer
-    // stays composed while Routes/Settings cover the map.
-    ArrivalEffect(session, outcome = { sessionViewModel.driveOutcome.value }) {
-        viewModel.interaction.markDriven(viewModel.uiState.value.route?.points)
+    // A drive's end keeps the route (Ethan, 2026-09-22) and Start offers to drive it
+    // again — however it ended: arrival, End drive, or Stop in the notification while
+    // the app was away. Hosted here, not in MapScreen — this layer stays composed
+    // while Routes/Settings cover the map. drop(1): a stale outcome isn't a new end.
+    LaunchedEffect(Unit) {
+        sessionViewModel.driveOutcome.drop(1).filterNotNull().collect {
+            viewModel.interaction.markDriven(viewModel.uiState.value.route?.points)
+        }
     }
     var holdAwaitingPermission by remember { mutableStateOf<LatLng?>(null) }
     val holdPermissionLauncher = rememberLauncherForActivityResult(
@@ -486,6 +490,7 @@ fun MapScreen(
                 viewModel.interaction.clearStartChoice()
                 requestPlay(pendingRoute)
             },
+            onCancel = { viewModel.interaction.clearStartChoice() },
         )
     }
     // Back unwinds the transient map states before anything else; the search
@@ -805,9 +810,9 @@ fun MapScreen(
                                 onPause = sessionViewModel::pause,
                                 onResume = sessionViewModel::resume,
                                 onFinish = {
-                                    // End drive stops the drive, not the route: it stays for Drive again.
+                                    // End drive stops the drive, not the route: it stays for Drive again
+                                    // (the drive-outcome collector in MapLayer marks it driven).
                                     sessionViewModel.stopPlayback()
-                                    viewModel.interaction.markDriven(viewModel.uiState.value.route?.points)
                                 },
                                 // No handle here, so the pill takes the handle's room under the sheet edge.
                                 modifier = Modifier.padding(
