@@ -389,12 +389,15 @@ fun MapScreen(
     // Save resolves the place name first (spinner), then opens the dialog with
     // it — the field never changes under the user (Ethan, session 17).
     var naming by remember { mutableStateOf(false) }
-    var saveName by remember { mutableStateOf<String?>(null) }
+    var saveName by rememberSaveable { mutableStateOf<String?>(null) }
+    val nameBetween = stringResource(R.string.route_name_between)
+    val nameAlong = stringResource(R.string.route_name_along)
+    val nameInCity = stringResource(R.string.route_name_in_city)
     fun beginSave() {
         if (naming) return
         scope.launch {
             naming = true
-            saveName = viewModel.suggestName()
+            saveName = viewModel.suggestName()?.let { formatRouteName(it, nameBetween, nameAlong, nameInCity) }
             naming = false
             showSaveDialog = true
         }

@@ -342,19 +342,19 @@ class MapViewModel @Inject constructor(
     }
 
     /**
-     * "«start» to «end», «city»" for the Save dialog, or null when either
+     * The start, end and city for the Save dialog's name (worded by
+     * [formatRouteName] from resources), or null when either
      * lookup fails or the network is slow — the caller opens the dialog only
      * once this returns, so the name never changes under the user.
      */
-    suspend fun suggestName(): String? {
+    suspend fun suggestName(): RouteNameParts? {
         val route = _uiState.value.route ?: return null
         return withTimeoutOrNull(NAME_TIMEOUT_MILLIS) {
             val start = geocoder.reverse(route.points.first()).getOrNull()
             val end = geocoder.reverse(route.points.last()).getOrNull()
             val startName = start?.routeEndpointName() ?: return@withTimeoutOrNull null
             val endName = end?.routeEndpointName() ?: return@withTimeoutOrNull null
-            val citySuffix = end.city?.let { ", $it" }.orEmpty()
-            "$startName to $endName$citySuffix"
+            RouteNameParts(startName, endName, end.city)
         }
     }
 

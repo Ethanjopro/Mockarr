@@ -57,6 +57,7 @@ import dev.mockarr.app.ui.theme.MockarrDialog
 import dev.mockarr.app.ui.theme.MockarrTheme
 import dev.mockarr.app.ui.theme.Pill
 import dev.mockarr.app.ui.theme.Tokens
+import dev.mockarr.app.ui.tripSeconds
 import dev.mockarr.core.data.SavedRouteEntity
 import dev.mockarr.core.model.DistanceUnits
 import dev.mockarr.core.model.LatLng
@@ -120,7 +121,7 @@ fun SavedRouteCard(
                         text = stringResource(
                             R.string.routes_card_meta,
                             formatter.distance(entity.distanceMeters, units),
-                            formatter.duration(totalDurationSeconds),
+                            formatter.duration(tripSeconds(totalDurationSeconds)),
                         ),
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -200,6 +201,7 @@ private fun CardOverflow(name: String, onRename: () -> Unit, onDelete: () -> Uni
         DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
             DropdownMenuItem(
                 text = { Text(stringResource(R.string.routes_rename)) },
+                leadingIcon = { Icon(painterResource(R.drawable.ic_edit), contentDescription = null) },
                 onClick = {
                     open = false
                     onRename()

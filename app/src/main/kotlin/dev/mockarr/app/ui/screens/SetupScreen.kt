@@ -35,6 +35,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -45,7 +46,14 @@ import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.LinkAnnotation
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.TextLinkStyles
+import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextDecoration
+import androidx.compose.ui.text.withLink
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.LifecycleResumeEffect
@@ -237,7 +245,7 @@ private fun SetupStep(
             }
             if (!done) {
                 Spacer(Modifier.height(Tokens.space3))
-                Text(instructions, style = MaterialTheme.typography.bodyMedium)
+                Text(linkified(instructions), style = MaterialTheme.typography.bodyMedium)
                 Spacer(Modifier.height(Tokens.space3))
                 if (required) {
                     Pill(label = actionLabel, onClick = onAction, modifier = Modifier.fillMaxWidth())
@@ -301,3 +309,24 @@ private fun Context.openSettings(action: String) {
 
 private val MARK_SIZE = Tokens.space8
 private val MARK_ICON = 20.dp
+
+/** Instructions that name a website ("see dontkillmyapp.com") make it tappable. */
+@Composable
+private fun linkified(text: String): AnnotatedString {
+    val link = TextLinkStyles(
+        style = SpanStyle(color = MaterialTheme.colorScheme.primary, textDecoration = TextDecoration.Underline),
+    )
+    return remember(text, link) {
+        buildAnnotatedString {
+            var last = 0
+            WEBSITE.findAll(text).forEach { match ->
+                append(text.substring(last, match.range.first))
+                withLink(LinkAnnotation.Url("https://${match.value}", link)) { append(match.value) }
+                last = match.range.last + 1
+            }
+            append(text.substring(last))
+        }
+    }
+}
+
+private val WEBSITE = Regex("""\b[a-z0-9-]+\.(com|org|net)\b""")

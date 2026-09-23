@@ -2027,3 +2027,35 @@ polish). Ethan's calls are in memory `critique-2026-09-22-decisions`.
   its target). Locate brings it back. Keep-in-view only reruns when the pin moves.
 - **Emulator note:** in landscape the gesture zone is the bottom ~120px. Swipes starting at
   y ≥ 950 go home.
+
+### 2026-09-22 — Session 41f (impeccable run 6/6: polish — the critique's backlog)
+Read the critique snapshot `2026-09-23T02-50-13Z` as the backlog. The distance format, the
+24-hour clock, plurals and the notification title were already done in harden and clarify.
+- **Search:** a clear × while there is text (the keyboard action searches). The magnifier
+  shows only when the field is empty. `ic_search.xml` (new) replaces `Icons.Filled.Search`,
+  and **`material-icons-core` is gone** from the build and the catalog.
+- **Route names come from resources.** `suggestName()` returns `RouteNameParts`, and
+  `formatRouteName` words it with `route_name_between` / `_along` / `_in_city`. The old
+  English "X to Y, City" was built inside the ViewModel. When both ends share a name it now
+  reads "Along X Street, Dallas" instead of "X Street to X Street". `RouteNameTest` (3).
+- **One trip-duration rule:** `tripSeconds()` gives whole minutes, never under one, for both
+  the map card and saved cards (a saved card said "16 s" beside "1 min"). Tested.
+- **Saved routes:** Rename has `ic_edit` (new) beside Delete route. The wait dialog's custom
+  field is full width.
+- **Settings:** "Walk off-road stretches" moved under Routing, next to its parent "Off-road
+  stops". "Stay at destination" uses the flag, not the stop square (Settings and sheet).
+- **Setup:** a website named in instructions is a link (`LinkAnnotation.Url`), so
+  dontkillmyapp.com is now tappable.
+- **Tokens:** `Tokens.listRowHeight` (56dp) replaces `space8 + space6` sums, and
+  `Tokens.spinnerSize` / `spinnerStroke` unify the three small spinners.
+- **DESIGN.md typography corrected to the code:**
+  - Title is `titleMedium` bold (the documented "14sp/500" was never used).
+  - Stat labels are sentence case; UPPERCASE is only for section captions.
+- **Skipped on purpose:** search list keys (a recent and a live result for one place could
+  share a key and crash `LazyColumn`), search-field TalkBack labels (need a visual label
+  decision), `playbackPhase` / splitting `MapScreen()` (an optimize round), and the stale
+  `.impeccable/design.json` (`/impeccable document` owns it).
+- **Verified on mockarr_test:**
+  - search shows "Clear search" and clearing resets the field
+  - saved cards read "0.1 mi · 1 min", and the menu shows Rename and Delete route with icons
+  - Settings Routing order is right, and the Setup link is underlined

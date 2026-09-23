@@ -45,9 +45,9 @@ import dev.mockarr.app.ui.rememberFormatter
 import dev.mockarr.app.ui.theme.MapPopover
 import dev.mockarr.app.ui.theme.MockarrTheme
 import dev.mockarr.app.ui.theme.Tokens
+import dev.mockarr.app.ui.tripSeconds
 import dev.mockarr.core.model.DistanceUnits
 import dev.mockarr.core.model.Route
-import kotlin.math.roundToInt
 
 /** What the strip says about the session, in colour. */
 enum class StripTone { Neutral, Ready, Accent, Hold, Error }
@@ -294,15 +294,13 @@ internal fun recordCells(state: MapViewModel.UiState, units: DistanceUnits): Lis
     val route = state.route ?: return null
     val formatter = rememberFormatter()
     val seconds = route.durationSeconds * state.trafficFactor + route.waypointWaitsSeconds.sum()
-    val minutes = (seconds / SECONDS_PER_MINUTE).roundToInt().coerceAtLeast(1)
     return listOf(
         StatCell(stringResource(R.string.stat_distance), formatter.distance(route.distanceMeters, units)),
-        StatCell(stringResource(R.string.stat_duration), formatter.duration(minutes * SECONDS_PER_MINUTE.toDouble())),
+        StatCell(stringResource(R.string.stat_duration), formatter.duration(tripSeconds(seconds))),
         StatCell(stringResource(R.string.stat_stops), state.waypoints.size.toString()),
     )
 }
 
-private const val SECONDS_PER_MINUTE = 60
 private const val TABULAR_FIGURES = "tnum"
 private val TRIO_MIN_FONT = 18.sp
 private val TRIO_MAX_FONT = 28.sp

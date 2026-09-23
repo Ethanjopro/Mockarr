@@ -31,6 +31,13 @@ object Tokens {
     /** Popover rows sit denser than sheet rows (DESIGN.md → Popover: 44dp min). */
     val popoverRowHeight = 48.dp
 
+    /** An option / setting row with a title and a description line. */
+    val listRowHeight = 56.dp
+
+    /** The one small in-line spinner (save, search, naming). */
+    val spinnerSize = 20.dp
+    val spinnerStroke = 2.dp
+
     /** The one hairline: floating rims in dark, the builder's ✕ ring. */
     val hairline = 1.dp
 

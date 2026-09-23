@@ -94,6 +94,7 @@
     <string name="map_following_cd">Following the drive</string>
     <string name="map_search_hint">Search for a place</string>
     <string name="map_search_cd">Search</string>
+    <string name="map_search_clear_cd">Clear search</string>
     <string name="map_search_close">Close</string>
     <string name="map_search_empty">No places match — try adding the city</string>
     <string name="map_search_failed">Search failed — check your connection</string>
@@ -290,6 +291,9 @@
     <string name="snack_locate_permission">Location permission is needed to show where you are</string>
     <string name="snack_locate_failed">Couldn\'t find your location</string>
     <string name="route_name_default">Route %1$s</string>
+    <string name="route_name_between">%1$s to %2$s</string>
+    <string name="route_name_along">Along %1$s</string>
+    <string name="route_name_in_city">%1$s, %2$s</string>
 
     <!-- Units and durations -->
     <string name="unit_km">km</string>

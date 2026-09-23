@@ -29,6 +29,13 @@ private const val SMALL_ROUNDING = 10
 /** From 100 km / mi up, a decimal is noise: "1,460 mi", not "1459.5 mi". */
 private const val WHOLE_UNITS_FROM = 100.0
 
+/**
+ * A trip's duration as the cards show it: whole minutes, never under one — so the
+ * saved card and the map card agree on a short route ("1 min", not "16 s" beside "1 min").
+ */
+fun tripSeconds(seconds: Double): Double =
+    (seconds / SECONDS_PER_MINUTE).roundToInt().coerceAtLeast(1) * SECONDS_PER_MINUTE.toDouble()
+
 /** A whole, grouped number in the device's format ("1,460" / "1.460"). */
 fun wholeUnits(value: Double, locale: Locale = Locale.getDefault()): String =
     NumberFormat.getIntegerInstance(locale).format(value.roundToLong())

@@ -57,4 +57,12 @@ class FormattingTest {
         assertEquals("1,460", wholeUnits(1459.5, java.util.Locale.US))
         assertEquals("1.460", wholeUnits(1459.5, java.util.Locale.GERMANY))
     }
+
+    @Test
+    fun `trips read in whole minutes, never under one`() {
+        // Session 41: a saved card said "16 s" where the map card said "1 min".
+        assertEquals(60.0, tripSeconds(16.0))
+        assertEquals(120.0, tripSeconds(100.0))
+        assertEquals(60.0, tripSeconds(89.0))
+    }
 }

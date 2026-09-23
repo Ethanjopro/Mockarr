@@ -312,19 +312,23 @@ the palette in its key so a theme switch re-renders.
 **Label/Mono Font:** none — numerals use tabular figures of the same face
 
 **Character:** deliberately neutral. On an Operate surface the type does not perform; the
-hierarchy is carried by weight and size steps and by the uppercase, tracked labels that sit
-over every value.
+hierarchy is carried by weight and size steps, by the quiet sentence-case labels under every
+value, and by small uppercase captions over sections.
 
 ### Hierarchy
 - **Display** (400, 36sp): reserved; not used on any current screen.
 - **Headline** (700, 28sp, tabular figures): stat values — time left, distance, speed,
   stop count. Always paired with a Label under it. The strip's line and pill labels are
   Title at bold.
-- **Title** (500, 14sp): the status strip copy, dialog titles, list-card titles.
+- **Title** (`titleMedium`, 16sp at bold): the status strip copy, dialog titles, pill labels
+  and list-card titles — the code's actual role everywhere (the 14sp/500 this line used to
+  name was never used; corrected in session 41).
 - **Body** (400, 16sp / 14sp small): sheet hints, list rows, dialog text. Measure is
   bounded by the sheet inset, never wider than ~60ch.
-- **Label** (500, 11sp, +0.5sp tracking, UPPERCASE): the word above every stat value,
-  section headers ("STOPS", "SPEED"), chip text at 14sp in sentence case.
+- **Label** (`labelMedium`, sentence case, on-surface-variant): the word under every stat
+  value ("Time left", "Distance"). **Captions** (`labelSmall`, UPPERCASE): section headers
+  ("STOPS · 3", "SPEED", "START FROM"), marked as headings for TalkBack. Chip text at 14sp in
+  sentence case.
 
 ### Named Rules
 **The Value Over Label Rule.** A number never appears alone: its label sits directly under

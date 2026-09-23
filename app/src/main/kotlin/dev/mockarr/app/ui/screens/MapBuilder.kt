@@ -157,7 +157,10 @@ fun BuilderTools(
                     enabled = canSave && !saving,
                 ) {
                     if (saving) {
-                        CircularProgressIndicator(modifier = Modifier.size(SPINNER_SIZE), strokeWidth = 2.dp)
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(Tokens.spinnerSize),
+                            strokeWidth = Tokens.spinnerStroke,
+                        )
                     } else {
                         Icon(painterResource(R.drawable.ic_save), contentDescription = null)
                     }
@@ -219,5 +222,3 @@ fun Modifier.bottomFade(visible: Boolean, height: Dp): Modifier {
             )
         }
 }
-
-private val SPINNER_SIZE = 20.dp

@@ -115,7 +115,7 @@ fun SettingsScreen(
 
             SectionHeader(stringResource(R.string.settings_section_playback))
             OptionSwitchRow(
-                iconRes = R.drawable.ic_stop,
+                iconRes = R.drawable.ic_flag,
                 title = stringResource(R.string.settings_stay),
                 description = stringResource(R.string.settings_stay_desc),
                 checked = settings.stayAtDestination,
@@ -127,13 +127,6 @@ fun SettingsScreen(
                 description = stringResource(R.string.settings_traffic_desc),
                 checked = settings.trafficSimEnabled,
                 onCheckedChange = viewModel::setTrafficSimEnabled,
-            )
-            OptionSwitchRow(
-                iconRes = R.drawable.ic_walk,
-                title = stringResource(R.string.settings_offroad_walk),
-                description = stringResource(R.string.settings_offroad_walk_desc),
-                checked = settings.offRoadWalkEnabled,
-                onCheckedChange = viewModel::setOffRoadWalkEnabled,
             )
 
             SectionHeader(stringResource(R.string.settings_section_gps))
@@ -153,6 +146,13 @@ fun SettingsScreen(
                 description = stringResource(R.string.settings_offroad_desc),
                 checked = settings.offRoadEnabled,
                 onCheckedChange = viewModel::setOffRoadEnabled,
+            )
+            OptionSwitchRow(
+                iconRes = R.drawable.ic_walk,
+                title = stringResource(R.string.settings_offroad_walk),
+                description = stringResource(R.string.settings_offroad_walk_desc),
+                checked = settings.offRoadWalkEnabled,
+                onCheckedChange = viewModel::setOffRoadWalkEnabled,
             )
 
             SectionHeader(stringResource(R.string.settings_section_about))

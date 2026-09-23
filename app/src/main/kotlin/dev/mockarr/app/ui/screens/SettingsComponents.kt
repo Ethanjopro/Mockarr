@@ -152,7 +152,7 @@ fun ValueRow(iconRes: Int, title: String, description: String, value: String, on
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .heightIn(min = Tokens.space8 + Tokens.space6)
+            .heightIn(min = Tokens.listRowHeight)
             .clickable(onClick = onClick, role = Role.Button)
             .padding(horizontal = Tokens.inset, vertical = Tokens.space2),
         verticalAlignment = Alignment.CenterVertically,

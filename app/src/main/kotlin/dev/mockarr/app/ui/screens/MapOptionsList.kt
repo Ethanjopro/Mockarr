@@ -25,7 +25,6 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.unit.dp
 import dev.mockarr.app.R
 import dev.mockarr.app.ui.theme.Tokens
 import dev.mockarr.core.data.MockarrSettings
@@ -42,7 +41,7 @@ fun OptionSwitchRow(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .heightIn(min = Tokens.space8 + Tokens.space6)
+            .heightIn(min = Tokens.listRowHeight)
             .toggleable(value = checked, role = Role.Switch, onValueChange = onCheckedChange)
             .semantics { contentDescription = "$title. $description" }
             .padding(horizontal = Tokens.inset, vertical = Tokens.space2),
@@ -84,7 +83,7 @@ fun OptionLinkRow(
         verticalAlignment = Alignment.CenterVertically,
     ) {
         if (busy) {
-            CircularProgressIndicator(modifier = Modifier.size(SPINNER_SIZE), strokeWidth = 2.dp)
+            CircularProgressIndicator(modifier = Modifier.size(Tokens.spinnerSize), strokeWidth = Tokens.spinnerStroke)
         } else {
             Icon(painterResource(iconRes), contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
         }
@@ -144,7 +143,7 @@ fun OptionsList(
         onCheckedChange = onFollowChange,
     )
     OptionSwitchRow(
-        iconRes = R.drawable.ic_stop,
+        iconRes = R.drawable.ic_flag,
         title = stringResource(R.string.option_stay),
         description = stringResource(R.string.option_stay_desc),
         checked = settings.stayAtDestination,
@@ -193,5 +192,3 @@ private fun OptionsHeader(text: String) {
             ),
     )
 }
-
-private val SPINNER_SIZE = 20.dp

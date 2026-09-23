@@ -4,6 +4,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.FilterChip
@@ -97,6 +98,7 @@ internal fun WaypointWaitDialog(
             label = { Text(stringResource(R.string.dialog_wait_custom)) },
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
             singleLine = true,
+            modifier = Modifier.fillMaxWidth(),
         )
     }
 }
@@ -184,6 +186,23 @@ internal fun ResumeSessionDialog(
         confirm = DialogAction(stringResource(R.string.dialog_resume), onResume),
         dismiss = DialogAction(stringResource(R.string.dialog_resume_discard), onDiscard),
     )
+}
+
+/** A suggested route name, before it is worded. */
+data class RouteNameParts(val start: String, val end: String, val city: String?)
+
+/**
+ * "Main St to Oak Ave, Dallas" — or "Along Main St, Dallas" when both ends share a
+ * name (a loop or a drive down one street read "Main St to Main St"). Templates come
+ * from strings.xml so the order translates.
+ */
+internal fun formatRouteName(parts: RouteNameParts, between: String, along: String, inCity: String): String {
+    val route = if (parts.start.equals(parts.end, ignoreCase = true)) {
+        along.format(parts.start)
+    } else {
+        between.format(parts.start, parts.end)
+    }
+    return parts.city?.let { inCity.format(route, it) } ?: route
 }
 
 /** "1", "0.5", "0.25", "2" in the device's number format ("0,25" in German) — no trailing zeros. */

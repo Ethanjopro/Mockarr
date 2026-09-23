@@ -15,8 +15,6 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -82,11 +80,23 @@ fun MapSearchBar(
             singleLine = true,
             shape = Tokens.controlShape,
             trailingIcon = {
-                if (state.searching) {
-                    CircularProgressIndicator(modifier = Modifier.size(Tokens.space6), strokeWidth = 2.dp)
-                } else {
-                    IconButton(onClick = onSearch) {
-                        Icon(Icons.Filled.Search, contentDescription = stringResource(R.string.map_search_cd))
+                when {
+                    state.searching -> CircularProgressIndicator(
+                        modifier = Modifier.size(Tokens.spinnerSize),
+                        strokeWidth = Tokens.spinnerStroke,
+                    )
+                    // Typed text: the trailing slot clears it (the keyboard's action searches).
+                    state.query.isNotEmpty() -> IconButton(onClick = { onQueryChange("") }) {
+                        Icon(
+                            painterResource(R.drawable.ic_close),
+                            contentDescription = stringResource(R.string.map_search_clear_cd),
+                        )
+                    }
+                    else -> IconButton(onClick = onSearch) {
+                        Icon(
+                            painterResource(R.drawable.ic_search),
+                            contentDescription = stringResource(R.string.map_search_cd),
+                        )
                     }
                 }
             },
