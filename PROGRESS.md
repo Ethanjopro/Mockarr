@@ -1870,3 +1870,33 @@ road-centred circle, and no red buttons at all.
 - **Process notes:**
   - The verifier's `back` at the map root finishes the Activity. Don't end a probe with `back`.
   - `tab Settings` sometimes stops on the expanded sheet. Tap "All settings" explicitly.
+
+### 2026-09-22 — Session 41 (impeccable run 1/6: harden — drive endings + locale)
+The plan from the critique, run in order (harden → audit → distill → clarify → adapt →
+polish). Ethan's calls are in memory `critique-2026-09-22-decisions`.
+- **A drive's end keeps its route.**
+  - End drive and a natural arrival no longer call `clearWaypoints()`.
+  - `MapInteraction.markDriven(points)` records the driven route's points. Start reads **Drive /
+    Walk / Ride again** (content-desc "Start this route again") while `drivenPoints ===
+    state.route?.points`. Any edit or a newly loaded route has a new list, so the label goes
+    back to Start.
+  - `MapViewModel` stays at 25 functions; the state lives on `MapInteraction`.
+  - **"Drive again" is on the Start slot, not the band as Ethan's option wording said.** After
+    an arrival the band's single action is "Stop holding", the real-location control, and that
+    can't be displaced. Flag this if he wants it moved.
+- **Every new drive starts at 1×.** `MockSessionViewModel.play()` resets the multiplier; a
+  resumed drive keeps its snapshot pace.
+- **Locale fixes:**
+  - route-name timestamps use `getBestDateTimePattern` with the 12/24-hour setting
+  - "Created …" dates use the device's own pattern order (`DatePatterns`, JVM-testable)
+  - `<plurals>` for "required steps left"
+  - speed chips use `NumberFormat` ("0,25" in German)
+  - distances of 100+ are whole grouped numbers ("804 mi", "1,460 mi", not "1459.5 mi")
+- **Tests:** `MultiplierFormatTest` (3), `wholeUnits` in FormattingTest, pattern order in
+  SavedRoutesFormattingTest.
+- **Verified on mockarr_test:**
+  - a 0.4 mi drive at 4× arrived: "Holding at Munger Avenue", route drawn, "Drive again"
+  - Drive again → START FROM → Start of route played at **1×**
+  - Pause → End drive → "Holding at Cedar Springs Road", route kept, "Drive again"
+  - "Chicago" search results show "804 mi"
+  - Setup with mocking denied reads "1 required step left", and the mark says "Not done"

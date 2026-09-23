@@ -43,3 +43,10 @@ internal fun RoutingProfile.endLabelRes(): Int = when (this) {
     RoutingProfile.WALKING -> R.string.sheet_end_walk
     RoutingProfile.CYCLING -> R.string.sheet_end_ride
 }
+
+/** Start, once this route has just been driven: "Drive again" / "Walk again" / "Ride again". */
+internal fun RoutingProfile.againLabelRes(): Int = when (this) {
+    RoutingProfile.DRIVING -> R.string.row_start_again_drive
+    RoutingProfile.WALKING -> R.string.row_start_again_walk
+    RoutingProfile.CYCLING -> R.string.row_start_again_ride
+}

@@ -1,16 +1,22 @@
 package dev.mockarr.app.ui
 
+import android.content.Context
 import android.content.res.Resources
+import android.text.format.DateFormat
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import dev.mockarr.app.R
+import dev.mockarr.app.ui.screens.DatePatterns
 import dev.mockarr.core.model.DistanceUnits
+import java.text.NumberFormat
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 import kotlin.math.ceil
 import kotlin.math.roundToInt
+import kotlin.math.roundToLong
 
 private const val METERS_PER_KILOMETER = 1000.0
 private const val METERS_PER_MILE = 1609.344
@@ -19,13 +25,40 @@ private const val FEET_PER_METER = 3.28084
 /** Below a tenth of the headline unit the copy switches to whole metres / feet. */
 private const val SMALL_UNIT_FRACTION = 0.1
 private const val SMALL_ROUNDING = 10
+
+/** From 100 km / mi up, a decimal is noise: "1,460 mi", not "1459.5 mi". */
+private const val WHOLE_UNITS_FROM = 100.0
+
+/** A whole, grouped number in the device's format ("1,460" / "1.460"). */
+fun wholeUnits(value: Double, locale: Locale = Locale.getDefault()): String =
+    NumberFormat.getIntegerInstance(locale).format(value.roundToLong())
 private const val SECONDS_PER_MINUTE = 60
 private const val MINUTES_PER_HOUR = 60
 
-// Main-thread only (SimpleDateFormat is not thread-safe; all callers are composables).
-private val routeTimestampFormat = SimpleDateFormat("MMM d, HH:mm", Locale.getDefault())
+/**
+ * "Sep 22, 9:40 PM" in the US, "22. Sept., 21:40" in Germany: [pattern] comes from
+ * [routeTimestampPattern], so the order and the 12/24-hour clock follow the device.
+ */
+fun formatRouteTimestamp(epochMillis: Long, pattern: String, locale: Locale = Locale.getDefault()): String =
+    SimpleDateFormat(pattern, locale).format(Date(epochMillis))
 
-fun formatRouteTimestamp(epochMillis: Long): String = routeTimestampFormat.format(Date(epochMillis))
+/** The device's best month-day-time pattern, honouring its 24-hour setting. */
+fun routeTimestampPattern(context: Context): String {
+    val skeleton = if (DateFormat.is24HourFormat(context)) "MMMdHHmm" else "MMMdhmma"
+    return DateFormat.getBestDateTimePattern(Locale.getDefault(), skeleton)
+}
+
+/** The "Created …" date patterns in the device's own order. */
+@Composable
+fun rememberDatePatterns(): DatePatterns {
+    val locale = LocalConfiguration.current.locales[0]
+    return remember(locale) {
+        DatePatterns(
+            monthDay = DateFormat.getBestDateTimePattern(locale, "MMMd"),
+            monthDayYear = DateFormat.getBestDateTimePattern(locale, "yMMMd"),
+        )
+    }
+}
 
 /** Meters converted into the unit's headline value (km or mi). */
 fun DistanceUnits.fromMeters(meters: Double): Double = when (this) {
@@ -77,7 +110,11 @@ class Formatter(private val res: Resources) {
 
     fun distance(meters: Double, units: DistanceUnits): String = when (val parts = distanceParts(meters, units)) {
         is DistanceParts.Small -> res.getString(R.string.distance_small, parts.value, smallUnitName(units))
-        is DistanceParts.Large -> res.getString(R.string.distance_value, parts.value, unitName(units))
+        is DistanceParts.Large -> if (parts.value >= WHOLE_UNITS_FROM) {
+            res.getString(R.string.distance_whole, wholeUnits(parts.value), unitName(units))
+        } else {
+            res.getString(R.string.distance_value, parts.value, unitName(units))
+        }
     }
 
     /** "3.2 / 5.0 km" progress pair used by the notification; "120 / 260 ft" for a short route. */

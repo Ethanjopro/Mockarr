@@ -16,17 +16,21 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.KeyboardType
 import dev.mockarr.app.R
 import dev.mockarr.app.ui.formatRouteTimestamp
 import dev.mockarr.app.ui.rememberFormatter
+import dev.mockarr.app.ui.routeTimestampPattern
 import dev.mockarr.app.ui.theme.DialogAction
 import dev.mockarr.app.ui.theme.MockarrDialog
 import dev.mockarr.app.ui.theme.Tokens
 import dev.mockarr.core.model.DistanceUnits
 import dev.mockarr.core.model.RoutingProfile
 import dev.mockarr.core.model.SessionSnapshot
+import java.text.NumberFormat
+import java.util.Locale
 import kotlin.math.roundToInt
 
 private val WAIT_PRESET_MINUTES = listOf(1, 5, 15, 30)
@@ -128,7 +132,10 @@ internal fun SaveRouteDialog(
     // The host resolved (or gave up on) the place name before opening us, so
     // the field never changes under the user's cursor.
     val defaultTemplate = stringResource(R.string.route_name_default)
-    val defaultName = remember { defaultTemplate.format(formatRouteTimestamp(System.currentTimeMillis())) }
+    val context = LocalContext.current
+    val defaultName = remember {
+        defaultTemplate.format(formatRouteTimestamp(System.currentTimeMillis(), routeTimestampPattern(context)))
+    }
     var name by remember { mutableStateOf(suggestedName ?: defaultName) }
     MockarrDialog(
         title = stringResource(R.string.dialog_save_title),
@@ -178,10 +185,8 @@ internal fun ResumeSessionDialog(
     )
 }
 
-/** "1", "0.5", "0.25", "2" — no trailing zeros, no scientific notation. */
-internal fun formatMultiplier(multiplier: Double): String =
-    if (multiplier == multiplier.toLong().toDouble()) {
-        multiplier.toLong().toString()
-    } else {
-        multiplier.toString().trimEnd('0')
-    }
+/** "1", "0.5", "0.25", "2" in the device's number format ("0,25" in German) — no trailing zeros. */
+internal fun formatMultiplier(multiplier: Double, locale: Locale = Locale.getDefault()): String =
+    NumberFormat.getNumberInstance(locale).apply { maximumFractionDigits = MULTIPLIER_DECIMALS }.format(multiplier)
+
+private const val MULTIPLIER_DECIMALS = 2

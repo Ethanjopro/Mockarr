@@ -462,7 +462,12 @@ returns once one is picked; Back or a map tap cancels. In builder mode the row i
 white circle, hairline) · **Done** (filled pill); Save, Undo, Redo, Reverse and Clear route
 are map pills above the card. While driving the row is replaced by the **Pause pill**,
 which splits into **End drive** (outlined, left) + **Resume** (filled, right) when paused;
-the "1×" speed chip sits in the card's strip. Never stack actions vertically in the peek.
+the "1×" speed chip sits in the card's strip. **A drive's end keeps its route** (session 40,
+Ethan): End drive and a natural arrival leave the route loaded, and the Start slot reads
+**Drive again / Walk again / Ride again** while that exact route is on the map (any edit or
+a newly loaded route turns it back into Start). Clearing a route is a deliberate act (the
+builder's Clear route). Every new drive starts at **1×**; only a resumed drive keeps its own
+pace. Never stack actions vertically in the peek.
 
 ### Map Pill
 Strava's floating control: a 48dp `surface-container-lowest` circle with the floating

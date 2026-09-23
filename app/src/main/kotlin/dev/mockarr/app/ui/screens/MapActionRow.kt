@@ -72,6 +72,8 @@ fun ActionRow(
     modifier: Modifier = Modifier,
     choice: StartChoice? = null,
     locating: Boolean = false,
+    /** The loaded route was just driven to its end: Start reads "Drive again". */
+    again: Boolean = false,
 ) {
     // Keyed on the origin, not the lambda-carrying object: a recomposition that
     // rebuilds the callbacks must not restart the enter transition (the pills
@@ -89,7 +91,7 @@ fun ActionRow(
         if (origin != null && pending != null) {
             StartChoiceRow(pending)
         } else {
-            ActionSlots(profile, canStart, routeLoaded, onPickMode, onStart, onEditRoute, locating)
+            ActionSlots(profile, canStart, routeLoaded, onPickMode, onStart, onEditRoute, locating, again)
         }
     }
 }
@@ -162,6 +164,7 @@ private fun ActionSlots(
     onStart: () -> Unit,
     onEditRoute: () -> Unit,
     locating: Boolean,
+    again: Boolean,
 ) {
     // Circles share a top edge (Strava): the row reads higher and each label
     // sits under its own circle.
@@ -186,14 +189,14 @@ private fun ActionSlots(
                 Icon(painterResource(profile.iconRes()), contentDescription = null, modifier = Modifier.size(SIDE_ICON))
             }
         }
-        val startLabel = stringResource(R.string.row_start)
+        val startLabel = stringResource(if (again) profile.againLabelRes() else R.string.row_start)
         RowSlot(
             label = startLabel,
             modifier = Modifier.weight(1f),
             onClick = onStart.takeIf { canStart && !locating },
         ) {
             // The label lives on the button, so the locating spinner doesn't leave it unnamed.
-            val startDescription = stringResource(R.string.row_start_cd)
+            val startDescription = stringResource(if (again) R.string.row_start_again_cd else R.string.row_start_cd)
             FilledIconButton(
                 onClick = onStart,
                 enabled = canStart && !locating,

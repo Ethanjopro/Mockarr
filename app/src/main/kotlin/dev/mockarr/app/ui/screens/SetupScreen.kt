@@ -41,6 +41,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
@@ -179,8 +180,7 @@ private fun ReadinessStrip(ready: Boolean, missing: Int) {
     }
     val text = when {
         ready -> stringResource(R.string.setup_ready)
-        missing == 1 -> stringResource(R.string.setup_steps_left, missing)
-        else -> stringResource(R.string.setup_steps_left_plural, missing)
+        else -> pluralStringResource(R.plurals.setup_steps_left, missing, missing)
     }
     Row(
         modifier = Modifier

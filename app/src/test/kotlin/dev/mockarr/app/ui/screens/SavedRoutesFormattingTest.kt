@@ -46,4 +46,13 @@ class SavedRoutesFormattingTest {
 
         assertTrue(older is CreatedWhen.OnDate && older.formatted.contains("2025"))
     }
+
+    @Test
+    fun `dates follow the device's own pattern order`() {
+        // Session 40: "MMM d" was hard-coded, so a German device read "Sep 18", not "18. Sep.".
+        val patterns = DatePatterns(monthDay = "d MMM", monthDayYear = "d MMM y")
+        val older = createdWhen(at(2026, 8, 18), at(2026, 8, 28), zone, patterns)
+
+        assertTrue(older is CreatedWhen.OnDate && older.formatted.startsWith("18"))
+    }
 }

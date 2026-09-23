@@ -80,6 +80,9 @@ class MockSessionViewModel @Inject constructor(
     /** [saved]: the route is in Saved routes as-is, so a map adopting the drive mid-way won't offer Save. */
     fun play(route: Route, profile: RoutingProfile, saved: Boolean = false) {
         repository.clearInterrupted()
+        // Every new drive starts at real speed (Ethan, 2026-09-22): a 4× left over from
+        // the last drive turned a walk into car speed inside a game. Resume keeps its own.
+        repository.setSpeedMultiplier(1.0)
         repository.requestStart(route, profile, saved = saved)
         startService(Intent(context, MockSessionService::class.java).setAction(MockSessionService.ACTION_START))
     }

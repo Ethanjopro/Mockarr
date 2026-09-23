@@ -141,10 +141,12 @@ fun MapLayer(
     val haptic = LocalHapticFeedback.current
 
     val playing = session is MockSessionState.Playing
-    // Natural arrival ends like Finish does: the driven route leaves the map (a
-    // stay-at-destination hold keeps holding). Hosted here, not in MapScreen —
-    // this layer stays composed while Routes/Settings cover the map.
-    ArrivalEffect(session, outcome = { sessionViewModel.driveOutcome.value }) { viewModel.clearWaypoints() }
+    // A natural arrival keeps the route (Ethan, 2026-09-22): it stays loaded and
+    // Start offers to drive it again. Hosted here, not in MapScreen — this layer
+    // stays composed while Routes/Settings cover the map.
+    ArrivalEffect(session, outcome = { sessionViewModel.driveOutcome.value }) {
+        viewModel.interaction.markDriven(viewModel.uiState.value.route?.points)
+    }
     var holdAwaitingPermission by remember { mutableStateOf<LatLng?>(null) }
     val holdPermissionLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions(),
@@ -588,6 +590,7 @@ fun MapScreen(
         )
     }
     val interrupted by sessionViewModel.interrupted.collectAsStateWithLifecycle()
+    val drivenPoints by viewModel.interaction.drivenRoutePoints.collectAsStateWithLifecycle()
     var showResume by remember { mutableStateOf(false) }
     val resumeOffer = interrupted
     if (showResume && resumeOffer != null) {
@@ -790,9 +793,9 @@ fun MapScreen(
                                 onPause = sessionViewModel::pause,
                                 onResume = sessionViewModel::resume,
                                 onFinish = {
-                                    // Finish is the end of the drive: the route leaves the map too.
+                                    // End drive stops the drive, not the route: it stays for Drive again.
                                     sessionViewModel.stopPlayback()
-                                    viewModel.clearWaypoints()
+                                    viewModel.interaction.markDriven(viewModel.uiState.value.route?.points)
                                 },
                                 // No handle here, so the pill takes the handle's room under the sheet edge.
                                 modifier = Modifier.padding(
@@ -815,6 +818,7 @@ fun MapScreen(
                             )
                             PeekMode.RECORD -> RecordPeek(
                                 state = state,
+                                again = state.route != null && drivenPoints === state.route?.points,
                                 choice = startChoice,
                                 locating = locatingStart,
                                 onPickMode = { showModePicker = true },
@@ -1146,6 +1150,7 @@ fun MapScreen(
 @Composable
 private fun RecordPeek(
     state: MapViewModel.UiState,
+    again: Boolean,
     choice: StartChoice?,
     locating: Boolean,
     onPickMode: () -> Unit,
@@ -1164,6 +1169,7 @@ private fun RecordPeek(
         onEditRoute = onEditRoute,
         choice = choice,
         locating = locating,
+        again = again,
     )
 }
 

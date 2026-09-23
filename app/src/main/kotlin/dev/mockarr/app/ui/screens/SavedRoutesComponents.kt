@@ -48,6 +48,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import dev.mockarr.app.R
+import dev.mockarr.app.ui.rememberDatePatterns
 import dev.mockarr.app.ui.rememberFormatter
 import dev.mockarr.app.ui.theme.DialogAction
 import dev.mockarr.app.ui.theme.MapPalette
@@ -173,12 +174,17 @@ private fun ModePill(profile: RoutingProfile) {
 }
 
 @Composable
-private fun createdText(epochMillis: Long, nowEpochMillis: Long): String =
-    when (val created = remember(epochMillis, nowEpochMillis) { createdWhen(epochMillis, nowEpochMillis) }) {
+private fun createdText(epochMillis: Long, nowEpochMillis: Long): String {
+    val patterns = rememberDatePatterns()
+    val created = remember(epochMillis, nowEpochMillis, patterns) {
+        createdWhen(epochMillis, nowEpochMillis, patterns = patterns)
+    }
+    return when (created) {
         CreatedWhen.Today -> stringResource(R.string.routes_created_today)
         CreatedWhen.Yesterday -> stringResource(R.string.routes_created_yesterday)
         is CreatedWhen.OnDate -> stringResource(R.string.routes_created_on, created.formatted)
     }
+}
 
 @Composable
 private fun CardOverflow(name: String, onRename: () -> Unit, onDelete: () -> Unit) {

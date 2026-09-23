@@ -50,4 +50,11 @@ class FormattingTest {
         assertEquals(DistanceParts.Large(0.1), distanceParts(100.0, DistanceUnits.KILOMETERS))
         assertEquals(DistanceParts.Large(5.0), distanceParts(5000.0, DistanceUnits.KILOMETERS))
     }
+
+    @Test
+    fun `large distances read as whole grouped numbers in the device's format`() {
+        // Session 40 critique: search showed "1459.5 mi".
+        assertEquals("1,460", wholeUnits(1459.5, java.util.Locale.US))
+        assertEquals("1.460", wholeUnits(1459.5, java.util.Locale.GERMANY))
+    }
 }

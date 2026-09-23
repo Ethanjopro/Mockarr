@@ -241,7 +241,7 @@ class MockSessionService : Service() {
             ),
             clock = SimClock { SystemClock.elapsedRealtimeNanos() },
             random = Random(SystemClock.elapsedRealtimeNanos()),
-            // The speed chips outlive a drive: start the next one at the pace they show.
+            // New drives start at 1× (MockSessionViewModel.play resets it); a resumed drive brings its own pace.
             initialSpeedMultiplier = repository.speedMultiplier.value,
             resumeFrom = pending.resumeFrom,
         )
