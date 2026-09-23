@@ -1,5 +1,6 @@
 package dev.mockarr.app.ui.theme
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.darkColorScheme
@@ -9,6 +10,7 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.isSpecified
 
 /**
  * Brand indigo on every API level. Dynamic colour is deliberately OFF
@@ -101,8 +103,20 @@ data class MockarrColors(
     val onHold: Color,
     val holdContainer: Color,
     val onHoldContainer: Color,
+    /**
+     * What floats over the map (map pills, the stat card, popovers, the
+     * thumbstick). In dark it is lighter than the sheet — M3's tonal lift — and
+     * [floatingOutline] rims it, because a near-black shadow on a near-black map
+     * vanished (1.05:1, audit session 41).
+     */
+    val floating: Color,
+    val floatingOutline: Color,
     val map: MapPalette,
-)
+) {
+    /** The floating surfaces' hairline, or none where the shadow already carries the edge. */
+    fun floatingBorder(): BorderStroke? =
+        if (floatingOutline.isSpecified) BorderStroke(Tokens.hairline, floatingOutline) else null
+}
 
 private val LightExtras = MockarrColors(
     ready = Color(0xFF1E6B4E),
@@ -113,6 +127,8 @@ private val LightExtras = MockarrColors(
     onHold = Color(0xFFFFFFFF),
     holdContainer = Color(0xFFFFDEA8),
     onHoldContainer = Color(0xFF2B1A00),
+    floating = Color(0xFFFFFFFF),
+    floatingOutline = Color.Unspecified,
     map = MapPalette(
         route = 0xFF3949AB.toInt(),
         routeCasing = 0xFFFFFFFF.toInt(),
@@ -123,7 +139,10 @@ private val LightExtras = MockarrColors(
         position = 0xFF3949AB.toInt(),
         positionRing = 0xFFFFFFFF.toInt(),
         holdPin = 0xFFE0901E.toInt(),
-        stopStart = 0xFF1E8A5A.toInt(),
+        // Hold ink, not white: a white ring left the amber pin at 2.35:1 on the light map.
+        holdPinRing = 0xFF8A5A00.toInt(),
+        // 5.1:1 under white numerals (was #1E8A5A, 4.34:1 — audit session 41).
+        stopStart = 0xFF1A7D52.toInt(),
         stopVia = 0xFF3949AB.toInt(),
         stopEnd = 0xFF1A1B21.toInt(),
         stopText = 0xFFFFFFFF.toInt(),
@@ -146,6 +165,8 @@ private val DarkExtras = MockarrColors(
     onHold = Color(0xFF442B00),
     holdContainer = Color(0xFF5F4100),
     onHoldContainer = Color(0xFFFFDEA8),
+    floating = Color(0xFF292A30),
+    floatingOutline = Color(0xFF6E7079),
     map = MapPalette(
         route = 0xFF9FA8FF.toInt(),
         routeCasing = 0xFF121319.toInt(),
@@ -156,6 +177,7 @@ private val DarkExtras = MockarrColors(
         position = 0xFFB9C3FF.toInt(),
         positionRing = 0xFF121319.toInt(),
         holdPin = 0xFFFFBB58.toInt(),
+        holdPinRing = 0xFF121319.toInt(),
         stopStart = 0xFF6FD3A4.toInt(),
         stopVia = 0xFF7A88E6.toInt(),
         stopEnd = 0xFFE3E1E9.toInt(),

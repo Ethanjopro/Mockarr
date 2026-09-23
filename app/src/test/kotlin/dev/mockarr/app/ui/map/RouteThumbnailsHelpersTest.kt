@@ -70,6 +70,7 @@ private fun testPalette(route: Int) = MapPalette(
     position = route,
     positionRing = 0xFFFFFFFF.toInt(),
     holdPin = 0xFFE0901E.toInt(),
+    holdPinRing = 0xFF8A5A00.toInt(),
     stopStart = 0xFF1E8A5A.toInt(),
     stopVia = route,
     stopEnd = 0xFF1A1B21.toInt(),

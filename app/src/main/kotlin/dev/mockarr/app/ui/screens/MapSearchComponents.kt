@@ -33,9 +33,14 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.takeOrElse
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.liveRegion
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
@@ -46,6 +51,7 @@ import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import dev.mockarr.app.R
 import dev.mockarr.app.ui.rememberFormatter
+import dev.mockarr.app.ui.theme.MockarrTheme
 import dev.mockarr.app.ui.theme.Tokens
 import dev.mockarr.core.model.DistanceUnits
 import dev.mockarr.core.routing.GeocodingResult
@@ -86,10 +92,11 @@ fun MapSearchBar(
             },
             keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
             keyboardActions = KeyboardActions(onSearch = { onSearch() }),
+            // It floats over the map like the pills: the floating surface, rimmed in dark.
             colors = OutlinedTextFieldDefaults.colors(
-                unfocusedContainerColor = MaterialTheme.colorScheme.surfaceContainerLowest,
-                focusedContainerColor = MaterialTheme.colorScheme.surfaceContainerLowest,
-                unfocusedBorderColor = Color.Transparent,
+                unfocusedContainerColor = MockarrTheme.colors.floating,
+                focusedContainerColor = MockarrTheme.colors.floating,
+                unfocusedBorderColor = MockarrTheme.colors.floatingOutline.takeOrElse { Color.Transparent },
             ),
             modifier = Modifier
                 .fillMaxWidth()
@@ -98,11 +105,12 @@ fun MapSearchBar(
         val recentsOnly = state.query.isBlank() && state.results.isNotEmpty() && state.results.all { it.recent }
         if (state.results.isNotEmpty() || state.status != MapSearchViewModel.Status.IDLE) {
             Spacer(Modifier.height(Tokens.space1))
-            // The popover family: lowest surface, floating (DESIGN.md → Search).
+            // The popover family: the floating surface (DESIGN.md → Search).
             Card(
                 shape = Tokens.cardShape,
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLowest),
+                colors = CardDefaults.cardColors(containerColor = MockarrTheme.colors.floating),
                 elevation = CardDefaults.cardElevation(defaultElevation = Tokens.popoverElevation),
+                border = MockarrTheme.colors.floatingBorder(),
             ) {
                 Column {
                     if (recentsOnly) RecentsHeader(onClearRecents)
@@ -141,6 +149,7 @@ private fun RecentsHeader(onClear: () -> Unit) {
             text = stringResource(R.string.map_search_recent),
             style = MaterialTheme.typography.labelMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.semantics { heading() },
         )
         TextButton(onClick = onClear) { Text(stringResource(R.string.map_search_clear_recent)) }
     }
@@ -158,7 +167,10 @@ private fun SearchNotice(status: MapSearchViewModel.Status) {
         text = text,
         style = MaterialTheme.typography.bodyMedium,
         color = MaterialTheme.colorScheme.onSurfaceVariant,
-        modifier = Modifier.padding(horizontal = Tokens.inset, vertical = Tokens.space3),
+        // "No matches" / "Offline" appear without focus moving: say them.
+        modifier = Modifier
+            .padding(horizontal = Tokens.inset, vertical = Tokens.space3)
+            .semantics { liveRegion = LiveRegionMode.Polite },
     )
 }
 

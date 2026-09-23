@@ -1,6 +1,7 @@
 package dev.mockarr.app.ui.map
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.offset
@@ -123,7 +124,8 @@ fun ThumbstickOverlay(
             .alpha(if (enabled) 1f else DISABLED_ALPHA)
             .shadow(Tokens.floatingElevation, CircleShape)
             .clip(CircleShape)
-            .background(MaterialTheme.colorScheme.surfaceContainerLowest.copy(alpha = BASE_ALPHA))
+            .background(MockarrTheme.colors.floating.copy(alpha = BASE_ALPHA))
+            .then(MockarrTheme.colors.floatingBorder()?.let { Modifier.border(it, CircleShape) } ?: Modifier)
             .semantics {
                 contentDescription = description
                 // TalkBack's path: a step in each compass direction (one second of full push).

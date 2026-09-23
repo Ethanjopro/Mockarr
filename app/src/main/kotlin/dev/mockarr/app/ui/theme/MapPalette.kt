@@ -24,6 +24,7 @@ data class MapPalette(
     val position: Int,
     val positionRing: Int,
     val holdPin: Int,
+    val holdPinRing: Int,
     val stopStart: Int,
     val stopVia: Int,
     val stopEnd: Int,

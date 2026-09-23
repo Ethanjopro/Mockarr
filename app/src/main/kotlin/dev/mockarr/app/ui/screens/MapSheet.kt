@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.requiredHeight
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
@@ -30,6 +31,7 @@ import androidx.compose.ui.semantics.CustomAccessibilityAction
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.customActions
+import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -157,7 +159,7 @@ fun SpeedChips(
     // Wraps: the popover is narrower than five chips, and a scroll row hid 2×/4×
     // past its edge with nothing to say so (sessions 35/37).
     FlowRow(
-        modifier = modifier.fillMaxWidth(),
+        modifier = modifier.fillMaxWidth().selectableGroup(),
         horizontalArrangement = Arrangement.spacedBy(Tokens.space2),
         verticalArrangement = Arrangement.spacedBy(Tokens.space1),
         itemVerticalAlignment = Alignment.CenterVertically,
@@ -166,6 +168,7 @@ fun SpeedChips(
             text = stringResource(R.string.sheet_speed).uppercase(),
             style = MaterialTheme.typography.labelSmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.semantics { heading() },
         )
         SPEED_PRESETS.forEach { preset ->
             FilterChip(
@@ -223,6 +226,12 @@ internal data class StripModel(
     val tone: StripTone,
     val actionLabel: String? = null,
     val action: StripAction? = null,
+    /**
+     * What TalkBack's live region says, when [text] carries a ticking value: the
+     * wait's countdown changes every second, and a live region must only speak
+     * on real state changes (audit, session 41). Null speaks [text].
+     */
+    val spoken: String? = null,
     /** Idle prompts ("Plan a drive", "Building a route") show no card at all. */
     val hidden: Boolean = false,
 )
@@ -328,6 +337,11 @@ private fun playbackStrip(playbackState: PlaybackState?, profile: RoutingProfile
             playbackState.waypointIndex < 0 -> stringResource(R.string.strip_offroad_pause, countdown)
             else -> stringResource(R.string.strip_waiting, playbackState.waypointIndex + 1, countdown)
         }
+        val spoken = when {
+            playbackState.isDestination -> stringResource(R.string.strip_waiting_destination_spoken)
+            playbackState.waypointIndex < 0 -> stringResource(R.string.strip_offroad_spoken)
+            else -> stringResource(R.string.strip_waiting_spoken, playbackState.waypointIndex + 1)
+        }
         // A real stop's wait can be skipped; the off-road pause is part of the drive itself.
         val skippable = playbackState.waypointIndex >= 0 && playbackState.waitSecondsLeft > SKIP_MIN_SECONDS
         StripModel(
@@ -335,6 +349,7 @@ private fun playbackStrip(playbackState: PlaybackState?, profile: RoutingProfile
             tone = StripTone.Hold,
             actionLabel = if (skippable) stringResource(R.string.strip_skip_wait) else null,
             action = if (skippable) StripAction.SKIP_WAIT else null,
+            spoken = spoken,
         )
     }
     else -> StripModel(stringResource(profile.movingLabelRes()), StripTone.Accent)

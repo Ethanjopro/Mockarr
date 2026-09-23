@@ -621,7 +621,7 @@ private fun applyPalette(style: Style, palette: MapPalette, density: Float) {
     )
     style.getLayer(PIN_LAYER)?.setProperties(
         PropertyFactory.circleColor(MapPalette.css(palette.holdPin)),
-        PropertyFactory.circleStrokeColor(MapPalette.css(palette.positionRing)),
+        PropertyFactory.circleStrokeColor(MapPalette.css(palette.holdPinRing)),
     )
     style.addImage(ROUTE_ARROW_ICON, chevronBitmap(palette.routeCasing, density))
     style.addImage(SEARCH_PIN_ICON, searchPinBitmap(MarkerStyle(density, palette)))

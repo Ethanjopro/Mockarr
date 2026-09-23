@@ -62,7 +62,7 @@ fun MapPill(
     content: @Composable () -> Unit,
 ) {
     val scheme = MaterialTheme.colorScheme
-    val container = if (selected) scheme.primary else scheme.surfaceContainerLowest
+    val container = if (selected) scheme.primary else MockarrTheme.colors.floating
     val ink = when {
         selected -> scheme.onPrimary
         enabled -> scheme.onSurface
@@ -79,6 +79,7 @@ fun MapPill(
         shape = CircleShape,
         color = container,
         contentColor = ink,
+        border = if (selected) null else MockarrTheme.colors.floatingBorder(),
         shadowElevation = Tokens.floatingElevation,
         modifier = modifier.size(Tokens.pillSize).then(semantics),
     ) {
@@ -137,7 +138,7 @@ fun MapPopover(
         // rides the marker through a pan and the host dismisses on map tap/Back.
         properties = PopupProperties(focusable = modal, dismissOnClickOutside = modal),
     ) {
-        val cardColor = MaterialTheme.colorScheme.surfaceContainerLowest
+        val cardColor = MockarrTheme.colors.floating
         // Intrinsic width: the card hugs its widest row (rows fillMaxWidth, so a
         // plain wrap would balloon to the max) and only long content hits the cap.
         Column(modifier = modifier.width(IntrinsicSize.Max).widthIn(max = POPOVER_MAX_WIDTH)) {
@@ -145,6 +146,7 @@ fun MapPopover(
             Surface(
                 shape = Tokens.cardShape,
                 color = cardColor,
+                border = MockarrTheme.colors.floatingBorder(),
                 shadowElevation = Tokens.popoverElevation,
             ) {
                 Column(content = content)

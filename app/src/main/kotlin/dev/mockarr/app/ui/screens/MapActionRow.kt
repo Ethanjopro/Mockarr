@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledIconButton
@@ -31,7 +32,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -98,23 +101,22 @@ fun ActionRow(
 
 @Composable
 private fun StartChoiceRow(choice: StartChoice) {
-    val description = stringResource(R.string.row_start_choice_cd)
     // Natural height, not the three-slot row's 120dp box: a caption and one
     // pill row, ending space3 above the inset like every other peek (session 31).
     Column(
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = Tokens.inset)
-            .padding(bottom = Tokens.space3)
-            .semantics { contentDescription = description },
+            .padding(bottom = Tokens.space3),
     ) {
-        // Say what the two pills are for (Ethan): a centred section-header caption.
+        // Say what the two pills are for (Ethan): a centred section-header caption,
+        // and a heading to TalkBack (the column's own description was a duplicate stop).
         Text(
             text = stringResource(R.string.row_start_choice_title).uppercase(),
             style = MaterialTheme.typography.labelSmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             textAlign = TextAlign.Center,
-            modifier = Modifier.fillMaxWidth().padding(bottom = Tokens.space2),
+            modifier = Modifier.fillMaxWidth().padding(bottom = Tokens.space2).semantics { heading() },
         )
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -179,28 +181,34 @@ private fun ActionSlots(
     ) {
         val modeLabel = stringResource(profile.shortLabelRes())
         val modeDescription = stringResource(R.string.row_mode_cd, modeLabel)
-        RowSlot(label = modeLabel, modifier = Modifier.weight(1f), onClick = onPickMode) {
+        RowSlot(
+            label = modeLabel,
+            description = modeDescription,
+            modifier = Modifier.weight(1f),
+            onClick = onPickMode,
+        ) {
             FilledTonalIconButton(
                 onClick = onPickMode,
-                modifier = Modifier
-                    .size(SIDE_BUTTON)
-                    .semantics { contentDescription = modeDescription },
+                modifier = Modifier.size(SIDE_BUTTON).clearAndSetSemantics {},
             ) {
                 Icon(painterResource(profile.iconRes()), contentDescription = null, modifier = Modifier.size(SIDE_ICON))
             }
         }
         val startLabel = stringResource(if (again) profile.againLabelRes() else R.string.row_start)
+        // The label lives on the slot, so the locating spinner doesn't leave it unnamed,
+        // and a disabled Start is announced as disabled instead of vanishing.
+        val startDescription = stringResource(if (again) R.string.row_start_again_cd else R.string.row_start_cd)
         RowSlot(
             label = startLabel,
+            description = startDescription,
             modifier = Modifier.weight(1f),
-            onClick = onStart.takeIf { canStart && !locating },
+            enabled = canStart && !locating,
+            onClick = onStart,
         ) {
-            // The label lives on the button, so the locating spinner doesn't leave it unnamed.
-            val startDescription = stringResource(if (again) R.string.row_start_again_cd else R.string.row_start_cd)
             FilledIconButton(
                 onClick = onStart,
                 enabled = canStart && !locating,
-                modifier = Modifier.size(START_BUTTON).semantics { contentDescription = startDescription },
+                modifier = Modifier.size(START_BUTTON).clearAndSetSemantics {},
             ) {
                 // While the real location resolves, the button says so instead of play.
                 if (locating) {
@@ -215,12 +223,10 @@ private fun ActionSlots(
             }
         }
         val routeLabel = stringResource(if (routeLoaded) R.string.row_switch_route else R.string.row_add_route)
-        RowSlot(label = routeLabel, modifier = Modifier.weight(1f), onClick = onEditRoute) {
+        RowSlot(label = routeLabel, description = routeLabel, modifier = Modifier.weight(1f), onClick = onEditRoute) {
             FilledTonalIconButton(
                 onClick = onEditRoute,
-                modifier = Modifier
-                    .size(SIDE_BUTTON)
-                    .semantics { contentDescription = routeLabel },
+                modifier = Modifier.size(SIDE_BUTTON).clearAndSetSemantics {},
             ) {
                 Icon(
                     painterResource(R.drawable.ic_add_route),
@@ -232,17 +238,26 @@ private fun ActionSlots(
     }
 }
 
+/**
+ * One action-row slot: circle plus label, one tap target and ONE TalkBack node
+ * (the circle's own semantics are cleared by the caller) — two focus stops per
+ * slot read "Drive, button · Travel mode: Drive, button" (audit, session 41).
+ */
 @Composable
 private fun RowSlot(
     label: String,
+    description: String,
+    onClick: () -> Unit,
     modifier: Modifier = Modifier,
-    onClick: (() -> Unit)? = null,
+    enabled: Boolean = true,
     control: @Composable () -> Unit,
 ) {
     // The label is part of the target (Strava taps the whole slot).
-    val clickModifier = if (onClick != null) Modifier.clickable(onClick = onClick, role = Role.Button) else Modifier
     Column(
-        modifier = modifier.then(clickModifier).padding(vertical = Tokens.space1),
+        modifier = modifier
+            .clickable(enabled = enabled, onClick = onClick, role = Role.Button)
+            .semantics { contentDescription = description }
+            .padding(vertical = Tokens.space1),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center,
     ) {
@@ -271,47 +286,50 @@ fun ModePickerSheet(
         Text(
             text = stringResource(R.string.mode_picker_title),
             style = MaterialTheme.typography.titleMedium,
-            modifier = Modifier.padding(horizontal = Tokens.inset, vertical = Tokens.space2),
+            modifier = Modifier.padding(horizontal = Tokens.inset, vertical = Tokens.space2).semantics { heading() },
         )
-        RoutingProfile.entries.forEach { profile ->
-            // The public routing server only serves driving.
-            val enabled = profile == RoutingProfile.DRIVING || profilesUnlocked
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .heightIn(min = Tokens.space8 + Tokens.space4)
-                    .selectable(
-                        selected = profile == selected,
-                        enabled = enabled,
-                        role = Role.RadioButton,
-                        onClick = { onSelect(profile) },
-                    )
-                    .padding(horizontal = Tokens.inset, vertical = Tokens.space2),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                val tint = if (enabled) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.outline
-                Icon(painterResource(profile.iconRes()), contentDescription = null, tint = tint)
-                Spacer(Modifier.width(Tokens.space4))
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        stringResource(profile.shortLabelRes()),
-                        style = MaterialTheme.typography.bodyLarge,
-                        color = tint,
-                    )
-                    if (!enabled) {
+        // One radio group, so TalkBack says "1 of 3" and the selection.
+        Column(modifier = Modifier.selectableGroup()) {
+            RoutingProfile.entries.forEach { profile ->
+                // The public routing server only serves driving.
+                val enabled = profile == RoutingProfile.DRIVING || profilesUnlocked
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .heightIn(min = Tokens.space8 + Tokens.space4)
+                        .selectable(
+                            selected = profile == selected,
+                            enabled = enabled,
+                            role = Role.RadioButton,
+                            onClick = { onSelect(profile) },
+                        )
+                        .padding(horizontal = Tokens.inset, vertical = Tokens.space2),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    val tint = if (enabled) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.outline
+                    Icon(painterResource(profile.iconRes()), contentDescription = null, tint = tint)
+                    Spacer(Modifier.width(Tokens.space4))
+                    Column(modifier = Modifier.weight(1f)) {
                         Text(
-                            text = stringResource(R.string.mode_locked),
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            stringResource(profile.shortLabelRes()),
+                            style = MaterialTheme.typography.bodyLarge,
+                            color = tint,
+                        )
+                        if (!enabled) {
+                            Text(
+                                text = stringResource(R.string.mode_locked),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                    }
+                    if (profile == selected) {
+                        Icon(
+                            painter = painterResource(R.drawable.ic_check),
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.primary,
                         )
                     }
-                }
-                if (profile == selected) {
-                    Icon(
-                        painter = painterResource(R.drawable.ic_check),
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.primary,
-                    )
                 }
             }
         }

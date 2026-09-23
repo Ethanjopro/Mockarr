@@ -27,9 +27,12 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.CustomAccessibilityAction
 import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.customActions
 import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
@@ -65,11 +68,16 @@ internal fun StatCard(
     onStripAction: (() -> Unit)? = null,
     onStatsClick: (() -> Unit)? = null,
     trailing: (@Composable () -> Unit)? = null,
+    /** TalkBack-only actions on the in-drive stats (set a coming stop's wait). */
+    statsActions: List<CustomAccessibilityAction> = emptyList(),
+    /** TalkBack-only actions on the band (finish a pending Move at the map centre). */
+    stripActions: List<CustomAccessibilityAction> = emptyList(),
 ) {
     Surface(
         modifier = modifier.fillMaxWidth(),
         shape = Tokens.cardShape,
-        color = MaterialTheme.colorScheme.surfaceContainerLowest,
+        color = MockarrTheme.colors.floating,
+        border = MockarrTheme.colors.floatingBorder(),
         shadowElevation = Tokens.cardElevation,
     ) {
         Column(modifier = Modifier.animateContentSize()) {
@@ -79,16 +87,18 @@ internal fun StatCard(
                 actionLabel = strip.actionLabel,
                 onAction = onStripAction,
                 trailing = trailing,
+                spoken = strip.spoken,
+                customActions = stripActions,
             )
             AnimatedVisibility(visible = stats != null) {
                 // Only the stats block is tappable — the strip keeps its own action.
                 val editLabel = stringResource(R.string.stat_trio_edit_cd)
+                // onClickLabel, not a content description: TalkBack reads the numbers,
+                // then "double-tap to Edit the route" (a description would replace them).
                 val clickable = if (onStatsClick != null) {
-                    Modifier
-                        .clickable(onClick = onStatsClick, role = Role.Button)
-                        .semantics { contentDescription = editLabel }
+                    Modifier.clickable(onClick = onStatsClick, onClickLabel = editLabel, role = Role.Button)
                 } else {
-                    Modifier
+                    Modifier.semantics { if (statsActions.isNotEmpty()) customActions = statsActions }
                 }
                 Column(modifier = clickable.padding(horizontal = Tokens.inset, vertical = Tokens.space3)) {
                     stats?.invoke()
@@ -110,6 +120,8 @@ fun StatusStrip(
     actionLabel: String? = null,
     onAction: (() -> Unit)? = null,
     trailing: (@Composable () -> Unit)? = null,
+    spoken: String? = null,
+    customActions: List<CustomAccessibilityAction> = emptyList(),
 ) {
     val colors = MockarrTheme.colors
     val scheme = MaterialTheme.colorScheme
@@ -138,8 +150,13 @@ fun StatusStrip(
             // Three lines at large font scales: the error line's consequence must not be cut off.
             maxLines = 3,
             overflow = TextOverflow.Ellipsis,
-            // The band is the app's one state surface: TalkBack hears Ready → Driving → Arrived.
-            modifier = Modifier.weight(1f).semantics { liveRegion = LiveRegionMode.Polite },
+            // The band is the app's one state surface: TalkBack hears Ready → Driving → Arrived —
+            // in its stable spoken form, so a countdown doesn't re-announce every second.
+            modifier = Modifier.weight(1f).clearAndSetSemantics {
+                contentDescription = spoken ?: text
+                liveRegion = LiveRegionMode.Polite
+                if (customActions.isNotEmpty()) this.customActions = customActions
+            },
         )
         if (actionLabel != null && onAction != null) {
             Spacer(Modifier.width(Tokens.space2))
@@ -185,10 +202,16 @@ data class StatCell(val label: String, val value: String, val magnitude: Double?
 
 /** Three equal cells: bold tabular value with its label under it (Strava's trio); no hero numeral. */
 @Composable
-fun StatTrio(cells: List<StatCell>, modifier: Modifier = Modifier) {
+fun StatTrio(cells: List<StatCell>, modifier: Modifier = Modifier, mergeCells: Boolean = true) {
     Row(modifier = modifier.fillMaxWidth()) {
         cells.forEach { cell ->
-            Column(modifier = Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally) {
+            // Each cell reads as one "12 min, Time left" — unless a tappable parent
+            // (the loaded route's edit entry) merges the whole trio into one node.
+            val cellSemantics = if (mergeCells) Modifier.semantics(mergeDescendants = true) {} else Modifier
+            Column(
+                modifier = Modifier.weight(1f).then(cellSemantics),
+                horizontalAlignment = Alignment.CenterHorizontally,
+            ) {
                 // Tabular figures keep every digit the same width so nothing shifts;
                 // "1 h 12 min" overflows a third of the card at 28sp: shrink, never clip.
                 val style = MaterialTheme.typography.headlineMedium.copy(

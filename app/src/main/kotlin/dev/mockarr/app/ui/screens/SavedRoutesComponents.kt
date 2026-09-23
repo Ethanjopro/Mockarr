@@ -296,7 +296,8 @@ private fun MapThumbnail(
     if (snapshot != null) {
         Image(
             bitmap = snapshot,
-            contentDescription = stringResource(R.string.routes_thumbnail_cd, entity.name),
+            // The card already reads the name: a thumbnail description only repeated it.
+            contentDescription = null,
             contentScale = ContentScale.Crop,
             modifier = Modifier.size(THUMB_SIZE).clip(Tokens.controlShape),
         )

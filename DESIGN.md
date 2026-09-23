@@ -52,7 +52,7 @@ colors:
   map-route-fallback: "#B8741A"
   map-position: "#3949AB"
   map-hold-pin: "#E0901E"
-  map-stop-start: "#1E8A5A"
+  map-stop-start: "#1A7D52"
   map-stop-via: "#3949AB"
   map-stop-end: "#1A1B21"
   map-wait-badge: "#F0A422"
@@ -392,6 +392,10 @@ kept for snackbars; dialogs float at `popoverElevation` on a 16dp card.
 sheet, map pills, popovers and markers cast one — always the low value in `Tokens`
 (`cardElevation` / `sheetElevation` / `floatingElevation` / `popoverElevation`). Inside the
 sheet, hierarchy comes from container tone and the 28/16/12dp corner, never a shadow.
+**In dark**, a near-black shadow on the near-black basemap disappears (1.05:1, audit session
+41), so floating objects use `MockarrTheme.colors.floating` — lighter than the sheet
+(`#292A30`, M3's tonal lift) — rimmed by a 1dp `floatingOutline` (`#6E7079`, ≥3:1 on the dark
+map). Light keeps white plus shadow and no rim.
 
 ## Shapes
 
@@ -470,8 +474,8 @@ builder's Clear route). Every new drive starts at **1×**; only a resumed drive 
 pace. Never stack actions vertically in the peek.
 
 ### Map Pill
-Strava's floating control: a 48dp `surface-container-lowest` circle with the floating
-shadow and an on-surface glyph (`MapPill` / `MapIconPill` in `ui/theme/MapChrome.kt`).
+Strava's floating control: a 48dp `floating` circle (white in light; lifted and rimmed in
+dark — see the Soft Lift Rule) with the floating shadow and an on-surface glyph (`MapPill` / `MapIconPill` in `ui/theme/MapChrome.kt`).
 Disabled = glyph at 38%, never hidden; selected (follow) = indigo fill. Used for the FAB
 stack and the builder tools; never inside the sheet.
 
@@ -479,7 +483,7 @@ stack and the builder tools; never inside the sheet.
 Strava's builder menu and its tap-a-point callout: a 16dp `surface-container-lowest` card
 with the popover shadow and a **caret** on its anchor (`MapPopover`), sitting above the
 anchor and flipping below when there is no room. The card hugs its widest row (intrinsic
-width, 280dp cap). Rows (`PopoverRow`) are label-left, glyph-right, 44dp min, hairline
+width, 280dp cap). Rows (`PopoverRow`) are label-left, glyph-right, 48dp min, hairline
 dividers between actions only — never directly under a header; a destructive row comes
 last, in the same ink as the others. The **stop popover** (`StopPopover`) rides the selected marker
 on every camera frame and is **symbols only**: one row of three 48dp icon buttons —
@@ -617,7 +621,8 @@ are undefined (nothing loaded).
   there; it leaves when it becomes a stop, a new pick replaces it, or the builder closes.
 - **Position:** 7dp `map-position` circle with a 3dp ground-colour ring, on its see-through
   wobble range (see Motion). **Hold pin:** 9dp
-  `map-hold-pin` circle, same ring. **Wait chip:** amber rounded pill, 11dp bold countdown
+  `map-hold-pin` circle ringed in hold ink (`holdPinRing`: `#8A5A00` light, so the amber pin
+  holds 3:1 on the light map; the ground colour in dark). **Wait chip:** amber rounded pill, 11dp bold countdown
   with a clock glyph, above the one stop playback is dwelling at — the amount shows only
   while it counts down.
 

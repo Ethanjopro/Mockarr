@@ -74,8 +74,10 @@ import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.CustomAccessibilityAction
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
@@ -291,8 +293,9 @@ fun MapScreen(
     }
     val units by viewModel.units.collectAsStateWithLifecycle()
     val searchState by searchViewModel.state.collectAsStateWithLifecycle()
-    val camera by viewModel.camera.collectAsStateWithLifecycle()
-    LaunchedEffect(camera) { camera?.let { searchViewModel.cameraBias = it } }
+    // Collected in a coroutine, not as state: reading the live camera at composition
+    // re-ran this whole screen on every frame of a pan and all through a followed drive.
+    LaunchedEffect(Unit) { viewModel.camera.collect { camera -> camera?.let { searchViewModel.cameraBias = it } } }
     val map3d by viewModel.map3dEnabled.collectAsStateWithLifecycle()
     val followCamera by viewModel.followCamera.collectAsStateWithLifecycle()
     val session by sessionViewModel.session.collectAsStateWithLifecycle()
@@ -573,6 +576,7 @@ fun MapScreen(
         )
     }
     var waitEditIndex by remember { mutableStateOf<Int?>(null) }
+    val moveHereLabel = stringResource(R.string.strip_move_here_cd)
     if (selectedWaypoint != null && state.waypoints.getOrNull(selectedWaypoint!!) == null) {
         // The list changed under the selection (undo/clear) — drop it.
         viewModel.interaction.select(null)
@@ -642,6 +646,13 @@ fun MapScreen(
     val hapticStops = remember(state.route) { stopFractions(state.route) }
     SessionHaptics(session = session, playbackState = playbackState, stops = hapticStops)
     val expanded = sheetState.currentValue == SheetValue.Expanded
+    // Back collapses an expanded sheet, then leaves building like Done (the stops
+    // stay) — before, it left the app, and on API 26–30 the unsaved route with it.
+    // Transient states (search, start choice, a Move, a selection) keep their own handler.
+    val transientBack = searchOpen || startChoice != null || movingWaypoint != null || selectedWaypoint != null
+    BackHandler(enabled = !transientBack && (expanded || (builderMode && !playing))) {
+        if (expanded) scope.launch { sheetState.partialExpand() } else viewModel.setBuilderMode(false)
+    }
     var peekHeightPx by remember { mutableIntStateOf(0) }
     val density = LocalDensity.current
     // The peek carries the navigation-bar inset (the resting sheet needs it);
@@ -1035,6 +1046,19 @@ fun MapScreen(
                 StatCard(
                     strip = shownStrip,
                     stats = stats,
+                    statsActions = if (playing) {
+                        upcomingWaitActions(state, playbackState, options.stayAtDestination) { waitEditIndex = it }
+                    } else {
+                        emptyList()
+                    },
+                    stripActions = movingWaypoint?.let { index ->
+                        listOf(
+                            CustomAccessibilityAction(moveHereLabel) {
+                                mapCentre()?.let { viewModel.moveStop(index, it, settled = true) }
+                                true
+                            },
+                        )
+                    } ?: emptyList(),
                     onStripAction = when (shownStrip.action) {
                         StripAction.FIX -> onOpenSetup
                         StripAction.RELEASE -> sessionViewModel::release
@@ -1192,7 +1216,7 @@ private fun BuilderDetails(
         text = stringResource(R.string.sheet_stops_header, count).uppercase(),
         style = MaterialTheme.typography.labelSmall,
         color = MaterialTheme.colorScheme.onSurfaceVariant,
-        modifier = Modifier.padding(horizontal = Tokens.inset, vertical = Tokens.space1),
+        modifier = Modifier.padding(horizontal = Tokens.inset, vertical = Tokens.space1).semantics { heading() },
     )
     // Long routes would bury the sheet: about three rows show and the rest scroll
     // inside — only once the sheet is expanded, so a drag up isn't spent on the list.

@@ -1900,3 +1900,48 @@ polish). Ethan's calls are in memory `critique-2026-09-22-decisions`.
   - Pause → End drive → "Holding at Cedar Springs Road", route kept, "Drive again"
   - "Chicago" search results show "804 mi"
   - Setup with mocking denied reads "1 required step left", and the mark says "Not done"
+
+### 2026-09-22 — Session 41b (impeccable run 2/6: audit → accessibility, contrast, Back)
+- **Native audit (sub-agent, static):** **13/20** (Accessibility 2 · Performance 3 · Theming 3 ·
+  Conformance 3 · Adaptivity 2); P0 0 · P1 2 · P2 10 · P3 7. It confirmed the critique fixes
+  held.
+- **Fixed now:**
+  - **Live region:** the band's live region carries a stable `StripModel.spoken` ("Waiting at
+    stop 2"), not the per-second countdown, which re-announced up to about 300 times per wait.
+  - **Back:** a second `BackHandler` collapses an expanded sheet, then leaves the builder like
+    Done (stops kept). Before, Back left the app, and on API 26–30 lost the unsaved route.
+    - I chose the non-destructive option myself; Ethan hasn't been asked.
+  - **Action row:** each slot is **one** TalkBack node (slot carries the description and
+    enabled state; the inner button's semantics are cleared). A disabled Start now says
+    "disabled".
+  - **Loaded trio:** reads its numbers, then "double-tap to Edit the route" (`onClickLabel`,
+    no description). The in-drive cells are merged ("12 min, Time left").
+  - **TalkBack actions** (`MapAccessibility.kt`, new): "Set wait at stop N" on the in-drive
+    stats for stops still ahead, and "Move it to the map centre" on the band during a Move.
+  - **Headings:** SPEED, STOPS · n, START FROM, Recent and the mode picker title.
+    `selectableGroup` on the speed chips and the mode picker. START FROM lost its duplicate
+    description.
+  - **Pane titles** on dialogs and the stop popover. The search notice is a live region, and
+    the thumbnail description no longer repeats the card title.
+  - **Sizes and platform:** the popover row is 48dp (was 44), and
+    `enableOnBackInvokedCallback="true"` gives predictive back on Android 13–15.
+  - **Contrast:**
+    - `stopStart` is #1A7D52 (5.1:1, was 4.34:1).
+    - The hold pin is ringed in hold ink (light).
+    - **Dark floating surfaces:** new `MockarrColors.floating` / `floatingOutline`. In dark,
+      #292A30 with a 1dp #6E7079 rim on map pills, the card, popovers, the thumbstick, and
+      the search field and results. Before, they were 1.05:1 on the dark map.
+  - **Performance:** the live camera feeds search bias from a `LaunchedEffect` collector. It
+    used to be composition state, which re-ran all of `MapScreen()` on every camera frame.
+- **Left for later rounds:**
+  - adapt: insets, max widths, `heightIn`, bitmap text scale, dialog scroll and saveable state
+  - polish: search-field labels, list keys, the icon dependency, `playbackPhase` / splitting
+    `MapScreen`
+- **Verified on mockarr_test:**
+  - the UI dump shows one focusable node per slot, and Start reports `enabled=false` with no
+    route
+  - Back in the builder → "Edit route" with the stop kept; Back on the expanded sheet →
+    collapsed, one Activity
+  - the dark builder shows lifted, rimmed pills, card and search field
+  - during a wait the band text reads "Waiting at stop 2 · 0:59" while its node says
+    "Waiting at stop 2"

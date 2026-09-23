@@ -15,6 +15,7 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.isTraversalGroup
+import androidx.compose.ui.semantics.paneTitle
 import androidx.compose.ui.semantics.semantics
 import dev.mockarr.app.R
 import dev.mockarr.app.ui.rememberFormatter
@@ -63,6 +64,7 @@ internal fun StopPopover(
                 .padding(Tokens.space1)
                 .semantics {
                     contentDescription = groupLabel
+                    paneTitle = groupLabel
                     isTraversalGroup = true
                 },
             horizontalArrangement = Arrangement.spacedBy(Tokens.space1),
