@@ -176,7 +176,7 @@ private fun TileGrid(
     ) {
         Row(horizontalArrangement = Arrangement.spacedBy(Tokens.space2)) {
             SettingTile(
-                iconRes = R.drawable.ic_pin_check,
+                iconRes = R.drawable.ic_place,
                 title = stringResource(R.string.settings_tile_mock),
                 value = stringResource(
                     if (mockReady == true) {

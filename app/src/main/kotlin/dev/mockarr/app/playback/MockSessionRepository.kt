@@ -183,11 +183,19 @@ class MockSessionRepository @Inject constructor() {
         _session.value = MockSessionState.Holding(position, source)
     }
 
-    /** A nudge landed: keep the source, drop the stale name until re-resolved. */
+    /**
+     * A nudge landed: the spot is a hand-placed pin from now on (never "the
+     * destination" or "where you stopped" any more); drop the stale name until re-resolved.
+     */
     internal fun holdMoved(position: LatLng) {
         val current = _session.value
         if (current is MockSessionState.Holding) {
-            _session.value = current.copy(position = position, placeName = null, nameFailed = false)
+            _session.value = current.copy(
+                position = position,
+                source = HoldSource.PIN,
+                placeName = null,
+                nameFailed = false,
+            )
         }
     }
 

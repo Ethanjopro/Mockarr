@@ -135,7 +135,8 @@ fun StatusStrip(
             style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
             color = foreground,
             textAlign = if (actionLabel == null && trailing == null) TextAlign.Center else TextAlign.Start,
-            maxLines = 2,
+            // Three lines at large font scales: the error line's consequence must not be cut off.
+            maxLines = 3,
             overflow = TextOverflow.Ellipsis,
             // The band is the app's one state surface: TalkBack hears Ready → Driving → Arrived.
             modifier = Modifier.weight(1f).semantics { liveRegion = LiveRegionMode.Polite },

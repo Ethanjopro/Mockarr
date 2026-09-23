@@ -42,6 +42,8 @@ import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
@@ -126,7 +128,7 @@ fun SetupScreen(
                 onAction = { context.openSettings(Settings.ACTION_DEVICE_INFO_SETTINGS) },
             )
             SetupStep(
-                iconRes = R.drawable.ic_pin_check,
+                iconRes = R.drawable.ic_place,
                 title = stringResource(R.string.setup_mock_title),
                 required = true,
                 done = status?.selectedAsMockLocationApp == true,
@@ -253,6 +255,7 @@ private fun StepMark(done: Boolean, required: Boolean) {
     val colors = MockarrTheme.colors
     val scheme = MaterialTheme.colorScheme
     val doneDescription = stringResource(R.string.setup_done_cd)
+    val missingDescription = stringResource(R.string.setup_missing_cd)
     when {
         done -> Box(
             modifier = Modifier.size(MARK_SIZE).background(colors.readyContainer, CircleShape),
@@ -266,7 +269,10 @@ private fun StepMark(done: Boolean, required: Boolean) {
             )
         }
         required -> Box(
-            modifier = Modifier.size(MARK_SIZE).background(scheme.errorContainer, CircleShape),
+            modifier = Modifier
+                .size(MARK_SIZE)
+                .background(scheme.errorContainer, CircleShape)
+                .clearAndSetSemantics { contentDescription = missingDescription },
             contentAlignment = Alignment.Center,
         ) {
             Text(

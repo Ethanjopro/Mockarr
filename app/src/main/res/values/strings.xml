@@ -8,7 +8,6 @@
     <!-- Map: status strip -->
     <string name="strip_not_set_up">Mocking isn\'t set up — playback won\'t move your location</string>
     <string name="strip_fix">Set up</string>
-    <string name="strip_plan">Plan a route</string>
     <string name="strip_ready">Ready to drive</string>
     <string name="strip_ready_walk">Ready to walk</string>
     <string name="strip_ready_cycle">Ready to ride</string>
@@ -43,7 +42,7 @@
     <string name="sheet_idle_title">Tap the map to add stops</string>
     <string name="sheet_idle_body">Two or more stops make a route. Long-press anywhere to hold your location there instead.</string>
     <string name="sheet_one_stop_title">Tap the map again to add a destination</string>
-    <string name="sheet_one_stop_body">Or press Start to hold your location at this stop.</string>
+    <string name="sheet_one_stop_body">Or tap Done, then Start, to drive here from where you are.</string>
     <string name="sheet_pause">Pause</string>
     <string name="sheet_resume">Resume</string>
     <string name="sheet_end_drive">End drive</string>
@@ -172,7 +171,7 @@
     <string name="option_settings">All settings</string>
     <string name="options_map_header">Map</string>
     <string name="option_hold_centre">Hold my location at the map centre</string>
-    <string name="map_cd">Map. Tap to add a stop, long-press to hold your location there; the sheet below offers the same without gestures.</string>
+    <string name="map_cd">Map. Tap to add a stop, long-press to hold your location there. Without gestures: search for a place and choose Add stop, or use Hold my location at the map centre in the sheet.</string>
     <string name="thumbstick_nudge_north">Nudge north</string>
     <string name="thumbstick_nudge_east">Nudge east</string>
     <string name="thumbstick_nudge_south">Nudge south</string>
@@ -240,7 +239,6 @@
     <string name="settings_about_version">Version %1$s</string>
     <string name="settings_about_credits_public">Map data © OpenStreetMap contributors · Routing by OSRM · Search by Photon (komoot) · Elevation from Terrain Tiles on AWS (Mapzen) · Rendering by MapLibre · Tiles by OpenFreeMap</string>
     <string name="settings_about_credits">Map data © OpenStreetMap contributors · Routing and search powered by Geoapify, with OSRM and Photon (komoot) as fallback · Elevation from Terrain Tiles on AWS (Mapzen) · Rendering by MapLibre · Tiles by OpenFreeMap</string>
-    <string name="settings_open_setup_cd">Open mock location setup</string>
 
     <!-- Setup checklist -->
     <string name="setup_title">Set up mocking</string>
@@ -279,7 +277,6 @@
     <string name="snack_location_permission">Location permission is needed before Mockarr can mock your location</string>
     <string name="snack_locate_permission">Location permission is needed to show where you are</string>
     <string name="snack_locate_failed">Couldn\'t find your location</string>
-    <string name="route_unnamed">Unnamed route</string>
     <string name="route_name_default">Route %1$s</string>
 
     <!-- Units and durations -->

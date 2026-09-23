@@ -125,6 +125,7 @@ fun SliderRow(
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
+            Spacer(Modifier.width(Tokens.space3))
             Text(
                 text = valueText,
                 style = MaterialTheme.typography.titleMedium,

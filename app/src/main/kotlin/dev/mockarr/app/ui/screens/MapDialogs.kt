@@ -127,7 +127,8 @@ internal fun SaveRouteDialog(
 ) {
     // The host resolved (or gave up on) the place name before opening us, so
     // the field never changes under the user's cursor.
-    val defaultName = remember { "Route " + formatRouteTimestamp(System.currentTimeMillis()) }
+    val defaultTemplate = stringResource(R.string.route_name_default)
+    val defaultName = remember { defaultTemplate.format(formatRouteTimestamp(System.currentTimeMillis())) }
     var name by remember { mutableStateOf(suggestedName ?: defaultName) }
     MockarrDialog(
         title = stringResource(R.string.dialog_save_title),

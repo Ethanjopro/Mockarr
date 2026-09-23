@@ -33,8 +33,6 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material3.BottomSheetScaffold
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
@@ -53,9 +51,11 @@ import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -87,6 +87,7 @@ import dev.mockarr.app.playback.MockSessionState
 import dev.mockarr.app.ui.Motion
 import dev.mockarr.app.ui.Motion.fadeThrough
 import dev.mockarr.app.ui.map.ActiveDwell
+import dev.mockarr.app.ui.map.CameraCommand
 import dev.mockarr.app.ui.map.MockarrMap
 import dev.mockarr.app.ui.map.NUDGE_TICK_MILLIS
 import dev.mockarr.app.ui.map.ThumbstickOverlay
@@ -656,6 +657,18 @@ fun MapScreen(
     // Focal moment: Play drops the sheet to its peek so the map leads.
     LaunchedEffect(playing, peekMeasured) {
         if (playing && peekMeasured) sheetState.partialExpand()
+    }
+    // A route loaded from Saved routes (or a resumed drive) is framed on the map; the
+    // expanded sheet it was opened from would bury it. Once per framing, so coming
+    // back from Settings doesn't collapse the sheet again.
+    val cameraCommand by viewModel.cameraCommand.collectAsStateWithLifecycle()
+    var collapsedForFit by rememberSaveable { mutableLongStateOf(-1L) }
+    LaunchedEffect(cameraCommand) {
+        val fit = cameraCommand as? CameraCommand.FitRoute ?: return@LaunchedEffect
+        if (fit.seq != collapsedForFit) {
+            collapsedForFit = fit.seq
+            sheetState.partialExpand()
+        }
     }
 
     // The strip never shows raw coordinates: while a hold's name resolves,
@@ -1263,7 +1276,10 @@ private fun StopRow(
                 }
             }
             IconButton(onClick = onRemove) {
-                Icon(Icons.Filled.Delete, contentDescription = stringResource(R.string.sheet_remove_stop))
+                Icon(
+                    painterResource(R.drawable.ic_delete),
+                    contentDescription = stringResource(R.string.sheet_remove_stop),
+                )
             }
         }
         if (selected) {

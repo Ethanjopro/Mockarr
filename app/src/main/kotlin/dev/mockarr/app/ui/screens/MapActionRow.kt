@@ -14,12 +14,12 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.selection.selectable
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledIconButton
 import androidx.compose.material3.FilledTonalIconButton
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Text
@@ -192,11 +192,12 @@ private fun ActionSlots(
             modifier = Modifier.weight(1f),
             onClick = onStart.takeIf { canStart && !locating },
         ) {
+            // The label lives on the button, so the locating spinner doesn't leave it unnamed.
+            val startDescription = stringResource(R.string.row_start_cd)
             FilledIconButton(
                 onClick = onStart,
                 enabled = canStart && !locating,
-                colors = IconButtonDefaults.filledIconButtonColors(),
-                modifier = Modifier.size(START_BUTTON),
+                modifier = Modifier.size(START_BUTTON).semantics { contentDescription = startDescription },
             ) {
                 // While the real location resolves, the button says so instead of play.
                 if (locating) {
@@ -204,7 +205,7 @@ private fun ActionSlots(
                 } else {
                     Icon(
                         painter = painterResource(R.drawable.ic_play),
-                        contentDescription = stringResource(R.string.row_start_cd),
+                        contentDescription = null,
                         modifier = Modifier.size(START_ICON),
                     )
                 }
@@ -276,7 +277,12 @@ fun ModePickerSheet(
                 modifier = Modifier
                     .fillMaxWidth()
                     .heightIn(min = Tokens.space8 + Tokens.space4)
-                    .clickable(enabled = enabled, role = Role.RadioButton) { onSelect(profile) }
+                    .selectable(
+                        selected = profile == selected,
+                        enabled = enabled,
+                        role = Role.RadioButton,
+                        onClick = { onSelect(profile) },
+                    )
                     .padding(horizontal = Tokens.inset, vertical = Tokens.space2),
                 verticalAlignment = Alignment.CenterVertically,
             ) {

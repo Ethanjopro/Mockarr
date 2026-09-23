@@ -16,13 +16,13 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
-import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
@@ -34,6 +34,9 @@ import dev.mockarr.core.model.LatLng
 import dev.mockarr.core.model.MapCamera
 import dev.mockarr.core.model.OffRoadSpan
 import dev.mockarr.core.model.Waypoint
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.withTimeoutOrNull
 import org.maplibre.android.camera.CameraPosition
 import org.maplibre.android.camera.CameraUpdateFactory
 import org.maplibre.android.maps.MapLibreMap
@@ -135,6 +138,7 @@ fun MockarrMap(
     modifier: Modifier = Modifier,
 ) {
     val context = LocalContext.current
+    val mapContentDescription = stringResource(R.string.map_cd)
     val currentOnTap by rememberUpdatedState(onMapTap)
     val currentOnWaypointTap by rememberUpdatedState(onWaypointTap)
     val currentOnWaypointDrag by rememberUpdatedState(onWaypointDrag)
@@ -159,6 +163,9 @@ fun MockarrMap(
     val mapView = remember {
         MapView(context).apply {
             onCreate(null)
+            // MapLibre sets its own "Showing a Map created with MapLibre…" on the view,
+            // which beats Compose semantics on the AndroidView: override it here.
+            contentDescription = mapContentDescription
             getMapAsync { libreMap ->
                 libreMap.moveCamera(
                     CameraUpdateFactory.newLatLngZoom(FALLBACK_CENTER.toMapLibre(), FALLBACK_ZOOM),
@@ -269,8 +276,7 @@ fun MockarrMap(
 
     // The map view is a bare Android view to the accessibility tree: name it and
     // say where the gesture-free path is (the sheet's rows).
-    val mapDescription = stringResource(R.string.map_cd)
-    AndroidView(factory = { mapView }, modifier = modifier.semantics { contentDescription = mapDescription })
+    AndroidView(factory = { mapView }, modifier = modifier)
 
     // One-shot cold-start restore, skipped if the user already panned away.
     LaunchedEffect(map) {
@@ -323,7 +329,7 @@ fun MockarrMap(
         if (flatBuildingMaxZoom == null) {
             flatBuildingMaxZoom = loadedStyle.getLayer(FLAT_BUILDING_LAYER)?.maxZoom
         }
-        applyMapMode(loadedStyle, map, threeDimensional, flatBuildingMaxZoom)
+        applyMapMode(loadedStyle, map, threeDimensional, flatBuildingMaxZoom, animateCamera)
     }
 
     // Theme switches re-tint the live layers in place; a style reload rebuilds them.
@@ -410,7 +416,20 @@ fun MockarrMap(
     LaunchedEffect(map, cameraCommand) {
         val libreMap = map ?: return@LaunchedEffect
         val command = cameraCommand ?: return@LaunchedEffect
-        applyCameraCommand(libreMap, command, FitPadding(density, currentBottomObstruction), animateCamera)
+        val obstruction = currentBottomObstruction
+        applyCameraCommand(libreMap, command, FitPadding(density, obstruction), animateCamera)
+        // A route loaded from Saved routes is framed while the sheet it was opened
+        // from is still up; the sheet then drops to its peek. When the overlay shrinks
+        // right after a fit, frame again for the room the user actually has.
+        if (command is CameraCommand.FitRoute) {
+            val shrank = withTimeoutOrNull(REFIT_WINDOW_MILLIS) {
+                snapshotFlow { currentBottomObstruction }.first { it < obstruction }
+            }
+            if (shrank != null) {
+                delay(SHEET_SETTLE_MILLIS)
+                applyCameraCommand(libreMap, command, FitPadding(density, currentBottomObstruction), animateCamera)
+            }
+        }
     }
 
     // Follow eases the camera to each fix. The zoom floor applies only when
@@ -446,6 +465,10 @@ private const val GLOW_Z15 = 18f
 private const val GLOW_Z19 = 34f
 private const val FOLLOW_MIN_ZOOM = 15.0
 private const val LATITUDE_BUCKETS_PER_DEGREE = 2
+
+// How long after a fit a collapsing sheet still earns a refit, and how long it takes to settle.
+private const val REFIT_WINDOW_MILLIS = 1_500L
+private const val SHEET_SETTLE_MILLIS = 400L
 private const val FOLLOW_EASE_MILLIS = 900
 private const val KEEP_IN_VIEW_MARGIN = 0.2f
 private const val KEEP_IN_VIEW_EASE_MILLIS = 400
@@ -475,6 +498,7 @@ private fun applyMapMode(
     map: MapLibreMap?,
     threeDimensional: Boolean,
     flatBuildingOriginalMaxZoom: Float?,
+    animate: Boolean,
 ) {
     val visibility = if (threeDimensional) Property.VISIBLE else Property.NONE
     style.layers.filterIsInstance<FillExtrusionLayer>().forEach { layer ->
@@ -495,11 +519,10 @@ private fun applyMapMode(
         !threeDimensional && tilt > 0.0 -> 0.0
         else -> return
     }
-    libreMap.animateCamera(
-        CameraUpdateFactory.newCameraPosition(
-            CameraPosition.Builder(libreMap.cameraPosition).tilt(targetTilt).build(),
-        ),
+    val update = CameraUpdateFactory.newCameraPosition(
+        CameraPosition.Builder(libreMap.cameraPosition).tilt(targetTilt).build(),
     )
+    if (animate) libreMap.animateCamera(update) else libreMap.moveCamera(update)
 }
 
 private fun setUpLayers(style: Style, density: Float, palette: MapPalette) {

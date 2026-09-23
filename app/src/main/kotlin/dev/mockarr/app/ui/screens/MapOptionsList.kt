@@ -58,6 +58,7 @@ fun OptionSwitchRow(
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
+        Spacer(Modifier.width(Tokens.space3))
         Switch(checked = checked, onCheckedChange = null)
     }
 }

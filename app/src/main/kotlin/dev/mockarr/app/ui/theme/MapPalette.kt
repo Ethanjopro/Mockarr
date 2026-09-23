@@ -1,6 +1,7 @@
 package dev.mockarr.app.ui.theme
 
 import androidx.compose.runtime.Immutable
+import java.util.Locale
 
 /**
  * Every colour the map layers, marker bitmaps, wait chips and route
@@ -43,7 +44,9 @@ data class MapPalette(
             val red = (argb ushr RED_SHIFT) and CHANNEL_MASK
             val green = (argb ushr GREEN_SHIFT) and CHANNEL_MASK
             val blue = argb and CHANNEL_MASK
-            return "rgba($red,$green,$blue,${"%.3f".format(alpha)})"
+            // Locale.ROOT: a German or French device would otherwise write "1,000" and
+            // MapLibre would reject every map colour (critique, session 40).
+            return "rgba($red,$green,$blue,${String.format(Locale.ROOT, "%.3f", alpha)})"
         }
 
         private const val ALPHA_SHIFT = 24

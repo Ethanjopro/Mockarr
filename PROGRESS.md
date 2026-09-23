@@ -1820,3 +1820,53 @@ road-centred circle, and no red buttons at all.
   - End drive → hold → Stop holding
 - **Note for next time:** a `settings put` just before `emu.sh kill` doesn't persist. Reset
   font scale and night mode after the reboot, not before.
+
+### 2026-09-22 — Session 40b (`/impeccable critique everything` → 16 fixes on sight)
+- **Critique, run dual-agent.**
+  - **A (design review):** mockarr_test, 57 screenshots, light / dark / font scale 1.3 /
+    landscape.
+  - **B:** the detector plus a static scan. The detector exited 0 with `[]` because it is
+    web-only and reads 0 of the 59 `.kt` files; the static scan was the substitute evidence.
+  - **Score: 27/40** (Aug 30: 28/40). Snapshot in `.impeccable/critique/`.
+- **Open issues for Ethan (all need his call):**
+  - P1: finishing a drive clears its route
+  - P1: TalkBack on the map (stop popover outside the a11y tree; stop actions without gestures
+    only in the builder list)
+  - P2: builder density
+  - P2: the start-from jump and notification Stop semantics are unstated
+  - P2: landscape / window sizes
+- **Fixed on sight** (verified on mockarr_test):
+  - **Locale bug:** `MapPalette.css()` used the device locale, so German / French devices got
+    `rgba(…,1,000)` and MapLibre dropped every map colour. Now `Locale.ROOT`, with
+    `MapPaletteCssTest`.
+  - **Map description:** MapLibre's own description on the `MapView` beat Compose semantics on
+    the `AndroidView`, so the description is now set on the view.
+    - Verified: the ui dump shows ours.
+    - `map_cd` is corrected: it now names search + Add stop and Hold at map centre as the
+      gesture-free paths.
+  - **Mode picker:** `selectable`. Verified: the Drive row reads `checked=true`.
+  - **Setup "!":** says "Not done".
+  - **Start while locating:** keeps its label.
+  - **One-stop builder hint:** it claimed Start is in the builder and that it holds. It now reads
+    "Or tap Done, then Start, to drive here from where you are" (verified: Done → Start → "Go
+    here from your real location?").
+  - **Saved-route load:**
+    - The sheet collapses once per framing (a `rememberSaveable` seq guard).
+    - `MockarrMap` refits a `FitRoute` if the bottom obstruction shrinks within 1.5 s.
+    - Verified: all 3 stops sit above the card.
+    - The first attempt, deferring the fit while the map was covered, did nothing: the handoff
+      lands after the pop.
+  - **Nudged holds:** become `HoldSource.PIN`, so the band no longer says "Holding at
+    destination" after a nudge.
+  - **Band:** 3 lines, so at 1.3 it shows "…won't move your location" in full.
+  - **Switch and slider rows:** a `space3` gap before the control, so "Slow playback…" no longer
+    touches its switch.
+  - **3D tilt:** respects Remove animations.
+  - **RTL:** `autoMirrored` on back, chevron, undo and redo.
+  - **Icons:** `ic_delete` in the builder stop list. The Mock location tile and Setup step
+    showed a "verified" check glyph beside "Not set up"; they now use `ic_place`, and
+    `ic_pin_check` is deleted.
+  - **Strings:** the default route name comes from resources; 3 dead strings are removed.
+- **Process notes:**
+  - The verifier's `back` at the map root finishes the Activity. Don't end a probe with `back`.
+  - `tab Settings` sometimes stops on the expanded sheet. Tap "All settings" explicitly.
