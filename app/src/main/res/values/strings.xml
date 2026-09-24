@@ -18,14 +18,17 @@
     <string name="strip_paused">Paused</string>
     <string name="strip_stopping">Stopping…</string>
     <string name="strip_waiting">Waiting at stop %1$d · %2$s</string>
+    <string name="strip_waiting_at">Waiting at %1$s · %2$s</string>
     <string name="strip_waiting_destination">Waiting at destination · %1$s</string>
     <string name="strip_skip_wait">Skip wait</string>
     <string name="strip_offroad_pause">Leaving the road · %1$s</string>
     <string name="strip_waiting_spoken">Waiting at stop %1$d</string>
+    <string name="strip_waiting_at_spoken">Waiting at %1$s</string>
     <string name="strip_waiting_destination_spoken">Waiting at destination</string>
     <string name="strip_offroad_spoken">Leaving the road</string>
     <string name="strip_move_here_cd">Move it to the map centre</string>
     <string name="stat_set_wait_stop_cd">Set wait at stop %1$d</string>
+    <string name="stat_set_wait_named_cd">Set wait at %1$s</string>
     <string name="stat_set_wait_destination_cd">Set wait at the destination</string>
     <string name="strip_holding_at">Holding at %1$s</string>
     <string name="strip_holding_destination">Holding at destination</string>
@@ -104,7 +107,7 @@
     <string name="thumbstick_cd">Move held location</string>
 
     <!-- Map: dialogs -->
-    <string name="dialog_wait_title">Wait at this stop</string>
+    <string name="dialog_wait_title">Wait at %1$s</string>
     <string name="dialog_wait_body">Playback will pause here before continuing.</string>
     <string name="dialog_wait_minutes">%1$d min</string>
     <string name="dialog_wait_custom">Custom minutes</string>
@@ -146,8 +149,10 @@
     <string name="row_start_from_me">My location</string>
     <string name="row_start_from_me_cd">Start from your real location</string>
     <string name="row_start_choice_title">Start from</string>
-    <string name="row_start_choice_help_hold">Held spot drives from where you are holding. Start of route jumps straight to the first stop.</string>
-    <string name="row_start_choice_help_me">My location drives from where you really are. Start of route jumps straight to the first stop.</string>
+    <string name="row_start_choice_help_hold">Held spot drives in from where you\'re holding, %1$s away, and leaves your route as it is. Start of route jumps straight to the first stop.</string>
+    <string name="row_start_choice_help_me">My location drives in from where you really are, %1$s away, and leaves your route as it is. Start of route jumps straight to the first stop.</string>
+    <string name="row_start_choice_far_hold">Your held spot is %1$s from the first stop, too far to drive in. Start of route jumps straight there.</string>
+    <string name="row_start_choice_far_me">Your real location is %1$s from the first stop, too far to drive in. Start of route jumps straight there.</string>
     <string name="mode_picker_title">Travel mode</string>
     <string name="mode_locked">Not available in this build</string>
     <string name="builder_done">Done</string>
@@ -321,9 +326,8 @@
     <string name="notification_action_resume">Resume</string>
     <string name="notification_time_left">%1$s left</string>
     <string name="notification_paused">paused</string>
-    <string name="notification_waiting">waiting</string>
     <string name="notification_chip_paused">Paused</string>
-    <string name="notification_separator">" · "</string>
+    <string name="separator">" · "</string>
     <string name="error_mock_not_selected">Mockarr isn\'t selected as the mock location app — open the Setup checklist.</string>
     <string name="error_mock_start">Could not start mocking: %1$s</string>
     <string name="error_mock_permission">Mocking needs the location permission (Android requires it for background use): %1$s</string>

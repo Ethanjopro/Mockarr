@@ -45,7 +45,6 @@ import dev.mockarr.app.ui.rememberFormatter
 import dev.mockarr.app.ui.theme.MapPopover
 import dev.mockarr.app.ui.theme.MockarrTheme
 import dev.mockarr.app.ui.theme.Tokens
-import dev.mockarr.app.ui.tripSeconds
 import dev.mockarr.core.model.DistanceUnits
 import dev.mockarr.core.model.Route
 
@@ -288,15 +287,18 @@ internal fun stopFractions(route: Route?): List<Float> {
     return lengths.runningReduce(Double::plus).dropLast(1).map { (it / total).toFloat() }
 }
 
-/** The loaded route's Distance · Duration · Stops, or null when nothing is loaded. */
+/**
+ * The loaded route's Distance · Duration · Stops, or null when nothing is loaded. The
+ * duration is [plannedSeconds], the drive's own estimate — the Time left it opens on.
+ */
 @Composable
-internal fun recordCells(state: MapViewModel.UiState, units: DistanceUnits): List<StatCell>? {
+internal fun recordCells(state: MapViewModel.UiState, plannedSeconds: Double?, units: DistanceUnits): List<StatCell>? {
     val route = state.route ?: return null
     val formatter = rememberFormatter()
-    val seconds = route.durationSeconds * state.trafficFactor + route.waypointWaitsSeconds.sum()
+    val placeholder = stringResource(R.string.stat_placeholder)
     return listOf(
         StatCell(stringResource(R.string.stat_distance), formatter.distance(route.distanceMeters, units)),
-        StatCell(stringResource(R.string.stat_duration), formatter.duration(tripSeconds(seconds))),
+        StatCell(stringResource(R.string.stat_duration), plannedSeconds?.let(formatter::duration) ?: placeholder),
         StatCell(stringResource(R.string.stat_stops), state.waypoints.size.toString()),
     )
 }

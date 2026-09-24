@@ -36,6 +36,9 @@ class SavedRoutesRepository(
                 offRoadSpansJson = route.offRoadSpans
                     .takeIf { it.isNotEmpty() }
                     ?.let { json.encodeToString(it) },
+                waypointNamesJson = route.waypointNames
+                    .takeIf { names -> names.any { it != null } }
+                    ?.let { json.encodeToString(it) },
             ),
         )
 
@@ -61,6 +64,10 @@ class SavedRoutesRepository(
         val spans = entity.offRoadSpansJson
             ?.let { runCatching { json.decodeFromString<List<OffRoadSpan>>(it) }.getOrNull() }
             .orEmpty()
+        val names = entity.waypointNamesJson
+            ?.let { runCatching { json.decodeFromString<List<String?>>(it) }.getOrNull() }
+            ?.takeIf { it.size == waypoints.size }
+            .orEmpty()
         return Route(
             points = points,
             legs = json.decodeFromString<List<RouteLeg>>(entity.legsJson),
@@ -70,17 +77,10 @@ class SavedRoutesRepository(
             snappedWaypoints = waypoints,
             waypointWaitsSeconds = waits,
             offRoadSpans = spans,
+            waypointNames = names,
         )
     }
 
     fun profileOf(entity: SavedRouteEntity): RoutingProfile =
         RoutingProfile.fromNameOrDefault(entity.profile)
-
-    /** Driving time plus every stop's wait — what the builder quoted when the route was saved. */
-    fun totalDurationSeconds(entity: SavedRouteEntity): Double {
-        val waits = entity.waypointWaitsJson
-            ?.let { runCatching { json.decodeFromString<List<Int>>(it) }.getOrNull() }
-            .orEmpty()
-        return entity.durationSeconds + waits.sum()
-    }
 }

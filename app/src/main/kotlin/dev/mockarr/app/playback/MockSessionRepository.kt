@@ -65,9 +65,22 @@ class MockSessionRepository @Inject constructor() {
 
     /**
      * The drive being played, so a map that opens mid-drive (a new Activity,
-     * a recreation) can draw it; null outside a drive.
+     * a recreation) can draw it; null outside a drive. [route] is what the engine
+     * drives; [planned] is the user's route, which a drive-in (from a held spot or
+     * the real location) leads into without becoming part of it.
      */
-    data class LiveDrive(val route: Route, val profile: RoutingProfile, val saved: Boolean)
+    data class LiveDrive(
+        val route: Route,
+        val profile: RoutingProfile,
+        val saved: Boolean,
+        val planned: Route = route,
+    ) {
+        /** Waypoints the drive added in front of [planned]: 1 for a drive-in's origin, else 0. */
+        val stopOffset: Int get() = (route.legs.size - planned.legs.size).coerceAtLeast(0)
+
+        /** Driven waypoint [index] as an index into [planned] (-1 for a drive-in's origin). */
+        fun plannedIndex(index: Int): Int = index - stopOffset
+    }
 
     private val _liveDrive = MutableStateFlow<LiveDrive?>(null)
     val liveDrive: StateFlow<LiveDrive?> = _liveDrive.asStateFlow()
@@ -96,6 +109,8 @@ class MockSessionRepository @Inject constructor() {
         val resumeFrom: SimulationEngine.ResumePoint? = null,
         /** The route is in Saved routes as-is (so a map adopting the drive won't offer Save). */
         val saved: Boolean = false,
+        /** The user's route when [route] leads into it from somewhere else (a drive-in); null = the same. */
+        val planned: Route? = null,
     )
 
     private var pendingSession: PendingSession? = null
@@ -123,8 +138,9 @@ class MockSessionRepository @Inject constructor() {
         profile: RoutingProfile,
         resumeFrom: SimulationEngine.ResumePoint? = null,
         saved: Boolean = false,
+        planned: Route? = null,
     ) {
-        pendingSession = PendingSession(route, profile, resumeFrom, saved)
+        pendingSession = PendingSession(route, profile, resumeFrom, saved, planned)
     }
 
     fun pause() {

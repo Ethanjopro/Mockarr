@@ -8,6 +8,8 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dev.mockarr.app.playback.MockSessionRepository
+import dev.mockarr.app.playback.plannedDriveSeconds
+import dev.mockarr.app.playback.trafficFactorAt
 import dev.mockarr.app.ui.RouteHandoff
 import dev.mockarr.app.ui.map.CameraCommand
 import dev.mockarr.app.ui.map.wobbleRadiusOf
@@ -29,7 +31,7 @@ import dev.mockarr.core.routing.RouteProvider
 import dev.mockarr.core.routing.RoutingException
 import dev.mockarr.core.routing.StraightLineRouteProvider
 import dev.mockarr.core.routing.stitchOffRoad
-import dev.mockarr.core.simulation.TrafficModel
+import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -37,6 +39,8 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.flow.filterNotNull
@@ -47,7 +51,6 @@ import kotlinx.coroutines.flow.updateAndGet
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withTimeoutOrNull
-import java.time.LocalDateTime
 import javax.inject.Inject
 import kotlin.coroutines.resume
 
@@ -98,12 +101,31 @@ class MapViewModel @Inject constructor(
     /** Selection, pending Move and Start choice — reset on every stop edit. */
     val interaction = MapInteraction { it in _uiState.value.waypoints.indices }
 
+    /**
+     * The loaded route's duration, worked out as its drive will work it out (traffic,
+     * waits, off-road pauses): the card quotes the Time left the drive opens on.
+     */
+    val plannedSeconds: StateFlow<Double?> = combine(
+        _uiState.map { it.route to it.trafficFactor }.distinctUntilChanged(),
+        settingsRepository.settings,
+    ) { (route, traffic), settings -> route?.let { plannedDriveSeconds(it, settings, traffic) } }
+        .distinctUntilChanged()
+        .stateIn(viewModelScope, SharingStarted.Eagerly, null)
+
+    // The state the builder opened on: ✕ → "Discard changes" puts it back whole, so a saved
+    // route stays saved and Drive again still offers itself (undoing step by step refetched it).
+    private var builderEntry: UiState? = null
+
+    // Stop names already looked up (a moved-back or undone stop needs no second call), and in flight.
+    private val stopNameCache = mutableMapOf<LatLng, String>()
+    private val stopsBeingNamed = mutableSetOf<LatLng>()
+
     private val _builderMode = MutableStateFlow(false)
     val builderMode: StateFlow<Boolean> = _builderMode.asStateFlow()
 
     /**
      * The last search pick, pinned on the map until it becomes a stop, a new pick replaces it,
-     * or the builder closes.
+     * Back dismisses it, a drive starts, or the builder closes.
      */
     private val _searchedPlace = MutableStateFlow<GeocodingResult?>(null)
     val searchedPlace: StateFlow<GeocodingResult?> = _searchedPlace.asStateFlow()
@@ -180,7 +202,8 @@ class MapViewModel @Inject constructor(
             sessionRepository.liveDrive.filterNotNull().collect { drive ->
                 val state = _uiState.value
                 if (state.route == null && state.waypoints.isEmpty()) {
-                    loadRoute(RouteHandoff.LoadedRoute(drive.route, drive.profile, drive.saved), frame = false)
+                    // The user's route, never a drive-in's lead-in leg.
+                    loadRoute(RouteHandoff.LoadedRoute(drive.planned, drive.profile, drive.saved), frame = false)
                 }
             }
         }
@@ -228,16 +251,45 @@ class MapViewModel @Inject constructor(
                 .distinctUntilChanged()
                 .collect { _uiState.update { s -> s.copy(trafficFactor = settingsRepository.currentTrafficFactor()) } }
         }
+        // Every stop gets a name a person would use: searched stops arrive with one; a
+        // tapped (or dragged, or pre-v5 saved) stop is looked up once it settles.
+        viewModelScope.launch {
+            @OptIn(FlowPreview::class)
+            _uiState.map { state -> state.waypoints.filter { it.name == null }.map { it.position } }
+                .distinctUntilChanged()
+                .debounce(STOP_NAME_DEBOUNCE_MILLIS)
+                .collect { unnamed ->
+                    for (position in unnamed) {
+                        if (!stopsBeingNamed.add(position)) continue
+                        launch {
+                            val name = stopNameCache[position]
+                                ?: geocoder.reverse(position).getOrNull()?.routeEndpointName()
+                            stopsBeingNamed.remove(position)
+                            if (name != null) {
+                                stopNameCache[position] = name
+                                _uiState.update { it.withStopName(position, name) }
+                            }
+                        }
+                    }
+                }
+        }
     }
 
     /**
      * A placed stop means building: an idle tap opens the builder by itself.
      * [atStart] inserts a new origin instead (the held position, chosen at Play
-     * time) and leaves the builder as it is.
+     * time) and leaves the builder as it is. [name] comes with a searched place;
+     * an unnamed stop is looked up once it settles.
      */
-    fun addWaypoint(point: LatLng, atStart: Boolean = false) {
-        if (!atStart) _builderMode.value = true
-        mutate { if (atStart) listOf(Waypoint(point)) + it else it + Waypoint(point) }
+    fun addWaypoint(point: LatLng, atStart: Boolean = false, name: String? = null) {
+        if (!atStart && !_builderMode.value) {
+            // This tap opens an editing session: it starts here, like Edit route's.
+            history.clear()
+            builderEntry = _uiState.value
+            _builderMode.value = true
+        }
+        val stop = Waypoint(point, name = name)
+        mutate { if (atStart) listOf(stop) + it else it + stop }
     }
 
     /** Undo, or redo with [redo]: the builder's history, one step. */
@@ -309,7 +361,7 @@ class MapViewModel @Inject constructor(
         _uiState.update { state ->
             state.copy(
                 waypoints = updated,
-                route = if (refetch) state.route else state.route?.withWaits(updated),
+                route = if (refetch) state.route else state.route?.withStops(updated),
                 isRouting = state.isRouting && updated.isNotEmpty(),
             )
         }
@@ -348,13 +400,19 @@ class MapViewModel @Inject constructor(
      * once this returns, so the name never changes under the user.
      */
     suspend fun suggestName(): RouteNameParts? {
-        val route = _uiState.value.route ?: return null
+        val state = _uiState.value
+        val route = state.route ?: return null
         return withTimeoutOrNull(NAME_TIMEOUT_MILLIS) {
-            val start = geocoder.reverse(route.points.first()).getOrNull()
+            // The stops' own names first ("Reunion Tower to Dallas Museum of Art"); the end
+            // is still looked up, for its city.
             val end = geocoder.reverse(route.points.last()).getOrNull()
-            val startName = start?.routeEndpointName() ?: return@withTimeoutOrNull null
-            val endName = end?.routeEndpointName() ?: return@withTimeoutOrNull null
-            RouteNameParts(startName, endName, end.city)
+            val startName = state.waypoints.firstOrNull()?.name
+                ?: geocoder.reverse(route.points.first()).getOrNull()?.routeEndpointName()
+                ?: return@withTimeoutOrNull null
+            val endName = state.waypoints.lastOrNull()?.name
+                ?: end?.routeEndpointName()
+                ?: return@withTimeoutOrNull null
+            RouteNameParts(startName, endName, end?.city)
         }
     }
 
@@ -403,40 +461,52 @@ class MapViewModel @Inject constructor(
     }
 
     /**
-     * A search result: pin the exact point, centre it in the visible map at a
-     * zoom for its kind, and open the builder. The band's *Add stop* (or a tap
-     * on the pin) drops the stop there; a map tap elsewhere still places freely.
+     * A search result: pin the exact point and centre it in the visible map at a
+     * zoom for its kind — nothing more. Looking a place up doesn't start editing
+     * the route (critique, session 42): the band's *Add stop* (or a tap on the
+     * pin) drops the stop there and opens the builder. Null takes the pin away.
      */
-    fun selectSearchResult(result: GeocodingResult) {
+    fun selectSearchResult(result: GeocodingResult?) {
         _searchedPlace.value = result
+        if (result == null) return
         _cameraCommand.value = CameraCommand.Center(
             target = result.position,
             zoom = searchZoomFor(result.kind),
             seq = cameraSeq++,
             padded = true,
         )
-        _builderMode.value = true
     }
 
-    /** The searched place becomes a stop at its geocoded coordinate; the pin leaves with it. */
+    /** The searched place becomes a stop at its geocoded coordinate, under its name; the pin leaves with it. */
     fun addSearchedPlaceAsStop() {
         val place = _searchedPlace.value ?: return
         _searchedPlace.value = null
-        addWaypoint(place.position)
+        addWaypoint(place.position, name = place.name)
     }
 
-    /** Builder mode: map taps place stops; the sheet shows the route under construction. */
-    fun setBuilderMode(active: Boolean) {
+    /**
+     * Builder mode: map taps place stops; the sheet shows the route under construction.
+     * Closing with [keepEdits] off is ✕ → "Discard changes": everything returns to the
+     * moment the builder opened.
+     */
+    fun setBuilderMode(active: Boolean, keepEdits: Boolean = true) {
         interaction.reset()
         if (!active) {
             history.clear()
             _searchedPlace.value = null
+            val entry = builderEntry
+            builderEntry = null
+            if (!keepEdits && entry != null) {
+                routeJob?.cancel()
+                _uiState.value = entry.copy(isRouting = false, savedName = null)
+            }
         }
         // Edit route after a drive ended elsewhere left the route half off-screen.
         if (active && !_builderMode.value) {
             // Undo (and ✕ "Discard changes") covers this editing session only, not
             // edits made before it (a wait set from the popover, the held-spot lead-in).
             history.clear()
+            builderEntry = _uiState.value
             val route = _uiState.value.route
             if (route != null) _cameraCommand.value = CameraCommand.EnsureVisible(route.points, seq = cameraSeq++)
         }
@@ -456,6 +526,7 @@ class MapViewModel @Inject constructor(
      */
     private fun loadRoute(loaded: RouteHandoff.LoadedRoute, frame: Boolean) {
         _builderMode.value = false
+        builderEntry = null
         _searchedPlace.value = null
         history.clear()
         routeJob?.cancel()
@@ -516,7 +587,7 @@ class MapViewModel @Inject constructor(
                     // usual case right after dropping a stop) must survive.
                     val route = _uiState.updateAndGet {
                         it.copy(
-                            route = stitched.withWaits(it.waypoints),
+                            route = stitched.withStops(it.waypoints),
                             routeIsFallback = false,
                             routedFor = positions,
                             isRouting = false,
@@ -530,7 +601,7 @@ class MapViewModel @Inject constructor(
                     val straight = straightLine.route(positions, current.profile).getOrNull()
                     val fallback = _uiState.updateAndGet {
                         it.copy(
-                            route = straight?.withWaits(it.waypoints),
+                            route = straight?.withStops(it.waypoints),
                             routeIsFallback = true,
                             routedFor = positions,
                             isRouting = false,
@@ -551,13 +622,15 @@ class MapViewModel @Inject constructor(
         const val LOCATE_ZOOM = 15.0
         const val LOCATE_REFINE_METERS = 50.0
         const val NAME_TIMEOUT_MILLIS = 4_000L
+
+        /** A dragged stop is looked up once it has settled, not on every frame. */
+        const val STOP_NAME_DEBOUNCE_MILLIS = 600L
     }
 }
 
 private const val LOCATE_TIMEOUT_MILLIS = 5_000L
 
-/** The same stops with [index] relocated to [point]; its wait is kept. Out-of-range → unchanged. */
-/** [route] as the loaded state: its snapped stops (or its ends) with their waits, nothing in flight. */
+/** [route] as the loaded state: its snapped stops (or its ends) with their waits and names, nothing in flight. */
 internal fun MapViewModel.UiState.withLoadedRoute(
     route: Route,
     profile: RoutingProfile,
@@ -566,8 +639,9 @@ internal fun MapViewModel.UiState.withLoadedRoute(
 ): MapViewModel.UiState {
     val anchors = route.snappedWaypoints.ifEmpty { listOf(route.points.first(), route.points.last()) }
     val waits = route.waypointWaitsSeconds
+    val names = route.waypointNames
     return copy(
-        waypoints = anchors.mapIndexed { i, p -> Waypoint(p, waits.getOrElse(i) { 0 }) },
+        waypoints = anchors.mapIndexed { i, p -> Waypoint(p, waits.getOrElse(i) { 0 }, names.getOrNull(i)) },
         profile = profile,
         route = route,
         routeIsFallback = false,
@@ -579,8 +653,12 @@ internal fun MapViewModel.UiState.withLoadedRoute(
     )
 }
 
+/**
+ * The same stops with [index] relocated to [point]; its wait is kept, its name isn't (a
+ * moved "Reunion Tower" is somewhere else now, and is looked up again). Out-of-range → unchanged.
+ */
 internal fun List<Waypoint>.movedTo(index: Int, point: LatLng): List<Waypoint> =
-    if (index !in indices) this else mapIndexed { i, w -> if (i == index) w.copy(position = point) else w }
+    if (index !in indices) this else mapIndexed { i, w -> if (i == index) w.copy(position = point, name = null) else w }
 
 // Permission is gated by the UI before callers reach this.
 @SuppressLint("MissingPermission")
@@ -609,13 +687,7 @@ private suspend fun LocationManager.currentReal(): Location? {
     return current ?: quickLastKnown()
 }
 
-private fun SettingsRepository.currentTrafficFactor(): Double =
-    if (settings.value.trafficSimEnabled) {
-        val now = LocalDateTime.now()
-        TrafficModel.congestionFactor(now.dayOfWeek, now.hour, now.minute)
-    } else {
-        1.0
-    }
+private fun SettingsRepository.currentTrafficFactor(): Double = trafficFactorAt(settings.value)
 
 /** Why the road route is missing; the strip words it (never the exception text). */
 enum class RoutingError { NO_ROUTE, BUSY, OFFLINE, OTHER }
@@ -649,10 +721,23 @@ internal fun displayWaypoints(
     }
 }
 
-/** Attaches per-waypoint waits to a route when counts align; otherwise unchanged. */
-internal fun Route.withWaits(waypoints: List<Waypoint>): Route =
+/** Attaches per-waypoint waits and names to a route when counts align; otherwise unchanged. */
+internal fun Route.withStops(waypoints: List<Waypoint>): Route =
     if (waypoints.size == legs.size + 1) {
-        copy(waypointWaitsSeconds = waypoints.map { it.waitSeconds })
+        copy(
+            waypointWaitsSeconds = waypoints.map { it.waitSeconds },
+            waypointNames = if (waypoints.any { it.name != null }) waypoints.map { it.name } else emptyList(),
+        )
     } else {
         this
     }
+
+/**
+ * A finished name lookup: every still-unnamed stop at [position] takes [name], and the
+ * route carries it (the drive, the notification and a save read names from the route).
+ */
+internal fun MapViewModel.UiState.withStopName(position: LatLng, name: String): MapViewModel.UiState {
+    if (waypoints.none { it.position == position && it.name == null }) return this
+    val named = waypoints.map { if (it.position == position && it.name == null) it.copy(name = name) else it }
+    return copy(waypoints = named, route = route?.withStops(named))
+}

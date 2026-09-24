@@ -24,6 +24,15 @@ class MovedWaypointTest {
     }
 
     @Test
+    fun `a moved stop drops its name so it is looked up again`() {
+        val named = stops.mapIndexed { i, w -> if (i == 1) w.copy(name = "Reunion Tower") else w }
+
+        val moved = named.movedTo(1, LatLng(48.6, 2.6))
+
+        assertEquals(null, moved[1].name)
+    }
+
+    @Test
     fun `ignores an index that no longer exists`() {
         assertSame(stops, stops.movedTo(3, LatLng(0.0, 0.0)))
         assertSame(stops, stops.movedTo(-1, LatLng(0.0, 0.0)))

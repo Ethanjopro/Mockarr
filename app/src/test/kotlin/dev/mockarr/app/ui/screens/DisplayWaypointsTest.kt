@@ -93,12 +93,12 @@ class DisplayWaypointsTest {
     }
 
     @Test
-    fun `withWaits attaches aligned waits and ignores misaligned ones`() {
+    fun `withStops attaches aligned waits and ignores misaligned ones`() {
         val leg = RouteLeg(listOf(100.0), listOf(10.0))
         val base = route(snapped).copy(legs = listOf(leg))
         val waypoints = listOf(raw[0].copy(waitSeconds = 60), raw[1])
 
-        assertEquals(listOf(60, 0), base.withWaits(waypoints).waypointWaitsSeconds)
-        assertEquals(emptyList(), base.withWaits(waypoints + raw[0]).waypointWaitsSeconds)
+        assertEquals(listOf(60, 0), base.withStops(waypoints).waypointWaitsSeconds)
+        assertEquals(emptyList(), base.withStops(waypoints + raw[0]).waypointWaitsSeconds)
     }
 }

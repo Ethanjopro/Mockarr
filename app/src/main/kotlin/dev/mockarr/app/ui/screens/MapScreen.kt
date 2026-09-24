@@ -88,6 +88,7 @@ import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
@@ -148,11 +149,14 @@ fun MapLayer(
     val latestFix by sessionViewModel.latestFix.collectAsStateWithLifecycle()
     val dwell by sessionViewModel.dwell.collectAsStateWithLifecycle()
     val playbackState by sessionViewModel.playbackState.collectAsStateWithLifecycle()
+    val drive by sessionViewModel.drive.collectAsStateWithLifecycle()
     val focusManager = LocalFocusManager.current
     val context = LocalContext.current
     val haptic = LocalHapticFeedback.current
 
     val playing = session is MockSessionState.Playing
+    // While driving, the line is what the engine drives: a drive-in's lead-in, then the route.
+    val shownRoute = if (playing) drive?.route ?: state.route else state.route
     // A drive's end keeps the route (Ethan, 2026-09-22) and Start offers to drive it
     // again — however it ended: arrival, End drive, or Stop in the notification while
     // the app was away. Hosted here, not in MapScreen — this layer stays composed
@@ -194,9 +198,9 @@ fun MapLayer(
     val startObstructionPx = with(LocalDensity.current) { panelWidth?.roundToPx() ?: 0 }
     MockarrMap(
         waypoints = displayed,
-        routePoints = state.route?.points.orEmpty(),
+        routePoints = shownRoute?.points.orEmpty(),
         routeIsFallback = state.routeIsFallback,
-        offRoadSpans = state.route?.offRoadSpans.orEmpty(),
+        offRoadSpans = shownRoute?.offRoadSpans.orEmpty(),
         onMapTap = { point ->
             focusManager.clearFocus()
             // Dismiss-first: with the search open or a stop selected, a map tap
@@ -263,7 +267,7 @@ fun MapLayer(
         playbackPosition = if (playing) latestFix?.position else null,
         playbackCenter = if (playing) latestFix?.truePosition else null,
         // Off-road spans split the drawn line into pieces, and line-progress is per piece.
-        playbackProgress = if (playing && state.route?.offRoadSpans.isNullOrEmpty()) {
+        playbackProgress = if (playing && shownRoute?.offRoadSpans.isNullOrEmpty()) {
             playbackState.progressOrZero.toFloat()
         } else {
             null
@@ -310,6 +314,10 @@ fun MapScreen(
         onPauseOrDispose { }
     }
     val units by viewModel.units.collectAsStateWithLifecycle()
+    val formatter = rememberFormatter()
+    val plannedSeconds by viewModel.plannedSeconds.collectAsStateWithLifecycle()
+    val drive by sessionViewModel.drive.collectAsStateWithLifecycle()
+    val preparingDrive by sessionViewModel.preparing.collectAsStateWithLifecycle()
     val searchState by searchViewModel.state.collectAsStateWithLifecycle()
     // Collected in a coroutine, not as state: reading the live camera at composition
     // re-ran this whole screen on every frame of a pan and all through a followed drive.
@@ -330,14 +338,18 @@ fun MapScreen(
     val focusManager = LocalFocusManager.current
     val scope = rememberCoroutineScope()
     var routeAwaitingPermission by remember { mutableStateOf<Route?>(null) }
+    var originAwaitingPermission by remember { mutableStateOf<LatLng?>(null) }
     val permissionLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions(),
     ) { grants ->
         val route = routeAwaitingPermission
+        val from = originAwaitingPermission
         routeAwaitingPermission = null
+        originAwaitingPermission = null
         if (grants[Manifest.permission.ACCESS_FINE_LOCATION] == true && route != null) {
             viewModel.setFollowCamera(true)
-            sessionViewModel.play(route, viewModel.uiState.value.profile, viewModel.uiState.value.routeSaved)
+            val ui = viewModel.uiState.value
+            sessionViewModel.play(route, ui.profile, ui.routeSaved, from)
         } else {
             sessionViewModel.reportPermissionDenied()
         }
@@ -374,21 +386,28 @@ fun MapScreen(
         }
     }
 
-    fun requestPlay(route: Route) {
+    // [from]: a drive-in origin (held spot / real location), driven into the route, never added to it.
+    fun requestPlay(route: Route, from: LatLng? = null) {
         val needed = context.missingMockPermissions()
         if (needed.isEmpty()) {
             // No pin teardown here: the service hands Holding → Playing off
             // without ever touching the test providers.
             viewModel.setFollowCamera(true)
-            sessionViewModel.play(route, viewModel.uiState.value.profile, viewModel.uiState.value.routeSaved)
+            val ui = viewModel.uiState.value
+            sessionViewModel.play(route, ui.profile, ui.routeSaved, from)
         } else {
             routeAwaitingPermission = route
+            originAwaitingPermission = from
             permissionLauncher.launch(needed.toTypedArray())
         }
     }
 
     val playing = session is MockSessionState.Playing
     val holding = session as? MockSessionState.Holding
+    // Progress is measured along what the engine drives: a drive-in's lead-in, then the route.
+    val drivenRoute = if (playing) drive?.route ?: state.route else state.route
+    // A pin left from a search goes once a drive starts; after it, the band is the drive's.
+    LaunchedEffect(playing) { if (playing) viewModel.selectSearchResult(null) }
     var showSaveDialog by rememberSaveable { mutableStateOf(false) }
     // Save resolves the place name first (spinner), then opens the dialog with
     // it — the field never changes under the user (Ethan, session 17).
@@ -493,15 +512,22 @@ fun MapScreen(
         }
     }
 
+    val startChoiceOrigin = pendingRealStart ?: holding?.position
+    val startChoiceMeters = startChoiceRoute?.let { pending ->
+        startChoiceOrigin?.let { GeoMath.distanceMeters(it, pending.points.first()) }
+    }
     val startChoice = startChoiceRoute?.let { pendingRoute ->
         val realStart = pendingRealStart
         StartChoice(
             origin = if (realStart != null) StartOrigin.MY_LOCATION else StartOrigin.HELD_SPOT,
+            distance = startChoiceMeters?.let { formatter.distance(it, units) },
+            tooFar = (startChoiceMeters ?: 0.0) > DRIVE_IN_MAX_METERS,
+            // A drive-in, not a new first stop (Ethan, 2026-09-24): the route stays as it
+            // is, so a saved route stays saved and Drive again starts from the same place.
             onFromOrigin = {
                 viewModel.interaction.clearStartChoice()
                 val origin = realStart ?: currentHold()?.position
-                origin?.let { viewModel.addWaypoint(it, atStart = true) }
-                playWhenRouteReady = true
+                if (origin != null) requestPlay(pendingRoute, from = origin) else requestPlay(pendingRoute)
             },
             onFromRouteStart = {
                 viewModel.interaction.clearStartChoice()
@@ -524,12 +550,18 @@ fun MapScreen(
             searchViewModel.clearResults()
         }
     }
-    BackHandler(enabled = searchOpen || startChoice != null || movingWaypoint != null || selectedWaypoint != null) {
+    val pinBack = searchedPlace != null && !playing
+    BackHandler(
+        enabled = searchOpen || startChoice != null || movingWaypoint != null || selectedWaypoint != null || pinBack,
+    ) {
         when {
             searchOpen -> {
                 focusManager.clearFocus()
                 searchViewModel.clearResults()
             }
+            // A looked-up place leaves the way it came: the pin and its band go, nothing else changes.
+            pinBack && movingWaypoint == null && selectedWaypoint == null && startChoice == null ->
+                viewModel.selectSearchResult(null)
             startChoice != null -> {
                 viewModel.interaction.clearStartChoice()
             }
@@ -581,10 +613,8 @@ fun MapScreen(
             changesOnly = true,
             onDiscard = {
                 showDiscard = false
-                // History starts when the builder opens: undoing all of it is exactly
-                // "the stops as they were" (a brand-new route empties, as before).
-                while (viewModel.canUndo.value) viewModel.stepHistory(redo = false)
-                viewModel.setBuilderMode(false)
+                // Back to the moment the builder opened — stops, route, and its Saved state.
+                viewModel.setBuilderMode(false, keepEdits = false)
             },
             onDismiss = { showDiscard = false },
         )
@@ -609,6 +639,7 @@ fun MapScreen(
     }
     waitEditIndex?.let { index ->
         WaypointWaitDialog(
+            stop = stopName(index, state.waypoints.size, state.waypoints.getOrNull(index)?.name),
             initialSeconds = state.waypoints.getOrNull(index)?.waitSeconds ?: 0,
             onConfirm = { seconds ->
                 viewModel.setWaypointWait(index, seconds)
@@ -680,13 +711,14 @@ fun MapScreen(
         scope.launch { snackbarHostState.showSnackbar(savedTemplate.format(name)) }
     }
     ReleaseSnackbar(session = session, snackbarHostState = snackbarHostState)
-    val hapticStops = remember(state.route) { stopFractions(state.route) }
+    val hapticStops = remember(drivenRoute) { stopFractions(drivenRoute) }
     SessionHaptics(session = session, playbackState = playbackState, stops = hapticStops)
     val expanded = sheetState.currentValue == SheetValue.Expanded
     // Back collapses an expanded sheet, then leaves building like Done (the stops
     // stay) — before, it left the app, and on API 26–30 the unsaved route with it.
     // Transient states (search, start choice, a Move, a selection) keep their own handler.
-    val transientBack = searchOpen || startChoice != null || movingWaypoint != null || selectedWaypoint != null
+    val transientBack =
+        searchOpen || startChoice != null || movingWaypoint != null || selectedWaypoint != null || pinBack
     BackHandler(enabled = !transientBack && (expanded || (builderMode && !playing))) {
         if (expanded) scope.launch { sheetState.partialExpand() } else viewModel.setBuilderMode(false)
     }
@@ -732,10 +764,11 @@ fun MapScreen(
         playing = playing,
         builder = builderMode,
         setupReady = setupStatus?.readyToMock != false,
-        movingStop = movingWaypoint?.let { stopName(it, state.waypoints.size) },
+        movingStop = movingWaypoint?.let { stopName(it, state.waypoints.size, state.waypoints.getOrNull(it)?.name) },
         arrived = arrived,
         searchedPlace = searchedPlace?.name,
         interrupted = interrupted,
+        drive = drive,
     )
     var lastStrip by remember { mutableStateOf(nextStrip ?: StripModel("", StripTone.Neutral, hidden = true)) }
     val strip = nextStrip ?: lastStrip
@@ -935,7 +968,7 @@ fun MapScreen(
                                     state = state,
                                     again = state.route != null && drivenPoints === state.route?.points,
                                     choice = startChoice,
-                                    locating = locatingStart,
+                                    locating = locatingStart || preparingDrive,
                                     onPickMode = { showModePicker = true },
                                     onStart = ::playOrAskStart,
                                     onEditRoute = { viewModel.setBuilderMode(true) },
@@ -1088,10 +1121,10 @@ fun MapScreen(
                         onDismiss = { speedPopupOpen = false },
                     )
                 }
-                val recordCells = recordCells(state, units)
+                val recordCells = recordCells(state, plannedSeconds, units)
                 val stats: (@Composable () -> Unit)? = when {
                     playing -> {
-                        { PlaybackStats(playbackState, state.route, units, sessionViewModel) }
+                        { PlaybackStats(playbackState, drivenRoute, units, sessionViewModel) }
                     }
                     recordCells != null -> {
                         { StatTrio(cells = recordCells) }
@@ -1123,15 +1156,17 @@ fun MapScreen(
                         null
                     }
                     // Skip ends only this drive's wait at the stop; the route's saved wait is untouched.
-                    val skipWait: () -> Unit = {
-                        val dwelling = playbackState as? PlaybackState.Dwelling
-                        if (dwelling != null) sessionViewModel.setWaypointWait(dwelling.waypointIndex, 0)
-                    }
+                    val skipWait: () -> Unit = sessionViewModel::skipWait
                     StatCard(
                         strip = shownStrip,
                         stats = stats,
                         statsActions = if (playing) {
-                            upcomingWaitActions(state, playbackState, options.stayAtDestination) { waitEditIndex = it }
+                            upcomingWaitActions(
+                                state = state,
+                                drive = drive,
+                                playbackState = playbackState,
+                                stayAtDestination = options.stayAtDestination,
+                            ) { waitEditIndex = it }
                         } else {
                             emptyList()
                         },
@@ -1363,22 +1398,41 @@ private fun StopRow(
             StopDisc(number = index + 1, isStart = isStart, isEnd = isEnd)
             Spacer(Modifier.width(Tokens.space3))
             Column(modifier = Modifier.weight(1f)) {
-                Text(text = stopName(index, count), style = MaterialTheme.typography.bodyLarge)
-                if (waypoint.waitSeconds > 0) {
-                    Text(
-                        text = stringResource(
-                            R.string.sheet_waits,
-                            rememberFormatter().duration(waypoint.waitSeconds.toDouble()),
-                        ),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MockarrTheme.colors.hold,
-                    )
+                Text(
+                    text = stopName(index, count, waypoint.name),
+                    style = MaterialTheme.typography.bodyLarge,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+                // A named stop still says which one it is (Start / Stop 2 / Destination), then its wait.
+                val role = if (waypoint.name != null) stopName(index, count) else null
+                val wait = if (waypoint.waitSeconds > 0) {
+                    stringResource(R.string.sheet_waits, rememberFormatter().duration(waypoint.waitSeconds.toDouble()))
+                } else {
+                    null
+                }
+                if (role != null || wait != null) {
+                    Row {
+                        val secondary = MaterialTheme.typography.bodySmall
+                        role?.let { Text(it, style = secondary, color = MaterialTheme.colorScheme.onSurfaceVariant) }
+                        if (role != null && wait != null) {
+                            Text(
+                                stringResource(R.string.separator),
+                                style = secondary,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                        wait?.let { Text(it, style = secondary, color = MockarrTheme.colors.hold) }
+                    }
                 }
             }
             IconButton(onClick = onRemove) {
                 Icon(
                     painterResource(R.drawable.ic_delete),
-                    contentDescription = stringResource(R.string.sheet_remove_stop_named, stopName(index, count)),
+                    contentDescription = stringResource(
+                        R.string.sheet_remove_stop_named,
+                        stopName(index, count, waypoint.name),
+                    ),
                 )
             }
         }
@@ -1467,6 +1521,9 @@ internal fun startsNear(routeStart: LatLng, origin: LatLng): Boolean =
     GeoMath.distanceMeters(routeStart, origin) <= START_FROM_HOLD_METERS
 
 private const val START_FROM_HOLD_METERS = 30.0
+
+/** Farther than this (straight line) is no drive-in: it would be a trip of its own. */
+private const val DRIVE_IN_MAX_METERS = 80_000.0
 private const val SHEET_MAX_FRACTION = 0.6f
 private const val STOP_LIST_VISIBLE_ROWS = 3
 private const val STOP_LIST_PEEK_ROWS = 3.5f

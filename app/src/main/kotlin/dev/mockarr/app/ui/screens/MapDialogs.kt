@@ -43,6 +43,8 @@ private const val PERCENT = 100
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 internal fun WaypointWaitDialog(
+    /** The stop's name ("Reunion Tower", or "Stop 2" before it has one): the title says where. */
+    stop: String,
     initialSeconds: Int,
     onConfirm: (seconds: Int) -> Unit,
     onDismiss: () -> Unit,
@@ -59,7 +61,7 @@ internal fun WaypointWaitDialog(
     val chosenMinutes = selectedPreset ?: customMinutes
 
     MockarrDialog(
-        title = stringResource(R.string.dialog_wait_title),
+        title = stringResource(R.string.dialog_wait_title, stop),
         onDismissRequest = onDismiss,
         confirm = DialogAction(
             label = stringResource(R.string.dialog_set),

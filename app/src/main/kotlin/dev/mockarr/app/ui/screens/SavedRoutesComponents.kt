@@ -58,7 +58,6 @@ import dev.mockarr.app.ui.theme.MockarrDialog
 import dev.mockarr.app.ui.theme.MockarrTheme
 import dev.mockarr.app.ui.theme.Pill
 import dev.mockarr.app.ui.theme.Tokens
-import dev.mockarr.app.ui.tripSeconds
 import dev.mockarr.core.data.SavedRouteEntity
 import dev.mockarr.core.model.DistanceUnits
 import dev.mockarr.core.model.LatLng
@@ -122,7 +121,7 @@ fun SavedRouteCard(
                         text = stringResource(
                             R.string.routes_card_meta,
                             formatter.distance(entity.distanceMeters, units),
-                            formatter.duration(tripSeconds(totalDurationSeconds)),
+                            formatter.duration(totalDurationSeconds),
                         ),
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,

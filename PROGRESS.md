@@ -2107,3 +2107,60 @@ Scored **26/40** (trend 28 → 27 → 26). The drop comes from bugs the new flow
   - Which START FROM option is filled.
   - A search pick forcing the builder.
 - **Observed, not changed:** with the sheet expanded, builder tools float over the stops. The camera deliberately doesn't refit when an overlay grows (MockarrMap comment).
+
+### 2026-09-24 — Session 43 (Ethan's critique calls: drive-in, one duration, named stops, search)
+Implements the four decisions from the session-42 critique (memory
+`critique-2026-09-24-decisions`): START FROM keeps "Start of route" filled.
+
+- **Held spot / My location is a drive-in.**
+  - `DriveInPlanner` routes origin → the route's first point the builder's way (off-road
+    stitching, straight-line fallback), adds terrain, and `Route.withLeadIn` (core:model,
+    `RouteLeadInTest`) joins it in front.
+  - The route's stops never change. `LiveDrive` carries `planned` + `stopOffset`, so the
+    driven index maps back to the user's stop: the wait chip, Skip wait (`skipWait()`, the
+    engine index), TalkBack wait actions, and a map that adopts a drive mid-way (the planned
+    route, never the lead-in).
+  - While playing, the map, progress ticks and haptics read the driven route.
+  - START FROM's help says how far away the origin is. Beyond 80 km straight-line the pill
+    is disabled ("too far to drive in").
+  - The one-stop "Go here from…" dialogs still make the origin stop 1: there, it is what
+    creates the route that Drive again repeats.
+- **One duration.**
+  - `estimatedDriveSeconds` (core:simulation, `DriveEstimateTest`) is cruise time at the
+    engine's segment speeds plus every dwell.
+  - `driveParams` / `trafficFactorAt` (app `playback/DriveParams.kt`) are the one recipe
+    for the service, the stat card (`MapViewModel.plannedSeconds`) and the saved list.
+  - The engine's random speed spread is rescaled so the trip total holds. The first Time
+    left now equals the quote.
+  - `tripSeconds` is gone; everything goes through `Formatter.duration`, so sub-minute
+    trips read "35 s".
+- **Named stops.**
+  - `Waypoint.name` and `Route.waypointNames`; saved-route column `waypointNamesJson`
+    (Room **v5**, `MIGRATION_4_5`, verified over the existing v4 data).
+  - Searched stops keep the result name. Tapped, moved or old saved stops are
+    reverse-geocoded after a 600 ms settle (`routeEndpointName`, cached).
+  - Shown in the stop row (name, then role · wait), the band ("Waiting at X · 0:56"), the
+    notification title (it replaces "Driving · waiting"), the wait dialog title, TalkBack
+    labels, and the suggested route name.
+- **Search doesn't open the builder.** A pick pins and centres the place; Add stop (or a
+  tap on the pin) adds it and opens the builder. Back and a drive start dismiss the pin.
+- **Fixed on sight.**
+  - "Arrived" stuck on after an arrival. My session-42 tick guard skipped the end-of-drive
+    relaunch, so the band never cleared; it now finishes its remaining window.
+  - ✕ → Discard changes restores the builder's entry snapshot, so a saved route stays
+    Saved and Drive again stays offered. Undoing step by step had refetched the route and
+    dropped Saved.
+  - The start-from caption is uppercased in the UI locale.
+  - A misplaced `movedTo` KDoc.
+  - CLAUDE.md said schema v3.
+- **Verified on mockarr_test:**
+  - migration over saved routes
+  - list 11 min = card 11 min
+  - loaded stops named ("Reunion Boulevard / Start", "North Harwood Street / Stop 2 ·
+    Waits 1 min")
+  - held-spot drive-in (0.8 mi away): lead-in drawn and driven, 4.0 mi total; band and
+    notification "Waiting at North Harwood Street"; Skip wait; arrival kept 3 stops, 2.5 mi,
+    Saved
+  - search pick: pin and band with no builder; Back dismisses; Add stop gives "Dallas
+    Museum of Art" as stop 4; Discard changes returns to Saved
+  - My location 1,532 mi away: pill disabled with the too-far line

@@ -5,6 +5,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.CustomAccessibilityAction
 import dev.mockarr.app.R
+import dev.mockarr.app.playback.MockSessionRepository
 import dev.mockarr.core.model.PlaybackState
 import dev.mockarr.core.model.progressOrZero
 
@@ -20,26 +21,34 @@ import dev.mockarr.core.model.progressOrZero
 @Composable
 internal fun upcomingWaitActions(
     state: MapViewModel.UiState,
+    drive: MockSessionRepository.LiveDrive?,
     playbackState: PlaybackState?,
     stayAtDestination: Boolean,
     onSetWait: (Int) -> Unit,
 ): List<CustomAccessibilityAction> {
     val progress = playbackState.progressOrZero
-    val fractions = remember(state.route) { stopFractions(state.route) }
+    // Progress runs along what the engine drives, so the stops' positions come from it too;
+    // a drive-in's origin shifts its waypoint count by one.
+    val driven = drive?.route ?: state.route
+    val offset = drive?.stopOffset ?: 0
+    val fractions = remember(driven) { stopFractions(driven) }
     val last = state.waypoints.lastIndex
     val stopLabel = stringResource(R.string.stat_set_wait_stop_cd)
+    val namedLabel = stringResource(R.string.stat_set_wait_named_cd)
     val destinationLabel = stringResource(R.string.stat_set_wait_destination_cd)
     return (1..last).mapNotNull { index ->
         val destination = index == last
-        val ahead = if (destination) true else fractions.getOrNull(index - 1)?.let { it > progress } ?: false
-        when {
-            !ahead -> null
-            destination && stayAtDestination -> null
-            destination -> CustomAccessibilityAction(destinationLabel) {
-                onSetWait(index)
-                true
-            }
-            else -> CustomAccessibilityAction(stopLabel.format(index + 1)) {
+        val ahead = destination || (fractions.getOrNull(index + offset - 1)?.let { it > progress } ?: false)
+        val name = state.waypoints[index].name
+        val label = when {
+            name != null -> namedLabel.format(name)
+            destination -> destinationLabel
+            else -> stopLabel.format(index + 1)
+        }
+        if (!ahead || (destination && stayAtDestination)) {
+            null
+        } else {
+            CustomAccessibilityAction(label) {
                 onSetWait(index)
                 true
             }

@@ -1,9 +1,11 @@
 package dev.mockarr.app.ui.screens
 
+import android.os.SystemClock
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -48,19 +50,25 @@ internal fun rememberArrived(session: MockSessionState, outcome: () -> DriveOutc
     // The last arrival already shown: an End drive after an earlier arrival used to
     // replay "Arrived at …" (the tick stayed above 0 for the rest of the session).
     var shownTick by remember { mutableStateOf(0) }
+    var arrivedUntil by remember { mutableLongStateOf(0L) }
     val haptic = LocalHapticFeedback.current
     // Keyed on playing too: a new drive starting mid-window drops the flag.
     LaunchedEffect(arrivedTick, playing) {
-        when {
-            playing -> arrived = false
-            arrivedTick > shownTick -> {
-                shownTick = arrivedTick
-                if (!arrived) haptic.performHapticFeedback(HapticFeedbackType.Confirm)
-                arrived = true
-                delay(ARRIVED_MILLIS)
-                arrived = false
-            }
-            // A drive that ended without a new arrival: no band.
+        if (playing) {
+            arrived = false
+            return@LaunchedEffect
+        }
+        if (arrivedTick > shownTick) {
+            shownTick = arrivedTick
+            if (!arrived) haptic.performHapticFeedback(HapticFeedbackType.Confirm)
+            arrived = true
+            arrivedUntil = SystemClock.uptimeMillis() + ARRIVED_MILLIS
+        }
+        // The end-of-drive chain (engine ended → hold) relaunches this once more within the
+        // window: the band finishes its time. (Skipping that relaunch left "Arrived" up for good.)
+        if (arrived) {
+            delay((arrivedUntil - SystemClock.uptimeMillis()).coerceAtLeast(0L))
+            arrived = false
         }
     }
     return arrived

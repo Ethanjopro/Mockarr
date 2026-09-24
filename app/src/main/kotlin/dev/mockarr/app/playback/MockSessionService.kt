@@ -36,8 +36,6 @@ import dev.mockarr.core.routing.Geocoder
 import dev.mockarr.core.simulation.Jitter
 import dev.mockarr.core.simulation.SimClock
 import dev.mockarr.core.simulation.SimulationEngine
-import dev.mockarr.core.simulation.SimulationParams
-import dev.mockarr.core.simulation.TrafficModel
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -48,7 +46,6 @@ import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeoutOrNull
-import java.time.LocalDateTime
 import javax.inject.Inject
 import kotlin.random.Random
 
@@ -216,7 +213,10 @@ class MockSessionService : Service() {
         progressLayout = progressLayoutOf(route, pending.profile)
         val engine = buildSimulationEngine(route, pending)
         activeDrive = ActiveDrive(route, pending.profile, engine)
-        repository.playingStarted(engine, MockSessionRepository.LiveDrive(route, pending.profile, pending.saved))
+        repository.playingStarted(
+            engine,
+            MockSessionRepository.LiveDrive(route, pending.profile, pending.saved, planned = pending.planned ?: route),
+        )
         saveSnapshot()
         launchSessionJob(engine)
     }
@@ -227,22 +227,9 @@ class MockSessionService : Service() {
     ): SimulationEngine {
         val settings = settingsRepository.settings.value
         // Congestion factor is captured once at playback start, never mid-route.
-        val trafficFactor = if (settings.trafficSimEnabled) {
-            val now = LocalDateTime.now()
-            TrafficModel.congestionFactor(now.dayOfWeek, now.hour, now.minute)
-        } else {
-            1.0
-        }
         return SimulationEngine(
             route = route,
-            params = SimulationParams(
-                tickHz = settings.tickHz,
-                durationScale = trafficFactor,
-                speedVarianceFraction = SPEED_VARIANCE_FRACTION,
-                offRoadPauseSeconds = if (settings.offRoadWalkEnabled) OFF_ROAD_PAUSE_SECONDS else 0,
-                jitterEnabled = settings.jitterEnabled,
-                jitterSigmaMeters = settings.jitterSigmaMeters,
-            ),
+            params = driveParams(settings, trafficFactorAt(settings)),
             clock = SimClock { SystemClock.elapsedRealtimeNanos() },
             random = Random(SystemClock.elapsedRealtimeNanos()),
             // New drives start at 1× (MockSessionViewModel.play resets it); a resumed drive brings its own pace.
@@ -494,13 +481,9 @@ class MockSessionService : Service() {
         val parts = listOfNotNull(
             formatter.distanceProgress(routeDistanceMeters * progress, routeDistanceMeters, units),
             timeLeft?.let { getString(R.string.notification_time_left, it) },
-            when {
-                paused -> getString(R.string.notification_paused)
-                state is PlaybackState.Dwelling -> getString(R.string.notification_waiting)
-                else -> null
-            },
+            if (paused) getString(R.string.notification_paused) else null,
         )
-        val text = parts.joinToString(getString(R.string.notification_separator))
+        val text = parts.joinToString(getString(R.string.separator))
 
         val toggleAction = if (paused) {
             NotificationCompat.Action(0, getString(R.string.notification_action_resume), resumeIntent)
@@ -512,11 +495,14 @@ class MockSessionService : Service() {
         // left, lock-screen card whose bar has the legs as segments and the stops
         // as points. Older versions ignore the style and keep the plain bar.
         val chip = if (paused) getString(R.string.notification_chip_paused) else timeLeft
-        val profile = activeDrive?.profile ?: repository.liveDrive.value?.profile ?: RoutingProfile.DRIVING
+        val drive = repository.liveDrive.value
+        val profile = activeDrive?.profile ?: drive?.profile ?: RoutingProfile.DRIVING
+        // "Driving" / "Walking" / "Cycling", as the app's band says it (the header already names
+        // Mockarr) — or, at a stop, where: "Waiting at Reunion Tower", not "Driving · waiting".
+        val title = waitingTitle(resources, state, drive) ?: getString(profile.movingLabelRes())
         return NotificationCompat.Builder(this, CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_stat_pin)
-            // "Driving" / "Walking" / "Cycling", as the app's band says it (the header already names Mockarr).
-            .setContentTitle(getString(profile.movingLabelRes()))
+            .setContentTitle(title)
             .setContentText(text)
             .setOngoing(true)
             .setOnlyAlertOnce(true)
@@ -563,8 +549,6 @@ class MockSessionService : Service() {
         private const val HOLD_TICK_MILLIS = 1_000L
         private const val HOLD_SETTLE_MILLIS = 1_500L
         private const val HOLD_NAME_TIMEOUT_MILLIS = 5_000L
-        private const val SPEED_VARIANCE_FRACTION = 0.08
-        private const val OFF_ROAD_PAUSE_SECONDS = 2
         private const val HOLD_ACCURACY_METERS = 5.0
         private const val HOLD_ALTITUDE_METERS = 35.0
         private const val WAKE_LOCK_TAG = "mockarr:playback"

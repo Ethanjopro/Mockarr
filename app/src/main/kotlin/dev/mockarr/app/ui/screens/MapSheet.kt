@@ -38,7 +38,10 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dev.mockarr.app.R
 import dev.mockarr.app.playback.HoldSource
+import dev.mockarr.app.playback.MockSessionRepository
 import dev.mockarr.app.playback.MockSessionState
+import dev.mockarr.app.playback.StopRef
+import dev.mockarr.app.playback.stopRef
 import dev.mockarr.app.ui.Motion.fadeThrough
 import dev.mockarr.app.ui.map.formatChipCountdown
 import dev.mockarr.app.ui.rememberFormatter
@@ -255,8 +258,10 @@ internal fun stripFor(
     arrived: Boolean = false,
     searchedPlace: String? = null,
     interrupted: SessionSnapshot? = null,
+    /** The drive in flight, for naming the stop it waits at. */
+    drive: MockSessionRepository.LiveDrive? = null,
 ): StripModel? = when {
-    playing -> playbackStrip(playbackState, state.profile)
+    playing -> playbackStrip(playbackState, state.profile, drive)
     movingStop != null -> StripModel(
         text = stringResource(R.string.strip_moving_stop, movingStop),
         tone = StripTone.Neutral,
@@ -325,22 +330,32 @@ private fun RoutingError.stripRes(): Int = when (this) {
 }
 
 @Composable
-private fun playbackStrip(playbackState: PlaybackState?, profile: RoutingProfile): StripModel = when (playbackState) {
+private fun playbackStrip(
+    playbackState: PlaybackState?,
+    profile: RoutingProfile,
+    drive: MockSessionRepository.LiveDrive?,
+): StripModel = when (playbackState) {
     is PlaybackState.Stopping -> StripModel(stringResource(R.string.strip_stopping), StripTone.Neutral)
     is PlaybackState.Paused -> StripModel(stringResource(R.string.strip_paused), StripTone.Hold)
     is PlaybackState.Dwelling -> {
         // Whole seconds rounded up, like the chip over the marker — the two never disagree.
         val countdown = formatChipCountdown(ceil(playbackState.waitSecondsLeft).toInt())
-        val text = when {
-            playbackState.isDestination -> stringResource(R.string.strip_waiting_destination, countdown)
-            // A synthesized off-road pause carries no waypoint (index -1).
-            playbackState.waypointIndex < 0 -> stringResource(R.string.strip_offroad_pause, countdown)
-            else -> stringResource(R.string.strip_waiting, playbackState.waypointIndex + 1, countdown)
+        // A synthesized off-road pause carries no waypoint (index -1); a stop is named as the user
+        // knows it — "Waiting at Reunion Tower", or its number in their route, never the drive's.
+        val stop = playbackState.waypointIndex
+            .takeIf { it >= 0 }
+            ?.let { drive.stopRef(it, playbackState.isDestination) }
+        val text = when (stop) {
+            null -> stringResource(R.string.strip_offroad_pause, countdown)
+            is StopRef.Named -> stringResource(R.string.strip_waiting_at, stop.name, countdown)
+            StopRef.Destination -> stringResource(R.string.strip_waiting_destination, countdown)
+            is StopRef.Numbered -> stringResource(R.string.strip_waiting, stop.number, countdown)
         }
-        val spoken = when {
-            playbackState.isDestination -> stringResource(R.string.strip_waiting_destination_spoken)
-            playbackState.waypointIndex < 0 -> stringResource(R.string.strip_offroad_spoken)
-            else -> stringResource(R.string.strip_waiting_spoken, playbackState.waypointIndex + 1)
+        val spoken = when (stop) {
+            null -> stringResource(R.string.strip_offroad_spoken)
+            is StopRef.Named -> stringResource(R.string.strip_waiting_at_spoken, stop.name)
+            StopRef.Destination -> stringResource(R.string.strip_waiting_destination_spoken)
+            is StopRef.Numbered -> stringResource(R.string.strip_waiting_spoken, stop.number)
         }
         // A real stop's wait can be skipped; the off-road pause is part of the drive itself.
         val skippable = playbackState.waypointIndex >= 0 && playbackState.waitSecondsLeft > SKIP_MIN_SECONDS

@@ -8,6 +8,7 @@ import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import dev.mockarr.app.R
+import dev.mockarr.app.playback.DriveInPlanner
 import dev.mockarr.app.playback.DriveOutcome
 import dev.mockarr.app.playback.MockSessionRepository
 import dev.mockarr.app.playback.MockSessionService
@@ -20,8 +21,10 @@ import dev.mockarr.core.model.Route
 import dev.mockarr.core.model.RoutingProfile
 import dev.mockarr.core.model.SessionSnapshot
 import dev.mockarr.core.simulation.SimulationEngine
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
@@ -35,6 +38,7 @@ class MockSessionViewModel @Inject constructor(
     private val repository: MockSessionRepository,
     private val snapshotStore: SessionSnapshotStore,
     private val routeHandoff: RouteHandoff,
+    private val driveIn: DriveInPlanner,
 ) : ViewModel() {
 
     init {
@@ -51,7 +55,7 @@ class MockSessionViewModel @Inject constructor(
         }
     }
 
-    /** The stop playback is waiting at right now, with a whole-second countdown. */
+    /** The stop playback is waiting at right now (an index into the user's route), with a whole-second countdown. */
     data class DwellInfo(val waypointIndex: Int, val secondsLeft: Int)
 
     val session = repository.session
@@ -59,12 +63,22 @@ class MockSessionViewModel @Inject constructor(
     val latestFix = repository.latestFix
     val error = repository.error
 
+    /** The drive in flight: what the engine drives and the user's route it plays; null between drives. */
+    val drive: StateFlow<MockSessionRepository.LiveDrive?> = repository.liveDrive
+
+    private val _preparing = MutableStateFlow(false)
+
+    /** A drive-in is being routed; Start shows its spinner until the drive begins. */
+    val preparing: StateFlow<Boolean> = _preparing.asStateFlow()
+
     /** Emits ~once per second during a dwell (whole-second changes only), else null. */
     val dwell: StateFlow<DwellInfo?> = repository.state
         .map { state ->
+            // Engine indices count a drive-in's origin; the map's stops don't.
+            val offset = repository.liveDrive.value?.stopOffset ?: 0
             (state as? PlaybackState.Dwelling)
-                ?.takeIf { it.waypointIndex >= 0 }
-                ?.let { DwellInfo(it.waypointIndex, ceil(it.waitSecondsLeft).toInt()) }
+                ?.takeIf { it.waypointIndex >= offset }
+                ?.let { DwellInfo(it.waypointIndex - offset, ceil(it.waitSecondsLeft).toInt()) }
         }
         .distinctUntilChanged()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(), null)
@@ -77,13 +91,34 @@ class MockSessionViewModel @Inject constructor(
     /** How the last drive ended, set before the session leaves Playing. */
     val driveOutcome: StateFlow<DriveOutcome?> = repository.driveOutcome
 
-    /** [saved]: the route is in Saved routes as-is, so a map adopting the drive mid-way won't offer Save. */
-    fun play(route: Route, profile: RoutingProfile, saved: Boolean = false) {
+    /**
+     * [saved]: the route is in Saved routes as-is, so a map adopting the drive mid-way won't
+     * offer Save. [from]: drive in from there first (a held spot, the real location) — the
+     * lead-in is routed now and driven in front of [route], which itself stays as it is.
+     */
+    fun play(route: Route, profile: RoutingProfile, saved: Boolean = false, from: LatLng? = null) {
+        if (from == null) {
+            start(route, profile, saved, planned = null)
+            return
+        }
+        if (_preparing.value) return
+        viewModelScope.launch {
+            _preparing.value = true
+            val driven = try {
+                driveIn.leadInto(route, from, profile)
+            } finally {
+                _preparing.value = false
+            }
+            start(driven, profile, saved, planned = route.takeIf { driven !== route })
+        }
+    }
+
+    private fun start(route: Route, profile: RoutingProfile, saved: Boolean, planned: Route?) {
         repository.clearInterrupted()
         // Every new drive starts at real speed (Ethan, 2026-09-22): a 4× left over from
         // the last drive turned a walk into car speed inside a game. Resume keeps its own.
         repository.setSpeedMultiplier(1.0)
-        repository.requestStart(route, profile, saved = saved)
+        repository.requestStart(route, profile, saved = saved, planned = planned)
         startService(Intent(context, MockSessionService::class.java).setAction(MockSessionService.ACTION_START))
     }
 
@@ -155,8 +190,20 @@ class MockSessionViewModel @Inject constructor(
 
     fun setSpeedMultiplier(multiplier: Double) = repository.setSpeedMultiplier(multiplier)
 
-    /** Live-updates one stop's wait on the running engine; a no-op between drives. */
-    fun setWaypointWait(waypointIndex: Int, waitSeconds: Int) = repository.setWaypointWait(waypointIndex, waitSeconds)
+    /**
+     * Live-updates one stop's wait on the running engine; a no-op between drives.
+     * [waypointIndex] is the user's stop; a drive-in shifts the engine's count by one.
+     */
+    fun setWaypointWait(waypointIndex: Int, waitSeconds: Int) {
+        val offset = repository.liveDrive.value?.stopOffset ?: 0
+        repository.setWaypointWait(waypointIndex + offset, waitSeconds)
+    }
+
+    /** Ends the wait the drive is in right now (the band's Skip wait); the stop's saved wait is untouched. */
+    fun skipWait() {
+        val dwelling = repository.state.value as? PlaybackState.Dwelling ?: return
+        repository.setWaypointWait(dwelling.waypointIndex, 0)
+    }
 
     fun consumeError() = repository.consumeError()
 

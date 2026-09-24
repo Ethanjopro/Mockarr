@@ -99,9 +99,16 @@ class RouteGeometry(
         // little (seeded, so tests stay deterministic). Runs before the duration
         // sums below so ETAs match the actual motion.
         if (speedVariance > 0.0 && random != null) {
+            val quoted = cruiseSeconds(segmentSpeeds)
             for (i in segmentSpeeds.indices) {
                 val spread = 1 + speedVariance * (random.nextDouble() * 2 - 1)
                 segmentSpeeds[i] = (segmentSpeeds[i] * spread).coerceIn(MIN_SPEED, MAX_SPEED)
+            }
+            // The spread varies the pace, never the trip: scaled back so the whole drive still
+            // takes what was quoted before it started (a 10 min route opened on "11 min left").
+            val scale = if (quoted > 0.0) cruiseSeconds(segmentSpeeds) / quoted else 1.0
+            for (i in segmentSpeeds.indices) {
+                segmentSpeeds[i] = (segmentSpeeds[i] * scale).coerceIn(MIN_SPEED, MAX_SPEED)
             }
         }
 
@@ -221,6 +228,13 @@ class RouteGeometry(
         if (segLength <= 0.0) return profile[i]
         val t = ((clamped - segStart) / segLength).coerceIn(0.0, 1.0)
         return profile[i] + (profile[i + 1] - profile[i]) * t
+    }
+
+    /** Seconds to cover every segment at [speeds] (index i = points[i]..points[i + 1]). */
+    private fun cruiseSeconds(speeds: DoubleArray): Double {
+        var seconds = 0.0
+        for (i in speeds.indices) seconds += (cumulative[i + 1] - cumulative[i]) / speeds[i]
+        return seconds
     }
 
     fun distanceToVertex(distance: Double, vertexIndex: Int): Double =

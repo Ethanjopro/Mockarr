@@ -479,7 +479,12 @@ each label sits under its own circle. The expanded sheet's detail column is capp
 of the window and scrolls, so the map is never buried. **Start while holding elsewhere**
 does not raise a dialog: the row fade-throughs into a "START FROM" caption over two 56dp
 pills — **Held spot** or **My location** (outlined) · **Start of route** (filled) — and
-returns once one is picked; Back or a map tap cancels. In builder mode the row is ✕ (56dp
+returns once one is picked; Back or a map tap cancels. Held spot / My location is a
+**drive-in** (session 43, Ethan): the lead-in from there to the first stop is routed and
+driven in front of the route, drawn while driving, and never added to it — a saved route
+stays saved and Drive again starts from the same place. The help line under the pills says
+how far away the origin is and that the route stays as it is; beyond 80 km (straight line)
+the drive-in pill is disabled and the line says it's too far to drive in. In builder mode the row is ✕ (56dp
 white circle, hairline) · **Done** (filled pill); Save, Undo, Redo, Reverse and Clear route
 are map pills above the card. While driving the row is replaced by the **Pause pill**,
 which splits into **End drive** (outlined, left) + **Resume** (filled, right) when paused;
@@ -577,13 +582,19 @@ pills lift with it, capped under the top chrome — and the sheet in turn stops 
 under the card — so the trio stays readable while its speed changes and a hold's Stop is
 never buried. The only state with no card is a single
 placed stop ("Building a route") — unless a search pin is up, when the band names the
-place in the accent tone with *Add stop* as its action. With a route loaded (not driving) the **stats block is
+place in the accent tone with *Add stop* as its action. A wait names its stop: "Waiting at
+Reunion Tower · 0:56" (the stop's number in *your* route when it has no name yet), and the
+notification's title says the same. With a route loaded (not driving) the **stats block is
 tappable** — it opens the expanded sheet's stop list (`Role.Button`, "Edit the route");
 the in-drive stats are inert.
 
 ### Stat Trio
 Three equal `weight(1f)` centred columns; Headline value (700, tabular; speed rolls — see
-Motion) over its Label (on-surface-variant). Under it while driving, a 4dp `LinearProgressIndicator` with a
+Motion) over its Label (on-surface-variant). **One duration everywhere** (session 43): the
+card's Duration, the saved list and a drive's opening Time left are the drive's own estimate
+(`estimatedDriveSeconds` — traffic, waits and off-road pauses; the engine's speed spread
+keeps its total), worded by one rule (`Formatter.duration`: whole minutes rounded up, seconds
+under a minute). Under it while driving, a 4dp `LinearProgressIndicator` with a
 `surface-container-highest` track and no stop indicator. Hidden entirely when the numbers
 are undefined (nothing loaded).
 
@@ -639,8 +650,15 @@ are undefined (nothing loaded).
   a small ground-colour dot, its tip on the exact geocoded point of the last search pick,
   over the stop discs and under the mocked location. It centres in the *visible* map
   (between the top chrome and the card/sheet stack), at z17 for a place or address, z16
-  for a street, z13 for a city. Tapping it, or the band's *Add stop*, drops a stop exactly
-  there; it leaves when it becomes a stop, a new pick replaces it, or the builder closes.
+  for a street, z13 for a city. A pick doesn't open the builder (looking a place up isn't
+  editing): tapping the pin, or the band's *Add stop*, drops a stop exactly there, under the
+  place's name, and opens it. The pin leaves when it becomes a stop, a new pick replaces it,
+  Back dismisses it, a drive starts, or the builder closes.
+- **Stop names:** every stop carries a name — a searched place keeps its result's, a tapped
+  stop is reverse-geocoded once it settles (the street for a POI tap, as route titles do).
+  The sheet's stop row shows the name with its role under it ("Stop 2 · Waits 1 min"); the
+  band, the wait dialog ("Wait at Reunion Tower"), TalkBack actions and suggested route
+  names use it; a moved stop is looked up again.
 - **Position:** 7dp `map-position` circle with a 3dp ground-colour ring, on its see-through
   wobble range (see Motion). **Hold pin:** 9dp
   `map-hold-pin` circle ringed in hold ink (`holdPinRing`: `#8A5A00` light, so the amber pin

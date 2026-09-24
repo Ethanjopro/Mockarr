@@ -77,6 +77,7 @@ object AppModule {
                 MockarrDatabase.MIGRATION_1_2,
                 MockarrDatabase.MIGRATION_2_3,
                 MockarrDatabase.MIGRATION_3_4,
+                MockarrDatabase.MIGRATION_4_5,
             )
             .build()
 

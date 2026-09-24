@@ -7,7 +7,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
 
 @Database(
     entities = [SavedRouteEntity::class],
-    version = 4,
+    version = 5,
     exportSchema = false,
 )
 abstract class MockarrDatabase : RoomDatabase() {
@@ -35,6 +35,13 @@ abstract class MockarrDatabase : RoomDatabase() {
         val MIGRATION_3_4 = object : Migration(3, 4) {
             override fun migrate(db: SupportSQLiteDatabase) {
                 db.execSQL("ALTER TABLE saved_routes ADD COLUMN offRoadSpansJson TEXT")
+            }
+        }
+
+        /** v5: stop names (nullable — an old row's stops are named by lookup when it is next loaded). */
+        val MIGRATION_4_5 = object : Migration(4, 5) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE saved_routes ADD COLUMN waypointNamesJson TEXT")
             }
         }
     }

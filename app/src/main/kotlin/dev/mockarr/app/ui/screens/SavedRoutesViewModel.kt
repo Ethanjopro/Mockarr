@@ -5,6 +5,8 @@ import androidx.compose.ui.graphics.asImageBitmap
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
+import dev.mockarr.app.playback.plannedDriveSeconds
+import dev.mockarr.app.playback.trafficFactorAt
 import dev.mockarr.app.ui.RouteHandoff
 import dev.mockarr.app.ui.map.RouteThumbnails
 import dev.mockarr.app.ui.map.ThumbSpec
@@ -29,7 +31,7 @@ class SavedRoutesViewModel @Inject constructor(
     private val repository: SavedRoutesRepository,
     private val routeHandoff: RouteHandoff,
     private val thumbnails: RouteThumbnails,
-    settingsRepository: SettingsRepository,
+    private val settingsRepository: SettingsRepository,
 ) : ViewModel() {
 
     init {
@@ -105,8 +107,17 @@ class SavedRoutesViewModel @Inject constructor(
         ),
     )?.asImageBitmap()
 
-    /** Driving time plus waits, as the builder quoted it. */
-    fun totalDurationSeconds(entity: SavedRouteEntity): Double = repository.totalDurationSeconds(entity)
+    // One estimate per route per visit: decoding a long polyline on every recomposition would stutter the list.
+    private val durations = mutableMapOf<Long, Double>()
+
+    /**
+     * How long the route takes if driven now — the drive's own estimate (traffic, waits,
+     * off-road pauses), so the card here, the map's card and Time left all say the same.
+     */
+    fun totalDurationSeconds(entity: SavedRouteEntity): Double = durations.getOrPut(entity.id) {
+        val settings = settingsRepository.settings.value
+        plannedDriveSeconds(repository.toRoute(entity), settings, trafficFactorAt(settings))
+    }
 
     /** Puts the route on the map; caller navigates to the Map tab. */
     fun load(entity: SavedRouteEntity) {

@@ -31,6 +31,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
@@ -51,9 +52,15 @@ import dev.mockarr.core.model.RoutingProfile
 /** Where a drive can begin when Start is pressed away from the route's first stop. */
 enum class StartOrigin { HELD_SPOT, MY_LOCATION }
 
-/** Start pressed with another origin available: the row splits into these two pills. */
+/**
+ * Start pressed with another origin available: the row splits into these two pills.
+ * [distance] is how far the origin is from the route's start (worded, straight line);
+ * [tooFar] turns the drive-in off — that would be a trip of its own.
+ */
 data class StartChoice(
     val origin: StartOrigin,
+    val distance: String?,
+    val tooFar: Boolean,
     val onFromOrigin: () -> Unit,
     val onFromRouteStart: () -> Unit,
     val onCancel: () -> Unit,
@@ -117,7 +124,7 @@ private fun StartChoiceRow(choice: StartChoice) {
         // cancel too, but nothing said so).
         Box(modifier = Modifier.fillMaxWidth()) {
             Text(
-                text = stringResource(R.string.row_start_choice_title).uppercase(),
+                text = stringResource(R.string.row_start_choice_title).uppercase(LocalConfiguration.current.locales[0]),
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 textAlign = TextAlign.Center,
@@ -134,15 +141,17 @@ private fun StartChoiceRow(choice: StartChoice) {
         ) {
             StartChoicePills(choice)
         }
-        // The consequence, once: one choice drives there, the other jumps — and a jump
-        // is exactly what other apps would see.
+        // The consequence, once: one choice drives in (how far, and that the route stays as it
+        // is), the other jumps — and a jump is exactly what other apps would see.
+        val distance = choice.distance.orEmpty()
         Text(
-            text = stringResource(
-                when (choice.origin) {
-                    StartOrigin.HELD_SPOT -> R.string.row_start_choice_help_hold
-                    StartOrigin.MY_LOCATION -> R.string.row_start_choice_help_me
-                },
-            ),
+            text = when {
+                choice.tooFar && choice.origin == StartOrigin.HELD_SPOT ->
+                    stringResource(R.string.row_start_choice_far_hold, distance)
+                choice.tooFar -> stringResource(R.string.row_start_choice_far_me, distance)
+                choice.origin == StartOrigin.HELD_SPOT -> stringResource(R.string.row_start_choice_help_hold, distance)
+                else -> stringResource(R.string.row_start_choice_help_me, distance)
+            },
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             textAlign = TextAlign.Center,
@@ -159,14 +168,14 @@ private fun RowScope.StartChoicePills(choice: StartChoice) {
         StartOrigin.HELD_SPOT -> OutlinedActionPill(
             label = stringResource(R.string.row_start_from_hold),
             iconRes = R.drawable.ic_stat_pin,
-            enabled = true,
+            enabled = !choice.tooFar,
             onClick = choice.onFromOrigin,
             contentDescription = stringResource(R.string.row_start_from_hold_cd),
         )
         StartOrigin.MY_LOCATION -> OutlinedActionPill(
             label = stringResource(R.string.row_start_from_me),
             iconRes = R.drawable.ic_target,
-            enabled = true,
+            enabled = !choice.tooFar,
             onClick = choice.onFromOrigin,
             contentDescription = stringResource(R.string.row_start_from_me_cd),
         )

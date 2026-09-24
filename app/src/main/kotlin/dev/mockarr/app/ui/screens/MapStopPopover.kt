@@ -52,7 +52,7 @@ internal fun StopPopover(
     val hasWait = waypoint.waitSeconds > 0
     val waitLabel = rememberFormatter().duration(waypoint.waitSeconds.toDouble())
     val stays = stopStays(index, count, stayAtDestination)
-    val groupLabel = stringResource(R.string.stop_popover_cd, stopName(index, count))
+    val groupLabel = stringResource(R.string.stop_popover_cd, stopName(index, count, waypoint.name))
     val waitDescription = when {
         stays -> stringResource(R.string.stop_menu_stays)
         hasWait -> stringResource(R.string.stop_menu_wait_set, waitLabel)
@@ -108,9 +108,11 @@ internal fun StopPopover(
 internal fun stopStays(index: Int, count: Int, stayAtDestination: Boolean): Boolean =
     stayAtDestination && index == count - 1 && count >= 2
 
-/** "Start" / "Stop 2" / "Destination" — the same words the sheet's stop list uses. */
+/** The stop's name, else "Start" / "Stop 2" / "Destination" — the same words the sheet's stop list uses. */
 @Composable
-internal fun stopName(index: Int, count: Int): String = when {
+internal fun stopName(index: Int, count: Int, name: String? = null): String = when {
+    // The place's own name when it has one ("Reunion Tower"); its role otherwise.
+    name != null -> name
     index == 0 -> stringResource(R.string.sheet_start)
     index == count - 1 && count >= 2 -> stringResource(R.string.sheet_destination)
     else -> stringResource(R.string.sheet_stop_n, index + 1)

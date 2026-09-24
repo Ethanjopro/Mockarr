@@ -86,7 +86,8 @@ class RouteGeometryEtaAltitudeTest {
         var identical = true
         for (i in varied.segmentSpeeds.indices) {
             val ratio = varied.segmentSpeeds[i] / base.segmentSpeeds[i]
-            assertTrue(ratio in 0.92..1.08, "segment $i ratio $ratio")
+            // ±8 % spread, then one common rescale that keeps the trip's total.
+            assertTrue(ratio in 0.9..1.1, "segment $i ratio $ratio")
             if (ratio != 1.0) identical = false
         }
         assertFalse(identical, "variance should change at least one segment")
@@ -94,6 +95,8 @@ class RouteGeometryEtaAltitudeTest {
         var expected = 0.0
         for (i in varied.segmentSpeeds.indices) expected += 100.0 / varied.segmentSpeeds[i]
         assertEquals(expected, varied.totalDurationSeconds, 1.0)
+        // ...and the spread changes the pace, not the trip: the quoted total holds.
+        assertEquals(base.totalDurationSeconds, varied.totalDurationSeconds, 0.01)
     }
 
     @Test
