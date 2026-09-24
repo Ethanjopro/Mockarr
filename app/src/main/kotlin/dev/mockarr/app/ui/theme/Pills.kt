@@ -1,5 +1,6 @@
 package dev.mockarr.app.ui.theme
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
@@ -7,12 +8,15 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.text.TextAutoSize
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.takeOrElse
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -86,6 +90,35 @@ fun RowScope.OutlinedActionPill(
     iconRes: Int? = null,
     contentDescription: String? = null,
 ) = OutlinedPill(label, onClick, Modifier.weight(1f), enabled, iconRes, contentDescription)
+
+/**
+ * The compact button, for actions inside rows, lists, the search card, the band and
+ * snackbars. There is no text-only button (Ethan, 2026-09-24: "it should be obvious when
+ * something is clickable that it is a button"): this is an outlined pill, 40dp tall with
+ * a 48dp touch target. By default it has the outline stroke and indigo ink. On a tinted
+ * surface ([ink]: only that surface's own content colour, the band's or the snackbar's)
+ * the outline and label take that ink, so it reads as a button on every tone.
+ */
+@Composable
+fun SmallPill(label: String, onClick: () -> Unit, modifier: Modifier = Modifier, ink: Color = Color.Unspecified) {
+    val content = ink.takeOrElse { MaterialTheme.colorScheme.primary }
+    val stroke = ink.takeOrElse { MaterialTheme.colorScheme.outline }
+    OutlinedButton(
+        onClick = onClick,
+        modifier = modifier,
+        border = BorderStroke(Tokens.hairline, stroke),
+        colors = ButtonDefaults.outlinedButtonColors(contentColor = content),
+        contentPadding = PillPadding,
+    ) {
+        Text(
+            text = label,
+            style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold),
+            maxLines = 1,
+            softWrap = false,
+            overflow = TextOverflow.Ellipsis,
+        )
+    }
+}
 
 private fun Modifier.pillModifier(contentDescription: String?): Modifier {
     val semantics = if (contentDescription != null) {

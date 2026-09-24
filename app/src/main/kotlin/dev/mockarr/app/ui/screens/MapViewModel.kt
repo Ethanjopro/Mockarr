@@ -403,16 +403,15 @@ class MapViewModel @Inject constructor(
         val state = _uiState.value
         val route = state.route ?: return null
         return withTimeoutOrNull(NAME_TIMEOUT_MILLIS) {
-            // The stops' own names first ("Reunion Tower to Dallas Museum of Art"); the end
-            // is still looked up, for its city.
-            val end = geocoder.reverse(route.points.last()).getOrNull()
+            // The stops' own names first ("Reunion Tower to Dallas Museum of Art"); the city
+            // is its own lookup, since the end's address record can name the wrong one.
             val startName = state.waypoints.firstOrNull()?.name
                 ?: geocoder.reverse(route.points.first()).getOrNull()?.routeEndpointName()
                 ?: return@withTimeoutOrNull null
             val endName = state.waypoints.lastOrNull()?.name
-                ?: end?.routeEndpointName()
+                ?: geocoder.reverse(route.points.last()).getOrNull()?.routeEndpointName()
                 ?: return@withTimeoutOrNull null
-            RouteNameParts(startName, endName, end?.city)
+            RouteNameParts(startName, endName, geocoder.city(route.points.last()).getOrNull())
         }
     }
 

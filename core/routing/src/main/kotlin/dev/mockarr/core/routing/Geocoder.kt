@@ -49,6 +49,14 @@ interface Geocoder {
     /** Local name + city for a coordinate ("what street/place is this?"). */
     suspend fun reverse(position: LatLng): Result<PlaceInfo>
 
+    /**
+     * The city a coordinate lies in, for a route's name. [reverse]'s city belongs to the
+     * nearest address record, which can be junk: Geoapify put a Dallas building in
+     * "Sayreville" (an OpenAddresses row with postcode 0). A provider with a city-level
+     * lookup overrides this with the boundary the point falls in.
+     */
+    suspend fun city(position: LatLng): Result<String?> = reverse(position).map { it.city }
+
     companion object {
         const val DEFAULT_LIMIT = 8
     }

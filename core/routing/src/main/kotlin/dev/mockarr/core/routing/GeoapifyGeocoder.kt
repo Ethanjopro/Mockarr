@@ -64,6 +64,11 @@ class GeoapifyGeocoder(
         )
     }
 
+    /** `type=city`: the OSM city boundary the point is in, never a nearby address record. */
+    override suspend fun city(position: LatLng): Result<String?> = request {
+        api.get(reverseUrl(baseUrl, apiKey, position, type = "city")).results.firstOrNull()?.run { city ?: name }
+    }
+
     @Suppress("SwallowedException")
     private inline fun <T> request(block: () -> T): Result<T> = try {
         Result.success(block())
@@ -153,12 +158,16 @@ class GeoapifyGeocoder(
                 append(apiKey)
             }
 
-        fun reverseUrl(baseUrl: String, apiKey: String, position: LatLng): String = buildString {
+        fun reverseUrl(baseUrl: String, apiKey: String, position: LatLng, type: String? = null): String = buildString {
             append(baseUrl.trimEnd('/'))
             append("/v1/geocode/reverse?lat=")
             append(position.latitude)
             append("&lon=")
             append(position.longitude)
+            if (type != null) {
+                append("&type=")
+                append(type)
+            }
             append("&format=json&apiKey=")
             append(apiKey)
         }

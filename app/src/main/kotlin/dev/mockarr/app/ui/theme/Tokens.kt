@@ -28,9 +28,6 @@ object Tokens {
 
     val touchTarget = 48.dp
 
-    /** Popover rows sit denser than sheet rows (DESIGN.md → Popover: 44dp min). */
-    val popoverRowHeight = 48.dp
-
     /** An option / setting row with a title and a description line. */
     val listRowHeight = 56.dp
 

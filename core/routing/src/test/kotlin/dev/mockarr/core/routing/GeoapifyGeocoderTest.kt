@@ -90,6 +90,20 @@ class GeoapifyGeocoderTest {
     }
 
     @Test
+    fun `city asks for the city boundary, not the nearest address`() = runTest {
+        server.enqueue(
+            MockResponse().setBody(
+                """
+                {"results":[{"name":"Dallas","city":"Dallas","result_type":"city","lat":32.77,"lon":-96.79}]}
+                """.trimIndent(),
+            ),
+        )
+
+        assertEquals("Dallas", geocoder.city(LatLng(32.78123, -96.788308)).getOrThrow())
+        assertTrue(server.takeRequest().path!!.contains("&type=city&"))
+    }
+
+    @Test
     fun `http errors surface as failures`() = runTest {
         server.enqueue(MockResponse().setResponseCode(429))
         assertTrue(geocoder.search("x").isFailure)

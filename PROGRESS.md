@@ -2183,11 +2183,45 @@ Implements the four decisions from the session-42 critique (memory
   - Start with the real location 1,532 mi away starts straight away with no choice
   - End drive clears the route and leaves "Holding at La Parada"
 
+### 2026-09-24 — Session 45 (Ethan: no text-only buttons; loose end 1)
+- **Every action is a button now.** `SmallPill` (`ui/theme/Pills.kt`) is a compact outlined
+  pill: 40dp tall with a 48dp touch target. It replaces every `TextButton`:
+  - the band's action (Set up, Stop holding, Skip wait, Resume drive), drawn in the band's ink
+  - the search card's Close and Clear history
+  - the stop row's Set / Edit wait, Remove wait and Move stop. The row is now a `FlowRow`,
+    because three pills wrap at font 1.3
+  - the first-run hint's Got it. Its `PopoverRow` had no other caller, so the row and its
+    token are gone
+  - snackbar actions: `MockarrSnackbarHost` (`ui/theme/Snackbars.kt`), used on the Map and
+    Saved routes, shows the action as a pill in the snackbar's action ink, plus the ✕
+  DESIGN.md → Buttons drops the "Text" role for "Small" and a no-text-buttons rule;
+  DESIGN.md → Popover and CLAUDE.md have the rule too.
+- **Sayreville fixed.** It wasn't our code. Geoapify's reverse lookup returns the nearest
+  OpenAddresses record, and 2305 Canton St is filed there as "Sayreville", postcode 0.
+  `Geocoder.city()` is a new lookup: Geoapify asks with `type=city` (the OSM city boundary),
+  and other providers fall back to reverse's city. Only `suggestName` uses it. Ethan's saved
+  route was renamed to ", Dallas" on the AVD.
+- **Fixed on sight.**
+  - With the sheet expanded, M3 drops the snackbar to the screen edge, so the "Saved"
+    snackbar covered the builder's Done row. It now rises with the sheet, above the card.
+  - The hold thumbstick drew over the open search dropdown and hid Close. It now hides while
+    search is open.
+  - A "not selected" playback error now refreshes the setup status, so the band turns red
+    straight away. Before, it waited for the next resume.
+- **Verified on mockarr_test** (light, dark, font 1.3):
+  - every converted pill, tapped: Close, Stop holding, Set wait, Undo, Got it
+  - suggested name "…FS, Dallas"
+  - the "Saved" snackbar clear of Done
+  - the Set up snackbar with its pill and ✕
+  - three stop pills wrap to two rows at 1.3
+  - logcat clean
+  The AVD was left with 2 Dallas routes, settings restored, and font/theme reset.
+
 ### NEXT SESSION — loose ends (written 2026-09-24, before a chat reset)
 Work these in order, one commit per round. Verify each on `mockarr_test`, and CI must be
 green after every push.
 
-1. **Finish the no-text-only-buttons round** (Ethan: every clickable action must look like
+1. ✅ **Done in session 45.** **Finish the no-text-only-buttons round** (Ethan: every clickable action must look like
    a button). `SmallPill` is already in `ui/theme/Pills.kt` (uncommitted, unused). Convert:
    - the band action in `StatusStrip` (`MapStatCard.kt`), in the band's ink
    - search Close and Clear history (`MapSearchComponents.kt`)

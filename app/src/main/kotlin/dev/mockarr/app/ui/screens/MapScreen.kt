@@ -13,6 +13,8 @@ import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
@@ -39,7 +41,6 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.BottomSheetScaffold
-import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
@@ -48,10 +49,8 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SheetValue
 import androidx.compose.material3.SnackbarDuration
-import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarResult
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberBottomSheetScaffoldState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -109,7 +108,9 @@ import dev.mockarr.app.ui.rememberFormatter
 import dev.mockarr.app.ui.rememberSystemAnimationsEnabled
 import dev.mockarr.app.ui.theme.MapIconPill
 import dev.mockarr.app.ui.theme.MapPill
+import dev.mockarr.app.ui.theme.MockarrSnackbarHost
 import dev.mockarr.app.ui.theme.MockarrTheme
+import dev.mockarr.app.ui.theme.SmallPill
 import dev.mockarr.app.ui.theme.Tokens
 import dev.mockarr.core.model.DistanceUnits
 import dev.mockarr.core.model.GeoMath
@@ -681,6 +682,8 @@ fun MapScreen(
     LaunchedEffect(playbackError) {
         val message = playbackError ?: return@LaunchedEffect
         val needsSetup = message == notSelected
+        // The status is otherwise re-read only on resume; the band must turn red now.
+        if (needsSetup) setupViewModel.refresh()
         val result = snackbarHostState.showSnackbar(
             message,
             actionLabel = if (needsSetup) setUpLabel else dismissLabel,
@@ -828,9 +831,10 @@ fun MapScreen(
         // Only while holding: the nudge control is chrome that must recede
         // (design brief) rather than sit dimmed on every map state. It also
         // yields to the builder's pills/card and hides behind an expanded
-        // sheet instead of floating dead on top of either.
+        // sheet instead of floating dead on top of either. It also yields to
+        // the search dropdown, which it used to paint over (Close hidden).
         AnimatedVisibility(
-            visible = holding != null && !playing && !builderMode && !expanded,
+            visible = holding != null && !playing && !builderMode && !expanded && !searchOpen,
             enter = Motion.floatingEnter,
             exit = Motion.floatingExit,
             modifier = modifier,
@@ -879,10 +883,21 @@ fun MapScreen(
             sheetSwipeEnabled = !playing,
             containerColor = Color.Transparent,
             // Above the floating card, never on it: a confirmation must not garble the trio.
+            // Expanded, M3 drops the snackbar to the screen's bottom edge, which put it over
+            // the builder's Done row: there it rises with the sheet, as the card does.
             snackbarHost = {
-                SnackbarHost(
+                MockarrSnackbarHost(
                     snackbarHostState,
-                    modifier = Modifier.padding(bottom = cardBlock + toolsHeight),
+                    modifier = Modifier
+                        .offset {
+                            val expandedLift = if (sheetState.currentValue == SheetValue.Expanded) {
+                                peekHeightPx + sheetLiftPx()
+                            } else {
+                                0
+                            }
+                            IntOffset(0, -expandedLift)
+                        }
+                        .padding(bottom = cardBlock + toolsHeight),
                 )
             },
             sheetContent = {
@@ -1352,6 +1367,7 @@ private fun BuilderDetails(
 }
 
 /** One stop: numbered disc, role, wait, and its actions when selected. */
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun StopRow(
     index: Int,
@@ -1420,10 +1436,11 @@ private fun StopRow(
             }
         }
         if (selected) {
-            // On-sheet equivalent of the marker popover (TalkBack path).
-            Row(
+            // On-sheet equivalent of the marker popover (TalkBack path). Wraps: three pills
+            // outgrow the sheet at large font scales.
+            FlowRow(
                 horizontalArrangement = Arrangement.spacedBy(Tokens.space2),
-                verticalAlignment = Alignment.CenterVertically,
+                itemVerticalAlignment = Alignment.CenterVertically,
                 modifier = Modifier.heightIn(min = Tokens.touchTarget),
             ) {
                 if (stopStays(index, count, stayAtDestination)) {
@@ -1432,16 +1449,15 @@ private fun StopRow(
                         text = stringResource(R.string.stop_menu_stays),
                         style = MaterialTheme.typography.labelLarge,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.padding(ButtonDefaults.TextButtonContentPadding),
                     )
                 } else {
                     val waitLabel = if (waypoint.waitSeconds > 0) R.string.sheet_edit_wait else R.string.sheet_set_wait
-                    TextButton(onClick = onSetWait) { Text(stringResource(waitLabel)) }
+                    SmallPill(stringResource(waitLabel), onSetWait)
                 }
                 if (waypoint.waitSeconds > 0) {
-                    TextButton(onClick = onClearWait) { Text(stringResource(R.string.sheet_remove_wait)) }
+                    SmallPill(stringResource(R.string.sheet_remove_wait), onClearWait)
                 }
-                TextButton(onClick = onMove) { Text(stringResource(R.string.stop_menu_move)) }
+                SmallPill(stringResource(R.string.stop_menu_move), onMove)
             }
         }
     }

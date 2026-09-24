@@ -47,6 +47,9 @@ a free non-OSS API is acceptable when it noticeably improves the app (ADR 0001 a
 - `core:model`, `core:simulation`, `core:routing` stay free of `android.*`,
   `androidx.*`, Hilt and Compose — enforced by `checkCoreBoundary`. This is the
   KMP/iOS insurance.
+- Every action looks like a button: a pill from `ui/theme/Pills.kt` (`SmallPill` in rows,
+  lists, the band, popovers; snackbars via `MockarrSnackbarHost`). Never `TextButton` or bare
+  clickable text (Ethan, 2026-09-24). Icon-only controls keep their own forms.
 - UI reads colours only from `MaterialTheme` / `MockarrTheme` (`ui/theme/`);
   map colours come from `MapPalette`. No literal colours in screens or map code.
 - New screens follow the Map tab's file split: `XScreen.kt` (layout) /

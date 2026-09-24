@@ -441,10 +441,16 @@ two-up row — and the pills take **no colour parameter**, so no screen can repa
   Start of route, Done, Save, Set wait, Start drive, Clear route, Plan a drive.
 - **Outlined:** the alternative or the way out, always **left** of the filled one — Cancel,
   End drive, Held spot / My location, Forget it, optional Setup steps.
-- **Text:** indigo text, no container — tertiary actions inside rows and lists (Set wait ·
-  Remove wait · Move stop, Clear history). The strip's action (Set up, Stop holding, Skip
-  wait, Resume drive) is a text button in the **band's own ink**: the band's colour is the
-  signal, the button just names the verb.
+- **Small (`SmallPill`):** a compact outlined pill (40dp, 48dp touch target, `labelLarge`
+  bold) for actions inside rows, lists and small surfaces — Set / Edit wait · Remove wait ·
+  Move stop, the search card's Close and Clear history, the hint's Got it. On a tinted
+  surface it takes that surface's own ink for label and outline: the strip's action (Set up,
+  Stop holding, Skip wait, Resume drive) in the **band's ink**, a snackbar's action
+  (`MockarrSnackbarHost`) in its action ink. The band's colour is the signal; the pill just
+  names the verb.
+- **No text-only buttons** (Ethan, 2026-09-24: "it should be obvious when something is
+  clickable that it is a button"). Never Material `TextButton`, never M3's default snackbar
+  action, never a bare text row as an action.
 - **Never red, amber or black.** A destructive verb says what it loses ("Clear route",
   "Delete route", "Remove stop") and carries the trash glyph (`ic_delete`) — Google's own
   Android dialogs work this way. Red is for error *states* only (the not-set-up band,
@@ -509,9 +515,8 @@ disabled (Save on a straight-line fallback); a tool that doesn't apply yet isn't
 Strava's builder menu and its tap-a-point callout: a 16dp `surface-container-lowest` card
 with the popover shadow and a **caret** on its anchor (`MapPopover`), sitting above the
 anchor and flipping below when there is no room. The card hugs its widest row (intrinsic
-width, 280dp cap). Rows (`PopoverRow`) are label-left, glyph-right, 48dp min, hairline
-dividers between actions only — never directly under a header; a destructive row comes
-last, in the same ink as the others. The **stop popover** (`StopPopover`) rides the selected marker
+width, 280dp cap). A popover's one verb is a `SmallPill` at its bottom-right (the first-run
+hint's "Got it"), never a bare text row. The **stop popover** (`StopPopover`) rides the selected marker
 on every camera frame and is **symbols only**: one row of three 48dp icon buttons —
 *Move* (four-way arrows, `ic_open_with`) · *Wait* (clock; hold-tinted once a wait is set,
 greyed on the destination while "Stay at destination" is on — still tappable, and a tap

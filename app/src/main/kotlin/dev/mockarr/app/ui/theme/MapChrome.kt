@@ -1,25 +1,17 @@
 package dev.mockarr.app.ui.theme
 
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.IntrinsicSize
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.offset
-import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -153,40 +145,6 @@ fun MapPopover(
                 Column(content = content)
             }
             if (placement.above) Caret(cardColor, placement.caretX, caretPx, pointsUp = false)
-        }
-    }
-}
-
-/** One popover row: label left, glyph right, one ink (no red rows: DESIGN.md → Buttons). */
-@Composable
-fun PopoverRow(
-    label: String,
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier,
-    icon: Painter? = null,
-    enabled: Boolean = true,
-    divider: Boolean = true,
-) {
-    val scheme = MaterialTheme.colorScheme
-    val ink = if (enabled) scheme.onSurface else scheme.onSurface.copy(alpha = DISABLED_ALPHA)
-    if (divider) HorizontalDivider(color = scheme.outlineVariant)
-    Row(
-        modifier = modifier
-            .fillMaxWidth()
-            .heightIn(min = Tokens.popoverRowHeight)
-            .clickable(enabled = enabled, onClick = onClick, role = Role.Button)
-            .padding(horizontal = Tokens.space3, vertical = Tokens.space2),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Text(
-            text = label,
-            style = MaterialTheme.typography.bodyMedium,
-            color = ink,
-            modifier = Modifier.weight(1f),
-        )
-        if (icon != null) {
-            Spacer(Modifier.width(Tokens.space4))
-            Icon(icon, contentDescription = null, tint = ink)
         }
     }
 }

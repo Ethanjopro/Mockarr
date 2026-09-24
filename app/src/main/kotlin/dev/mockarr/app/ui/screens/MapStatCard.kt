@@ -14,12 +14,10 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.text.TextAutoSize
-import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
@@ -44,6 +42,7 @@ import dev.mockarr.app.R
 import dev.mockarr.app.ui.rememberFormatter
 import dev.mockarr.app.ui.theme.MapPopover
 import dev.mockarr.app.ui.theme.MockarrTheme
+import dev.mockarr.app.ui.theme.SmallPill
 import dev.mockarr.app.ui.theme.Tokens
 import dev.mockarr.core.model.DistanceUnits
 import dev.mockarr.core.model.Route
@@ -159,10 +158,7 @@ fun StatusStrip(
         )
         if (actionLabel != null && onAction != null) {
             Spacer(Modifier.width(Tokens.space2))
-            TextButton(
-                onClick = onAction,
-                colors = ButtonDefaults.textButtonColors(contentColor = foreground),
-            ) { Text(actionLabel) }
+            SmallPill(actionLabel, onAction, ink = foreground)
         }
         if (trailing != null) {
             Spacer(Modifier.width(Tokens.space2))

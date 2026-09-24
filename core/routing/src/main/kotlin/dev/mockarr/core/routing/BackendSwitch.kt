@@ -41,6 +41,8 @@ class SwitchingGeocoder(
 
     override suspend fun reverse(position: LatLng): Result<PlaceInfo> = attempt({ it.reverse(position) })
 
+    override suspend fun city(position: LatLng): Result<String?> = attempt({ it.city(position) })
+
     private suspend fun <T> attempt(call: suspend (Geocoder) -> Result<T>): Result<T> {
         val primary = managed ?: return call(fallback)
         val first = call(primary)

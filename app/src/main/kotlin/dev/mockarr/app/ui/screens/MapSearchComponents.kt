@@ -25,7 +25,6 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -50,6 +49,7 @@ import androidx.compose.ui.unit.dp
 import dev.mockarr.app.R
 import dev.mockarr.app.ui.rememberFormatter
 import dev.mockarr.app.ui.theme.MockarrTheme
+import dev.mockarr.app.ui.theme.SmallPill
 import dev.mockarr.app.ui.theme.Tokens
 import dev.mockarr.core.model.DistanceUnits
 import dev.mockarr.core.routing.GeocodingResult
@@ -137,9 +137,11 @@ fun MapSearchBar(
                             HorizontalDivider()
                         }
                     }
-                    Row(modifier = Modifier.align(Alignment.End)) {
-                        TextButton(onClick = onDismiss) { Text(stringResource(R.string.map_search_close)) }
-                    }
+                    SmallPill(
+                        label = stringResource(R.string.map_search_close),
+                        onClick = onDismiss,
+                        modifier = Modifier.align(Alignment.End).padding(horizontal = Tokens.space3),
+                    )
                 }
             }
         }
@@ -151,7 +153,7 @@ private fun RecentsHeader(onClear: () -> Unit) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(start = Tokens.inset, end = Tokens.space2),
+            .padding(start = Tokens.inset, end = Tokens.space3),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.SpaceBetween,
     ) {
@@ -161,7 +163,7 @@ private fun RecentsHeader(onClear: () -> Unit) {
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.semantics { heading() },
         )
-        TextButton(onClick = onClear) { Text(stringResource(R.string.map_search_clear_recent)) }
+        SmallPill(stringResource(R.string.map_search_clear_recent), onClear)
     }
 }
 

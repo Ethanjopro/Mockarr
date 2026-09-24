@@ -20,7 +20,6 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.SnackbarResult
 import androidx.compose.material3.Text
@@ -41,6 +40,7 @@ import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dev.mockarr.app.R
 import dev.mockarr.app.ui.map.effectiveStyleUrl
+import dev.mockarr.app.ui.theme.MockarrSnackbarHost
 import dev.mockarr.app.ui.theme.MockarrTheme
 import dev.mockarr.app.ui.theme.Tokens
 import kotlinx.coroutines.launch
@@ -109,7 +109,7 @@ fun SavedRoutesScreen(
                 ),
             )
         },
-        snackbarHost = { SnackbarHost(snackbarHost) },
+        snackbarHost = { MockarrSnackbarHost(snackbarHost) },
         containerColor = MaterialTheme.colorScheme.surface,
     ) { padding ->
         Column(modifier = Modifier.fillMaxSize().padding(padding)) {
