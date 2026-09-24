@@ -2182,3 +2182,63 @@ Implements the four decisions from the session-42 critique (memory
   - held-spot drive-in to arrival: route cleared, "Holding at North Record Street"
   - Start with the real location 1,532 mi away starts straight away with no choice
   - End drive clears the route and leaves "Holding at La Parada"
+
+### NEXT SESSION — loose ends (written 2026-09-24, before a chat reset)
+Work these in order, one commit per round. Verify each on `mockarr_test`, and CI must be
+green after every push.
+
+1. **Finish the no-text-only-buttons round** (Ethan: every clickable action must look like
+   a button). `SmallPill` is already in `ui/theme/Pills.kt` (uncommitted, unused). Convert:
+   - the band action in `StatusStrip` (`MapStatCard.kt`), in the band's ink
+   - search Close and Clear history (`MapSearchComponents.kt`)
+   - the stop row's Set/Edit wait, Remove wait and Move stop (`MapScreen.kt` `StopRow`)
+   - snackbar actions: a custom `SnackbarHost { data -> ... }` in MapScreen and
+     SavedRoutesScreen
+   - the first-run hint's "Got it"
+
+   Then update DESIGN.md → Buttons (drop the "Text" role) and add the rule to CLAUDE.md.
+   Check light, dark and font 1.3.
+   - **Same round, bug:** the saved route "Klyde Warren Park … to Canton @ Farmers Market"
+     shows city "Sayreville" (NJ) for a Dallas route. The city comes from
+     `geocoder.reverse(route.points.last())` in `MapViewModel.suggestName`.
+2. **`/impeccable optimize`.**
+   - Split `MapScreen()` (971 lines) and extract `playbackPhase`.
+   - `MarkerTracker` recomposes per frame, and `MapScreen` reads `playbackState` in its
+     body, which recomposes the whole screen.
+   - Code hygiene:
+     - 4 `.uppercase()` calls without a locale
+     - `isSystemInDarkTheme` in MapScreen / SavedRoutesScreen (move to the theme)
+     - `splitRouteName` splits at the last ", " (a user name with a comma breaks)
+     - search list keys
+3. **`/impeccable audit`.** Last run August, 13/20. Include the dark sheet edge (1.07:1),
+   the saved-routes search field with no border, and a search-field TalkBack label (needs a
+   visual-label call).
+4. **Design decisions for Ethan.** Ask them in one batch, then build; minimal copy only
+   (memory `minimal-ui-copy`). From the 2026-09-24 critique:
+   - **Status:**
+     - idle doesn't say what location other apps see
+     - Paused hides the wait countdown and doesn't say the location is still held
+     - the collapsed notification has no time left
+   - **Drive ending:** it drops into an amber hold with the thumbstick and no summary.
+   - **Wording:** "Fwy Eb" abbreviations in the band; Cycle / Cycling / ride.
+   - **Icon reuse:** the trash glyph has 3 meanings; the squiggle, crosshair and clock are
+     each reused.
+   - **Travel mode** is set in three places.
+   - **Layout:**
+     - the saved card's "Drive" badge looks tappable
+     - 3D/locate jump with the search dropdown's height
+     - the speed menu wraps 3 + 2
+     - the stop popover can open over the search bar
+     - the thumbstick covers the held pin
+   - **Large text:** "Start of route" shrinks to 12 sp beside 16 sp.
+   - **Setup** doesn't list the location permission.
+   - **4×** gives 60+ mph with no warning.
+   - **TalkBack:** no gesture-free stop placement except search; Move stop needs a drag.
+   - **Landscape:** the held pin can be off-edge after rotating; the attribution "i" jumps.
+   - The 80 km drive-in cut-off is unconfirmed.
+5. **`/impeccable document`, then `/impeccable doctor`.** Refresh DESIGN.md and the stale
+   `.impeccable/design.json`, which still describes the inverse "Finish" pill. Optionally
+   `/impeccable onboard setup`, then a fresh `/impeccable critique` to measure (last 26/40).
+
+The `mockarr_test` AVD was wiped and rebuilt on 2026-09-24: mock app selected, permissions
+granted, 2 Dallas routes saved.
