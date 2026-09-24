@@ -30,6 +30,9 @@ paths: ["**/*.kt", "**/*.kts"]
   `playOrAskStart` in `MapScreen.kt`).
 - Kotlin infers `Nothing?` for empty `suspendCancellableCoroutine { }` — give
   the explicit type parameter.
+- `maxLines = 1` with the default soft wrap silently DROPS trailing words when a
+  label doesn't fit (even with `TextAutoSize` at its floor): "Discard changes"
+  rendered "Discard". One-line labels get `softWrap = false` + `TextOverflow.Ellipsis`.
 
 ## Unit tests (`core:*` modules, plus `app`'s pure file-level helpers)
 - Test the logic layer: engines, geometry, mappers, ViewModels. No Robolectric

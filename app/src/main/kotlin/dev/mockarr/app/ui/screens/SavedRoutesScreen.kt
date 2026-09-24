@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -29,6 +30,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -41,7 +43,6 @@ import dev.mockarr.app.R
 import dev.mockarr.app.ui.map.effectiveStyleUrl
 import dev.mockarr.app.ui.theme.MockarrTheme
 import dev.mockarr.app.ui.theme.Tokens
-import dev.mockarr.core.data.SavedRouteEntity
 import kotlinx.coroutines.launch
 
 /**
@@ -69,7 +70,8 @@ fun SavedRoutesScreen(
     val scope = rememberCoroutineScope()
     // One "now" per composition of the list keeps every card's "Created today" consistent.
     val now = remember(routes) { System.currentTimeMillis() }
-    var renaming by remember { mutableStateOf<SavedRouteEntity?>(null) }
+    var renamingId by rememberSaveable { mutableStateOf<Long?>(null) }
+    val renaming = renamingId?.let { id -> routes.firstOrNull { it.id == id } }
     val deletedTemplate = stringResource(R.string.routes_deleted)
     val undoLabel = stringResource(R.string.routes_undo)
 
@@ -78,9 +80,9 @@ fun SavedRoutesScreen(
             initialName = entity.name,
             onConfirm = { name ->
                 viewModel.rename(entity, name)
-                renaming = null
+                renamingId = null
             },
-            onDismiss = { renaming = null },
+            onDismiss = { renamingId = null },
         )
     }
 
@@ -133,7 +135,7 @@ fun SavedRoutesScreen(
                 RoutesEmptyState(hasAnyRoutes = hasAnyRoutes, onPlanDrive = onPlanDrive)
             } else {
                 LazyColumn(
-                    modifier = Modifier.fillMaxSize(),
+                    modifier = Modifier.fillMaxSize().imePadding(),
                     contentPadding = PaddingValues(horizontal = Tokens.space3, vertical = Tokens.space2),
                     verticalArrangement = Arrangement.spacedBy(Tokens.space2),
                 ) {
@@ -150,7 +152,7 @@ fun SavedRoutesScreen(
                                 viewModel.load(entity)
                                 onRouteLoaded()
                             },
-                            onRename = { renaming = entity },
+                            onRename = { renamingId = entity.id },
                             onDelete = {
                                 viewModel.delete(entity)
                                 scope.launch {

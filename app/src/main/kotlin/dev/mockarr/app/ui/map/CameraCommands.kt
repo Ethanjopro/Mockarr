@@ -15,6 +15,10 @@ import org.maplibre.android.maps.MapLibreMap
 // height ([FitPadding.bottomObstructionPx]); the dp floor covers the first
 // frames before it is measured. Values are dp, converted at apply time.
 private const val FIT_PADDING_SIDE_DP = 32f
+
+// The FAB stack (48dp pills + the map edge) runs down the right: a fit that ignored
+// it parked a stop under 3D / locate (critique, session 42).
+private const val FIT_PADDING_END_DP = 80f
 private const val FIT_PADDING_TOP_DP = 120f
 private const val FIT_PADDING_BOTTOM_MIN_DP = 180f
 
@@ -33,7 +37,9 @@ internal class FitPadding(density: Float, bottomObstructionPx: Int, startObstruc
         bottomObstructionPx + (FIT_CLEARANCE_DP * density).toInt(),
     )
 
-    fun toArray(): IntArray = intArrayOf(start, top, side, bottom)
+    val end = (FIT_PADDING_END_DP * density).toInt()
+
+    fun toArray(): IntArray = intArrayOf(start, top, end, bottom)
 }
 
 internal fun applyCameraCommand(map: MapLibreMap, command: CameraCommand, padding: FitPadding, animate: Boolean) {
@@ -53,12 +59,16 @@ internal fun applyCameraCommand(map: MapLibreMap, command: CameraCommand, paddin
 private fun centerOn(map: MapLibreMap, command: CameraCommand.Center, padding: FitPadding, animate: Boolean) {
     val target = command.target.toMapLibre()
     val update = if (command.padded) {
-        val side = padding.side.toDouble()
         CameraUpdateFactory.newCameraPosition(
             CameraPosition.Builder(map.cameraPosition)
                 .target(target)
                 .zoom(command.zoom)
-                .padding(padding.start.toDouble(), padding.top.toDouble(), side, padding.bottom.toDouble())
+                .padding(
+                    padding.start.toDouble(),
+                    padding.top.toDouble(),
+                    padding.end.toDouble(),
+                    padding.bottom.toDouble(),
+                )
                 .build(),
         )
     } else {
@@ -102,7 +112,7 @@ private const val ZOOM_IN_SLACK = 1.5
 private fun allPointsInView(map: MapLibreMap, points: List<LatLng>, padding: FitPadding): Boolean =
     points.all { point ->
         val screen = map.projection.toScreenLocation(point.toMapLibre())
-        screen.x >= padding.side && screen.x <= map.width - padding.side &&
+        screen.x >= padding.start && screen.x <= map.width - padding.end &&
             screen.y >= padding.top && screen.y <= map.height - padding.bottom
     }
 

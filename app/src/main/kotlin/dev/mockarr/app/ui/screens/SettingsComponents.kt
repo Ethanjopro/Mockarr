@@ -111,7 +111,8 @@ fun SliderRow(
     sliderValue: Float,
     onSliderChange: (Float) -> Unit,
     onSliderFinished: () -> Unit,
-    contentDescription: String,
+    /** The value as it should be spoken ("1.5 metres"); the title is the slider's name. */
+    spokenValue: String,
 ) {
     Column(modifier = Modifier.padding(horizontal = Tokens.inset, vertical = Tokens.space2)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -139,8 +140,8 @@ fun SliderRow(
             modifier = Modifier
                 .padding(start = Tokens.space6 + Tokens.space4)
                 .semantics {
-                    this.contentDescription = contentDescription
-                    stateDescription = valueText
+                    contentDescription = title
+                    stateDescription = spokenValue
                 },
         )
     }

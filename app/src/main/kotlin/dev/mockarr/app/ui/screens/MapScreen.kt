@@ -39,6 +39,7 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.BottomSheetScaffold
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
@@ -46,7 +47,9 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SheetValue
+import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarResult
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberBottomSheetScaffoldState
@@ -81,6 +84,7 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.CustomAccessibilityAction
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
@@ -574,9 +578,12 @@ fun MapScreen(
     var showDiscard by rememberSaveable { mutableStateOf(false) }
     if (showDiscard) {
         DiscardRouteDialog(
+            changesOnly = true,
             onDiscard = {
                 showDiscard = false
-                viewModel.clearWaypoints()
+                // History starts when the builder opens: undoing all of it is exactly
+                // "the stops as they were" (a brand-new route empties, as before).
+                while (viewModel.canUndo.value) viewModel.stepHistory(redo = false)
                 viewModel.setBuilderMode(false)
             },
             onDismiss = { showDiscard = false },
@@ -647,11 +654,22 @@ fun MapScreen(
     val sheetState = scaffoldState.bottomSheetState
     val snackbarHostState = scaffoldState.snackbarHostState
     val dismissLabel = stringResource(R.string.snack_dismiss)
-    // Transient feedback is a snackbar, never a card in the stack.
+    val setUpLabel = stringResource(R.string.strip_fix)
+    val notSelected = stringResource(R.string.error_mock_not_selected)
+    // Transient feedback is a snackbar, never a card in the stack. "Open the Setup checklist"
+    // gets the button that does it, not just Dismiss (critique, session 42).
     LaunchedEffect(playbackError) {
         val message = playbackError ?: return@LaunchedEffect
-        snackbarHostState.showSnackbar(message, actionLabel = dismissLabel)
+        val needsSetup = message == notSelected
+        val result = snackbarHostState.showSnackbar(
+            message,
+            actionLabel = if (needsSetup) setUpLabel else dismissLabel,
+            // "Set up" also gets a ✕, and times out: the band below keeps the fix on screen.
+            withDismissAction = needsSetup,
+            duration = if (needsSetup) SnackbarDuration.Long else SnackbarDuration.Indefinite,
+        )
         sessionViewModel.consumeError()
+        if (needsSetup && result == SnackbarResult.ActionPerformed) onOpenSetup()
     }
     val savedTemplate = stringResource(R.string.snack_saved)
     LaunchedEffect(state.savedName) {
@@ -907,11 +925,10 @@ fun MapScreen(
                                     state = state,
                                     onDone = { viewModel.setBuilderMode(false) },
                                     onClose = {
-                                        if (state.waypoints.isEmpty()) {
-                                            viewModel.setBuilderMode(false)
-                                        } else {
-                                            showDiscard = true
-                                        }
+                                        // Nothing edited since the builder opened: ✕ just leaves.
+                                        // It used to offer to clear a route you hadn't touched.
+                                        val edited = viewModel.canUndo.value
+                                        if (edited) showDiscard = true else viewModel.setBuilderMode(false)
                                     },
                                 )
                                 PeekMode.RECORD -> RecordPeek(
@@ -1361,7 +1378,7 @@ private fun StopRow(
             IconButton(onClick = onRemove) {
                 Icon(
                     painterResource(R.drawable.ic_delete),
-                    contentDescription = stringResource(R.string.sheet_remove_stop),
+                    contentDescription = stringResource(R.string.sheet_remove_stop_named, stopName(index, count)),
                 )
             }
         }
@@ -1369,19 +1386,20 @@ private fun StopRow(
             // On-sheet equivalent of the marker popover (TalkBack path).
             Row(
                 horizontalArrangement = Arrangement.spacedBy(Tokens.space2),
+                verticalAlignment = Alignment.CenterVertically,
                 modifier = Modifier.heightIn(min = Tokens.touchTarget),
             ) {
-                val stays = stopStays(index, count, stayAtDestination)
-                TextButton(onClick = onSetWait, enabled = !stays) {
+                if (stopStays(index, count, stayAtDestination)) {
+                    // A fact, not a disabled button: 38 % ink failed contrast (critique, session 42).
                     Text(
-                        stringResource(
-                            when {
-                                stays -> R.string.stop_menu_stays
-                                waypoint.waitSeconds > 0 -> R.string.sheet_edit_wait
-                                else -> R.string.sheet_set_wait
-                            },
-                        ),
+                        text = stringResource(R.string.stop_menu_stays),
+                        style = MaterialTheme.typography.labelLarge,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(ButtonDefaults.TextButtonContentPadding),
                     )
+                } else {
+                    val waitLabel = if (waypoint.waitSeconds > 0) R.string.sheet_edit_wait else R.string.sheet_set_wait
+                    TextButton(onClick = onSetWait) { Text(stringResource(waitLabel)) }
                 }
                 if (waypoint.waitSeconds > 0) {
                     TextButton(onClick = onClearWait) { Text(stringResource(R.string.sheet_remove_wait)) }
@@ -1413,9 +1431,11 @@ private fun MapControls(
                 onClick = onToggle3d,
                 contentDescription = stringResource(if (map3d) R.string.map_2d_cd else R.string.map_3d_cd),
             ) {
+                // The pill's description says it in full; the glyph text would be read twice.
                 Text(
                     text = stringResource(if (map3d) R.string.map_2d else R.string.map_3d),
                     style = MaterialTheme.typography.labelLarge,
+                    modifier = Modifier.clearAndSetSemantics {},
                 )
             }
         }

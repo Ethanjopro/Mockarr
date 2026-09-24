@@ -36,6 +36,7 @@ import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntRect
@@ -68,10 +69,10 @@ fun MapPill(
         enabled -> scheme.onSurface
         else -> scheme.onSurface.copy(alpha = DISABLED_ALPHA)
     }
-    val semantics = if (contentDescription != null) {
-        Modifier.semantics { this.contentDescription = contentDescription }
-    } else {
-        Modifier
+    // Surface(onClick) doesn't set a role: say "button" like every other control.
+    val semantics = Modifier.semantics {
+        role = Role.Button
+        if (contentDescription != null) this.contentDescription = contentDescription
     }
     Surface(
         onClick = onClick,

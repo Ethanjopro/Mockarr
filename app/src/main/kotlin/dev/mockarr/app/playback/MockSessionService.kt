@@ -178,7 +178,9 @@ class MockSessionService : Service() {
         holdJob = null
         // beginMocking() never touches already-registered providers (start() is
         // idempotent), so a Holding → Playing transition has no provider gap.
-        if (beginMocking() && promoteToForeground()) {
+        // Foreground FIRST: startForegroundService obliges it even when mocking then
+        // fails (not set up) — skipping it crashed the app (critique, session 42).
+        if (promoteToForeground() && beginMocking()) {
             runSession(pending)
         } else if (previousHold != null && mockController.isRunning) {
             enterHold(previousHold.position, previousHold.source) // resume the hold untouched
@@ -192,7 +194,7 @@ class MockSessionService : Service() {
         val lat = intent.getDoubleExtra(EXTRA_LAT, Double.NaN)
         val lng = intent.getDoubleExtra(EXTRA_LNG, Double.NaN)
         if (lat.isNaN() || lng.isNaN()) return
-        if (!mockController.isRunning && !(beginMocking() && promoteToForeground())) {
+        if (!mockController.isRunning && !(promoteToForeground() && beginMocking())) {
             release()
             return
         }

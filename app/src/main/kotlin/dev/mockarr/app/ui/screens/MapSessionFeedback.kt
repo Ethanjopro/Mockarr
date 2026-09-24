@@ -45,18 +45,22 @@ internal fun rememberArrived(session: MockSessionState, outcome: () -> DriveOutc
     var arrivedTick by remember { mutableStateOf(0) }
     ArrivalEffect(session, outcome) { arrivedTick++ }
     var arrived by remember { mutableStateOf(false) }
+    // The last arrival already shown: an End drive after an earlier arrival used to
+    // replay "Arrived at …" (the tick stayed above 0 for the rest of the session).
+    var shownTick by remember { mutableStateOf(0) }
     val haptic = LocalHapticFeedback.current
     // Keyed on playing too: a new drive starting mid-window drops the flag.
     LaunchedEffect(arrivedTick, playing) {
-        if (arrivedTick > 0 && !playing) {
-            // The end-of-drive chain (engine ended → hold) relaunches this once
-            // more within the window: the band stays, the tick is not repeated.
-            if (!arrived) haptic.performHapticFeedback(HapticFeedbackType.Confirm)
-            arrived = true
-            delay(ARRIVED_MILLIS)
-            arrived = false
-        } else {
-            arrived = false
+        when {
+            playing -> arrived = false
+            arrivedTick > shownTick -> {
+                shownTick = arrivedTick
+                if (!arrived) haptic.performHapticFeedback(HapticFeedbackType.Confirm)
+                arrived = true
+                delay(ARRIVED_MILLIS)
+                arrived = false
+            }
+            // A drive that ended without a new arrival: no band.
         }
     }
     return arrived

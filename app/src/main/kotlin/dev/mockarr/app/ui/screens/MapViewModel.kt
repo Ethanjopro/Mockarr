@@ -432,6 +432,14 @@ class MapViewModel @Inject constructor(
             history.clear()
             _searchedPlace.value = null
         }
+        // Edit route after a drive ended elsewhere left the route half off-screen.
+        if (active && !_builderMode.value) {
+            // Undo (and ✕ "Discard changes") covers this editing session only, not
+            // edits made before it (a wait set from the popover, the held-spot lead-in).
+            history.clear()
+            val route = _uiState.value.route
+            if (route != null) _cameraCommand.value = CameraCommand.EnsureVisible(route.points, seq = cameraSeq++)
+        }
         _builderMode.value = active
     }
 

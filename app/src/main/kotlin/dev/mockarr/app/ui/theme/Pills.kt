@@ -1,5 +1,6 @@
 package dev.mockarr.app.ui.theme
 
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.height
@@ -16,6 +17,7 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.sp
 
 /**
@@ -39,6 +41,7 @@ fun Pill(
         onClick = onClick,
         enabled = enabled,
         modifier = modifier.pillModifier(contentDescription),
+        contentPadding = PillPadding,
     ) {
         PillContent(label, iconRes)
     }
@@ -58,6 +61,7 @@ fun OutlinedPill(
         onClick = onClick,
         enabled = enabled,
         modifier = modifier.pillModifier(contentDescription),
+        contentPadding = PillPadding,
     ) {
         PillContent(label, iconRes)
     }
@@ -98,14 +102,21 @@ private fun PillContent(label: String, iconRes: Int?) {
         Icon(painterResource(iconRes), contentDescription = null)
         Spacer(Modifier.width(Tokens.space2))
     }
-    // One line always: at large font scales the label shrinks rather than wrapping.
+    // One line always: at large font scales the label shrinks rather than wrapping. No soft
+    // wrap: with it, a label too long even at the floor silently lost its last word
+    // ("Discard changes" read "Discard"); now the cut shows as an ellipsis.
     Text(
         text = label,
         style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
         maxLines = 1,
+        softWrap = false,
+        overflow = TextOverflow.Ellipsis,
         autoSize = TextAutoSize.StepBased(minFontSize = PILL_MIN_FONT, maxFontSize = PILL_MAX_FONT),
     )
 }
+
+/** 16dp sides, not M3's 24: a two-up dialog row left ~90dp for an iconed label. */
+private val PillPadding = PaddingValues(horizontal = Tokens.space4)
 
 private val PILL_MIN_FONT = 12.sp
 private val PILL_MAX_FONT = 16.sp

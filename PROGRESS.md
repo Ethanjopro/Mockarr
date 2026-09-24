@@ -2059,3 +2059,51 @@ Read the critique snapshot `2026-09-23T02-50-13Z` as the backlog. The distance f
   - search shows "Clear search" and clearing resets the field
   - saved cards read "0.1 mi · 1 min", and the menu shows Rename and Delete route with icons
   - Settings Routing order is right, and the Setup link is underlined
+
+### 2026-09-24 — Session 42 (impeccable critique #3, 26/40, plus fix-on-sight)
+Ran a dual-agent critique:
+- A: a design review on mockarr_test, 80 captures.
+- B: a static scan. The detector is web-only and scanned 0 files.
+
+Scored **26/40** (trend 28 → 27 → 26). The drop comes from bugs the new flows exposed, not from visual regressions. Snapshot `.impeccable/critique/2026-09-24T19-04-33Z…`.
+
+- **P0 crash fixed.**
+  - Start or a hold while mocking isn't set up crashed with `ForegroundServiceDidNotStartInTimeException`: the service stopped before calling `startForeground`.
+  - `promoteToForeground()` now runs before `beginMocking()` on both paths.
+  - The not-selected snackbar offers **Set up** (plus ✕) and times out. It used to offer only Dismiss and stayed up indefinitely.
+- **False "Arrived" fixed.** Ending a drive after an earlier arrival replayed the arrival. `rememberArrived` now shows each `arrivedTick` once.
+- **Builder ✕ fixed.**
+  - It leaves silently when nothing changed; otherwise "Discard your changes?" undoes this editing session only.
+  - `setBuilderMode(true)` now clears the history, so edits made before Edit route aren't undone.
+  - It used to offer to clear a route you hadn't touched.
+- **Camera.**
+  - Fits clear the right-hand FAB column (`FIT_PADDING_END_DP = 80`).
+  - Edit route reframes the route (`EnsureVisible`).
+- **Pills.**
+  - 16 dp sides.
+  - `softWrap = false` with an ellipsis. "Discard changes" had rendered as "Discard": `maxLines = 1` with soft wrap silently drops the last word when even 12 sp doesn't fit.
+- **TalkBack.**
+  - Sliders speak their title plus value once. `settings_*_cd` is now just the value.
+  - `MapPill` has `Role.Button`.
+  - The 3D pill's text is cleared, so it isn't read twice.
+  - Stop-row trash buttons are named per stop ("Remove Destination").
+- **Stays.**
+  - The popover clock uses `onSurfaceVariant` instead of 38 % alpha.
+  - The sheet row shows "Stays at destination" as plain text instead of a disabled TextButton.
+- **Rotation, IME and font.**
+  - The Settings mode picker and the saved-route rename use `rememberSaveable` (by id).
+  - The saved list uses `imePadding`.
+  - `ModePill` uses `heightIn`.
+- **Verified on mockarr_test:**
+  - `mockdeny`: both the hold and Start show the snackbar with no crash, and the snackbar's Set up opens Setup.
+  - The fit clears 3D/locate, and Edit route reframes after a pan.
+  - ✕ without edits leaves silently; with an edit, Discard changes restores 2 stops.
+  - Natural arrival, then Drive again (speed back to 1×), then End drive: "Holding where you stopped", not Arrived.
+  - The mode picker survives rotation, and the slider/pill nodes check out in the UI dump.
+- **Open (needs Ethan):**
+  - "Held spot" permanently prepends a stop.
+  - One duration estimator (list 9 / card 10 / Time left 11).
+  - Stop names.
+  - Which START FROM option is filled.
+  - A search pick forcing the builder.
+- **Observed, not changed:** with the sheet expanded, builder tools float over the stops. The camera deliberately doesn't refit when an overlay grows (MockarrMap comment).

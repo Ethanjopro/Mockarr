@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -155,7 +156,7 @@ private fun ModePill(profile: RoutingProfile) {
     val shape = RoundedCornerShape(CHIP_HEIGHT / 2)
     Row(
         modifier = Modifier
-            .height(CHIP_HEIGHT)
+            .heightIn(min = CHIP_HEIGHT)
             .border(1.dp, MaterialTheme.colorScheme.outlineVariant, shape)
             .padding(horizontal = Tokens.space2),
         verticalAlignment = Alignment.CenterVertically,

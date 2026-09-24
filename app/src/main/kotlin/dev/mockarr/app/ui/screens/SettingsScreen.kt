@@ -23,6 +23,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.nestedscroll.nestedScroll
@@ -58,7 +59,7 @@ fun SettingsScreen(
         setupViewModel.refresh()
         onPauseOrDispose { }
     }
-    var showModePicker by remember { mutableStateOf(false) }
+    var showModePicker by rememberSaveable { mutableStateOf(false) }
     if (showModePicker) {
         ModePickerSheet(
             selected = settings.defaultProfile,
@@ -229,7 +230,7 @@ private fun GpsRows(settings: MockarrSettings, viewModel: SettingsViewModel) {
         sliderValue = tickHzToSlider(tickHzDrag),
         onSliderChange = { tickHzDrag = sliderToTickHz(it) },
         onSliderFinished = { viewModel.setTickHz(tickHzDrag) },
-        contentDescription = stringResource(R.string.settings_tick_cd, tickHzDrag),
+        spokenValue = stringResource(R.string.settings_tick_cd, tickHzDrag),
     )
     OptionSwitchRow(
         iconRes = R.drawable.ic_route,
@@ -248,7 +249,7 @@ private fun GpsRows(settings: MockarrSettings, viewModel: SettingsViewModel) {
             sliderValue = sigmaToSlider(sigmaDrag),
             onSliderChange = { sigmaDrag = sliderToSigma(it) },
             onSliderFinished = { viewModel.setJitterSigmaMeters(sigmaDrag.toDouble()) },
-            contentDescription = stringResource(R.string.settings_wobble_cd, sigmaDrag),
+            spokenValue = stringResource(R.string.settings_wobble_cd, sigmaDrag),
         )
     }
 }

@@ -61,7 +61,7 @@ internal fun StopPopover(
     val scheme = MaterialTheme.colorScheme
     val waitInk = when {
         // Still greyed — there's no wait to set — but a tap explains why instead of doing nothing.
-        stays -> scheme.onSurface.copy(alpha = STAYS_ALPHA)
+        stays -> scheme.onSurfaceVariant
         hasWait -> MockarrTheme.colors.hold
         else -> scheme.onSurface
     }
@@ -115,5 +115,3 @@ internal fun stopName(index: Int, count: Int): String = when {
     index == count - 1 && count >= 2 -> stringResource(R.string.sheet_destination)
     else -> stringResource(R.string.sheet_stop_n, index + 1)
 }
-
-private const val STAYS_ALPHA = 0.38f

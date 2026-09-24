@@ -191,12 +191,19 @@ fun BuilderTools(
 
 /** Clearing the stops (the trash pill, or ✕ with unsaved stops): says what it loses, never red. */
 @Composable
-fun DiscardRouteDialog(onDiscard: () -> Unit, onDismiss: () -> Unit) {
+fun DiscardRouteDialog(onDiscard: () -> Unit, onDismiss: () -> Unit, changesOnly: Boolean = false) {
+    // ✕ undoes this editing session ("Discard changes"); the trash pill clears the route.
+    val titleRes = if (changesOnly) R.string.builder_discard_changes_title else R.string.builder_discard_title
+    val bodyRes = if (changesOnly) R.string.builder_discard_changes_body else R.string.builder_discard_body
     MockarrDialog(
-        title = stringResource(R.string.builder_discard_title),
-        text = stringResource(R.string.builder_discard_body),
+        title = stringResource(titleRes),
+        text = stringResource(bodyRes),
         onDismissRequest = onDismiss,
-        confirm = DialogAction(stringResource(R.string.builder_discard), onDiscard, iconRes = R.drawable.ic_delete),
+        confirm = if (changesOnly) {
+            DialogAction(stringResource(R.string.builder_discard_changes), onDiscard, iconRes = R.drawable.ic_undo)
+        } else {
+            DialogAction(stringResource(R.string.builder_discard), onDiscard, iconRes = R.drawable.ic_delete)
+        },
         dismiss = DialogAction(stringResource(R.string.dialog_cancel), onDismiss),
     )
 }
