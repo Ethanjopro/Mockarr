@@ -2217,6 +2217,23 @@ Implements the four decisions from the session-42 critique (memory
   - logcat clean
   The AVD was left with 2 Dallas routes, settings restored, and font/theme reset.
 
+### 2026-09-24 — Session 45b (Ethan: "I don't see the app on the mockarr test phone")
+- **Cause:** Android Studio Quick Boots mockarr_test from `snapshots/default_boot`, and
+  loading a snapshot rolls the disk back too. `emu.sh boot` used `-no-snapshot` (neither loads
+  nor saves), so the snapshot from 16:03, right after the wipe, was never replaced. Ethan's
+  18:17 launch restored it: no Mockarr, no developer options, no saved routes.
+- **Fix:** `emu.sh boot` now uses `-no-snapshot-load`. It still cold-boots from the current
+  disk, and that boot drops the stale snapshot, so Android Studio cold-boots from the disk
+  too. The emulator-verify skill and the AVD memory now say: install at round end, then
+  `emu.sh kill`.
+- **AVD rebuilt:**
+  - latest build installed; developer options on; mock app allowed; location and
+    notification permissions granted
+  - both Dallas routes recreated by search: Reunion Tower → Dallas Museum of Art (1 min) →
+    Sixth Floor Museum, 2.7 mi / 14 min; Klyde Warren Park → Canton @ Farmers Market,
+    1.5 mi / 6 min. Both named ", Dallas"
+  - first-run hint dismissed; shut down with no stale snapshot and no stale locks
+
 ### NEXT SESSION — loose ends (written 2026-09-24, before a chat reset)
 Work these in order, one commit per round. Verify each on `mockarr_test`, and CI must be
 green after every push.
@@ -2274,5 +2291,6 @@ green after every push.
    `.impeccable/design.json`, which still describes the inverse "Finish" pill. Optionally
    `/impeccable onboard setup`, then a fresh `/impeccable critique` to measure (last 26/40).
 
-The `mockarr_test` AVD was wiped and rebuilt on 2026-09-24: mock app selected, permissions
-granted, 2 Dallas routes saved.
+The `mockarr_test` AVD was rebuilt again on 2026-09-24 (session 45b, after Quick Boot restored
+a stale snapshot): mock app selected, permissions granted, 2 Dallas routes saved. End every
+round with `scripts/emu.sh kill`.

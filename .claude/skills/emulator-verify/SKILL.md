@@ -21,8 +21,11 @@ emulator binary yourself.
    that build (never queue a second Gradle behind a build agent) and retry.
 3. `scripts/emu.sh launch`, then **`scripts/emu.sh settle`** before the first
    tap — the map swallows touches while it warms up.
-4. When finished: `scripts/emu.sh kill`. Never TaskStop the boot task — that
-   kills the emulator child process.
+4. When finished: install the round's build on mockarr_test, then `scripts/emu.sh kill`, so
+   Ethan can open the AVD in Android Studio. Never TaskStop the boot task — that kills the
+   emulator child process. Never boot with `-no-snapshot`: Android Studio's Quick Boot then
+   restored a snapshot from before our installs, disk included, and Mockarr vanished from
+   his AVD (2026-09-24). `boot` uses `-no-snapshot-load`, which drops that stale snapshot.
 5. **Android 16+ features** (the promoted Live Update notification, its status
    chip): `scripts/emu.sh kill`, then `MOCKARR_AVD=Pixel_8a scripts/emu.sh boot`
    (API 37.1, same 1080×2400 screen, so the swipe coordinates hold). `boot`

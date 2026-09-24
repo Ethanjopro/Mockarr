@@ -32,7 +32,10 @@ case "${1:-help}" in
         fi
         echo "still $state — kill it (scripts/emu.sh kill) and boot again" >&2; exit 1 ;;
     esac
-    "$SDK/emulator/emulator" -avd "$AVD" -no-window -no-audio -no-boot-anim -no-snapshot >/dev/null 2>&1 &
+    # -no-snapshot-load: cold boot from the current disk, but `kill` still saves the Quick Boot
+    # snapshot. With -no-snapshot, Android Studio's Quick Boot later restored a snapshot from
+    # before our installs and rolled the disk back with it: Mockarr vanished (2026-09-24).
+    "$SDK/emulator/emulator" -avd "$AVD" -no-window -no-audio -no-boot-anim -no-snapshot-load >/dev/null 2>&1 &
     deadline=$(( $(date +%s) + ${BOOT_TIMEOUT_S:-180} ))
     until [ "$("$ADB" shell getprop sys.boot_completed 2>/dev/null | tr -d '\r')" = "1" ]; do
       if [ "$(date +%s)" -ge "$deadline" ]; then echo "TIMEOUT: emulator did not boot" >&2; exit 1; fi
