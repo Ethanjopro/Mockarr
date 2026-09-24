@@ -18,5 +18,12 @@ class StartsNearTest {
     @Test
     fun `an origin past the threshold offers the start choice`() {
         assertFalse(startsNear(routeStart, GeoMath.destination(routeStart, 90.0, 45.0)))
+        assertTrue(offersDriveIn(routeStart, GeoMath.destination(routeStart, 90.0, 45.0)))
+    }
+
+    @Test
+    fun `an origin too far to drive in just starts the route`() {
+        assertTrue(offersDriveIn(routeStart, GeoMath.destination(routeStart, 90.0, 79_000.0)))
+        assertFalse(offersDriveIn(routeStart, GeoMath.destination(routeStart, 90.0, 81_000.0)))
     }
 }

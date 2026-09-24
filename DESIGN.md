@@ -479,21 +479,21 @@ each label sits under its own circle. The expanded sheet's detail column is capp
 of the window and scrolls, so the map is never buried. **Start while holding elsewhere**
 does not raise a dialog: the row fade-throughs into a "START FROM" caption over two 56dp
 pills — **Held spot** or **My location** (outlined) · **Start of route** (filled) — and
-returns once one is picked; Back or a map tap cancels. Held spot / My location is a
-**drive-in** (session 43, Ethan): the lead-in from there to the first stop is routed and
-driven in front of the route, drawn while driving, and never added to it — a saved route
-stays saved and Drive again starts from the same place. The help line under the pills says
-how far away the origin is and that the route stays as it is; beyond 80 km (straight line)
-the drive-in pill is disabled and the line says it's too far to drive in. In builder mode the row is ✕ (56dp
+returns once one is picked; Back or a map tap cancels. The caption and the pills are all
+there is — no help line, no Cancel (Ethan, session 44: too much text). Held spot / My
+location is a **drive-in** (session 43, Ethan): the lead-in from there to the first stop is
+routed and driven in front of the route, drawn while driving, and never added to it — a
+saved route stays saved. The choice only appears when a drive-in makes sense: an origin at
+the route's start (≤30 m) or too far to drive in (>80 km, straight line) just starts the
+route. In builder mode the row is ✕ (56dp
 white circle, hairline) · **Done** (filled pill); Save, Undo, Redo, Reverse and Clear route
 are map pills above the card. While driving the row is replaced by the **Pause pill**,
 which splits into **End drive** (outlined, left) + **Resume** (filled, right) when paused;
-the "1×" speed chip sits in the card's strip. **A drive's end keeps its route** (session 40,
-Ethan): End drive and a natural arrival leave the route loaded, and the Start slot reads
-**Drive again / Walk again / Ride again** while that exact route is on the map (any edit or
-a newly loaded route turns it back into Start). Clearing a route is a deliberate act (the
-builder's Clear route). Every new drive starts at **1×**; only a resumed drive keeps its own
-pace. Never stack actions vertically in the peek.
+the "1×" speed chip sits in the card's strip. **A drive's end clears its route** (Ethan,
+session 44 — the kept route and "Drive again" of session 41 are gone): a natural arrival,
+End drive and Stop in the notification all leave the map with just the hold. A saved route
+is reloaded from Saved routes. Every new drive starts at **1×**; only a resumed drive keeps
+its own pace. Never stack actions vertically in the peek.
 
 ### Map Pill
 Strava's floating control: a 48dp `floating` circle (white in light; lifted and rimmed in

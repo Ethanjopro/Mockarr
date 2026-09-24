@@ -3,7 +3,6 @@ package dev.mockarr.app.ui.screens
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
@@ -25,7 +24,6 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.rememberUpdatedState
@@ -52,18 +50,11 @@ import dev.mockarr.core.model.RoutingProfile
 /** Where a drive can begin when Start is pressed away from the route's first stop. */
 enum class StartOrigin { HELD_SPOT, MY_LOCATION }
 
-/**
- * Start pressed with another origin available: the row splits into these two pills.
- * [distance] is how far the origin is from the route's start (worded, straight line);
- * [tooFar] turns the drive-in off — that would be a trip of its own.
- */
+/** Start pressed with another origin available: the row splits into these two pills. */
 data class StartChoice(
     val origin: StartOrigin,
-    val distance: String?,
-    val tooFar: Boolean,
     val onFromOrigin: () -> Unit,
     val onFromRouteStart: () -> Unit,
-    val onCancel: () -> Unit,
 )
 
 /**
@@ -85,8 +76,6 @@ fun ActionRow(
     modifier: Modifier = Modifier,
     choice: StartChoice? = null,
     locating: Boolean = false,
-    /** The loaded route was just driven to its end: Start reads "Drive again". */
-    again: Boolean = false,
 ) {
     // Keyed on the origin, not the lambda-carrying object: a recomposition that
     // rebuilds the callbacks must not restart the enter transition (the pills
@@ -104,7 +93,7 @@ fun ActionRow(
         if (origin != null && pending != null) {
             StartChoiceRow(pending)
         } else {
-            ActionSlots(profile, canStart, routeLoaded, onPickMode, onStart, onEditRoute, locating, again)
+            ActionSlots(profile, canStart, routeLoaded, onPickMode, onStart, onEditRoute, locating)
         }
     }
 }
@@ -119,21 +108,16 @@ private fun StartChoiceRow(choice: StartChoice) {
             .padding(horizontal = Tokens.inset)
             .padding(bottom = Tokens.space3),
     ) {
-        // Say what the two pills are for (Ethan): a centred section-header caption,
-        // a heading to TalkBack, and a visible way out beside it (Back and a map tap
-        // cancel too, but nothing said so).
-        Box(modifier = Modifier.fillMaxWidth()) {
-            Text(
-                text = stringResource(R.string.row_start_choice_title).uppercase(LocalConfiguration.current.locales[0]),
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                textAlign = TextAlign.Center,
-                modifier = Modifier.align(Alignment.Center).semantics { heading() },
-            )
-            TextButton(onClick = choice.onCancel, modifier = Modifier.align(Alignment.CenterEnd)) {
-                Text(stringResource(R.string.dialog_cancel))
-            }
-        }
+        // Say what the two pills are for (Ethan): a centred section-header caption and a
+        // heading to TalkBack — nothing more (Ethan, 2026-09-24: the help line and Cancel
+        // were too much text; Back and a map tap cancel).
+        Text(
+            text = stringResource(R.string.row_start_choice_title).uppercase(LocalConfiguration.current.locales[0]),
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            textAlign = TextAlign.Center,
+            modifier = Modifier.fillMaxWidth().padding(bottom = Tokens.space2).semantics { heading() },
+        )
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(Tokens.space2),
@@ -141,22 +125,6 @@ private fun StartChoiceRow(choice: StartChoice) {
         ) {
             StartChoicePills(choice)
         }
-        // The consequence, once: one choice drives in (how far, and that the route stays as it
-        // is), the other jumps — and a jump is exactly what other apps would see.
-        val distance = choice.distance.orEmpty()
-        Text(
-            text = when {
-                choice.tooFar && choice.origin == StartOrigin.HELD_SPOT ->
-                    stringResource(R.string.row_start_choice_far_hold, distance)
-                choice.tooFar -> stringResource(R.string.row_start_choice_far_me, distance)
-                choice.origin == StartOrigin.HELD_SPOT -> stringResource(R.string.row_start_choice_help_hold, distance)
-                else -> stringResource(R.string.row_start_choice_help_me, distance)
-            },
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            textAlign = TextAlign.Center,
-            modifier = Modifier.fillMaxWidth().padding(top = Tokens.space2),
-        )
     }
 }
 
@@ -168,14 +136,14 @@ private fun RowScope.StartChoicePills(choice: StartChoice) {
         StartOrigin.HELD_SPOT -> OutlinedActionPill(
             label = stringResource(R.string.row_start_from_hold),
             iconRes = R.drawable.ic_stat_pin,
-            enabled = !choice.tooFar,
+            enabled = true,
             onClick = choice.onFromOrigin,
             contentDescription = stringResource(R.string.row_start_from_hold_cd),
         )
         StartOrigin.MY_LOCATION -> OutlinedActionPill(
             label = stringResource(R.string.row_start_from_me),
             iconRes = R.drawable.ic_target,
-            enabled = !choice.tooFar,
+            enabled = true,
             onClick = choice.onFromOrigin,
             contentDescription = stringResource(R.string.row_start_from_me_cd),
         )
@@ -198,7 +166,6 @@ private fun ActionSlots(
     onStart: () -> Unit,
     onEditRoute: () -> Unit,
     locating: Boolean,
-    again: Boolean,
 ) {
     // Circles share a top edge (Strava): the row reads higher and each label
     // sits under its own circle.
@@ -226,10 +193,10 @@ private fun ActionSlots(
                 Icon(painterResource(profile.iconRes()), contentDescription = null, modifier = Modifier.size(SIDE_ICON))
             }
         }
-        val startLabel = stringResource(if (again) profile.againLabelRes() else R.string.row_start)
+        val startLabel = stringResource(R.string.row_start)
         // The label lives on the slot, so the locating spinner doesn't leave it unnamed,
         // and a disabled Start is announced as disabled instead of vanishing.
-        val startDescription = stringResource(if (again) R.string.row_start_again_cd else R.string.row_start_cd)
+        val startDescription = stringResource(R.string.row_start_cd)
         RowSlot(
             label = startLabel,
             description = startDescription,

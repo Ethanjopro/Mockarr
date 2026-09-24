@@ -2164,3 +2164,21 @@ Implements the four decisions from the session-42 critique (memory
   - search pick: pin and band with no builder; Back dismisses; Add stop gives "Dallas
     Museum of Art" as stop 4; Discard changes returns to Saved
   - My location 1,532 mi away: pill disabled with the too-far line
+
+### 2026-09-24 — Session 44 (Ethan: START FROM back to plain, a drive's end clears the route)
+- **START FROM** is back to its caption and two pills. The help line and Cancel (session 41)
+  and the distance / too-far copy (session 43) are gone; Back and a map tap still cancel.
+  Without a line to explain a disabled pill, the choice now only appears when a drive-in
+  makes sense: `offersDriveIn` (StartsNearTest). An origin at the start (≤30 m) or beyond
+  80 km just starts the route.
+- **A drive's end clears the route again.** This reverses session 41's keep-route + Drive
+  again. MapLayer's drive-outcome collector calls `clearWaypoints()` on any ending: arrival,
+  End drive, or Stop in the notification. Removed `markDriven` / `drivenRoutePoints`, the
+  action row's `again`, `againLabelRes` and their strings. Every drive still starts at 1×.
+- CLAUDE.md gains the rule behind the START FROM revert: minimal on-screen copy, no help
+  lines under controls.
+- **Verified on mockarr_test:**
+  - START FROM shows the caption and two pills only
+  - held-spot drive-in to arrival: route cleared, "Holding at North Record Street"
+  - Start with the real location 1,532 mi away starts straight away with no choice
+  - End drive clears the route and leaves "Holding at La Parada"

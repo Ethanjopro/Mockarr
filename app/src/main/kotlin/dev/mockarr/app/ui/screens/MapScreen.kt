@@ -157,14 +157,12 @@ fun MapLayer(
     val playing = session is MockSessionState.Playing
     // While driving, the line is what the engine drives: a drive-in's lead-in, then the route.
     val shownRoute = if (playing) drive?.route ?: state.route else state.route
-    // A drive's end keeps the route (Ethan, 2026-09-22) and Start offers to drive it
-    // again — however it ended: arrival, End drive, or Stop in the notification while
-    // the app was away. Hosted here, not in MapScreen — this layer stays composed
-    // while Routes/Settings cover the map. drop(1): a stale outcome isn't a new end.
+    // A drive's end clears its route (Ethan, 2026-09-24: the route kept for "Drive again"
+    // is gone) — however it ended: arrival, End drive, or Stop in the notification while
+    // the app was away. Hosted here, not in MapScreen — this layer stays composed while
+    // Routes/Settings cover the map. drop(1): a stale outcome isn't a new end.
     LaunchedEffect(Unit) {
-        sessionViewModel.driveOutcome.drop(1).filterNotNull().collect {
-            viewModel.interaction.markDriven(viewModel.uiState.value.route?.points)
-        }
+        sessionViewModel.driveOutcome.drop(1).filterNotNull().collect { viewModel.clearWaypoints() }
     }
     var holdAwaitingPermission by remember { mutableStateOf<LatLng?>(null) }
     val holdPermissionLauncher = rememberLauncherForActivityResult(
@@ -314,7 +312,6 @@ fun MapScreen(
         onPauseOrDispose { }
     }
     val units by viewModel.units.collectAsStateWithLifecycle()
-    val formatter = rememberFormatter()
     val plannedSeconds by viewModel.plannedSeconds.collectAsStateWithLifecycle()
     val drive by sessionViewModel.drive.collectAsStateWithLifecycle()
     val preparingDrive by sessionViewModel.preparing.collectAsStateWithLifecycle()
@@ -463,10 +460,10 @@ fun MapScreen(
         }
         resolveRealLocation { real ->
             val current = viewModel.uiState.value.route ?: return@resolveRealLocation
-            if (real == null || startsNear(current.points.first(), real)) {
-                requestPlay(current)
-            } else {
+            if (real != null && offersDriveIn(current.points.first(), real)) {
                 viewModel.interaction.requestStartChoice(current, realStart = real)
+            } else {
+                requestPlay(current)
             }
         }
     }
@@ -490,10 +487,10 @@ fun MapScreen(
         val route = ui.route
         when {
             route != null && hold != null -> {
-                if (startsNear(route.points.first(), hold.position)) {
-                    requestPlay(route)
-                } else {
+                if (offersDriveIn(route.points.first(), hold.position)) {
                     viewModel.interaction.requestStartChoice(route)
+                } else {
+                    requestPlay(route)
                 }
             }
             route != null -> askStartFromReal(route)
@@ -512,18 +509,12 @@ fun MapScreen(
         }
     }
 
-    val startChoiceOrigin = pendingRealStart ?: holding?.position
-    val startChoiceMeters = startChoiceRoute?.let { pending ->
-        startChoiceOrigin?.let { GeoMath.distanceMeters(it, pending.points.first()) }
-    }
     val startChoice = startChoiceRoute?.let { pendingRoute ->
         val realStart = pendingRealStart
         StartChoice(
             origin = if (realStart != null) StartOrigin.MY_LOCATION else StartOrigin.HELD_SPOT,
-            distance = startChoiceMeters?.let { formatter.distance(it, units) },
-            tooFar = (startChoiceMeters ?: 0.0) > DRIVE_IN_MAX_METERS,
             // A drive-in, not a new first stop (Ethan, 2026-09-24): the route stays as it
-            // is, so a saved route stays saved and Drive again starts from the same place.
+            // is, so a saved route stays saved.
             onFromOrigin = {
                 viewModel.interaction.clearStartChoice()
                 val origin = realStart ?: currentHold()?.position
@@ -533,7 +524,6 @@ fun MapScreen(
                 viewModel.interaction.clearStartChoice()
                 requestPlay(pendingRoute)
             },
-            onCancel = { viewModel.interaction.clearStartChoice() },
         )
     }
     // Back unwinds the transient map states before anything else; the search
@@ -651,7 +641,6 @@ fun MapScreen(
         )
     }
     val interrupted by sessionViewModel.interrupted.collectAsStateWithLifecycle()
-    val drivenPoints by viewModel.interaction.drivenRoutePoints.collectAsStateWithLifecycle()
     var showResume by rememberSaveable { mutableStateOf(false) }
     val resumeOffer = interrupted
     if (showResume && resumeOffer != null) {
@@ -941,11 +930,8 @@ fun MapScreen(
                                     stopping = playbackState is PlaybackState.Stopping,
                                     onPause = sessionViewModel::pause,
                                     onResume = sessionViewModel::resume,
-                                    onFinish = {
-                                        // End drive stops the drive, not the route: it stays for Drive again
-                                        // (the drive-outcome collector in MapLayer marks it driven).
-                                        sessionViewModel.stopPlayback()
-                                    },
+                                    // The drive-outcome collector in MapLayer clears the route once it has ended.
+                                    onFinish = sessionViewModel::stopPlayback,
                                     // No handle here, so the pill takes the handle's room under the sheet edge.
                                     modifier = Modifier.padding(
                                         start = Tokens.inset,
@@ -966,7 +952,6 @@ fun MapScreen(
                                 )
                                 PeekMode.RECORD -> RecordPeek(
                                     state = state,
-                                    again = state.route != null && drivenPoints === state.route?.points,
                                     choice = startChoice,
                                     locating = locatingStart || preparingDrive,
                                     onPickMode = { showModePicker = true },
@@ -1279,7 +1264,6 @@ fun MapScreen(
 @Composable
 private fun RecordPeek(
     state: MapViewModel.UiState,
-    again: Boolean,
     choice: StartChoice?,
     locating: Boolean,
     onPickMode: () -> Unit,
@@ -1298,7 +1282,6 @@ private fun RecordPeek(
         onEditRoute = onEditRoute,
         choice = choice,
         locating = locating,
-        again = again,
     )
 }
 
@@ -1519,6 +1502,14 @@ private enum class PeekMode { RECORD, BUILDER, PLAYING }
 /** True when [origin] is so close to [routeStart] that offering a choice would be noise. */
 internal fun startsNear(routeStart: LatLng, origin: LatLng): Boolean =
     GeoMath.distanceMeters(routeStart, origin) <= START_FROM_HOLD_METERS
+
+/**
+ * Whether Start asks where to start from: not when [origin] is at the route's start (the
+ * choice would be noise), nor when it's too far to drive in — then only the jump is left,
+ * and Start just starts (no disabled pill to explain).
+ */
+internal fun offersDriveIn(routeStart: LatLng, origin: LatLng): Boolean =
+    !startsNear(routeStart, origin) && GeoMath.distanceMeters(routeStart, origin) <= DRIVE_IN_MAX_METERS
 
 private const val START_FROM_HOLD_METERS = 30.0
 

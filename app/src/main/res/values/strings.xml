@@ -135,10 +135,6 @@
     <string name="row_mode_cycle">Cycle</string>
     <string name="row_mode_cd">Travel mode: %1$s</string>
     <string name="row_start">Start</string>
-    <string name="row_start_again_drive">Drive again</string>
-    <string name="row_start_again_walk">Walk again</string>
-    <string name="row_start_again_ride">Ride again</string>
-    <string name="row_start_again_cd">Start this route again</string>
     <string name="row_start_cd">Start the drive</string>
     <string name="row_add_route">Add route</string>
     <string name="row_switch_route">Edit route</string>
@@ -149,10 +145,6 @@
     <string name="row_start_from_me">My location</string>
     <string name="row_start_from_me_cd">Start from your real location</string>
     <string name="row_start_choice_title">Start from</string>
-    <string name="row_start_choice_help_hold">Held spot drives in from where you\'re holding, %1$s away, and leaves your route as it is. Start of route jumps straight to the first stop.</string>
-    <string name="row_start_choice_help_me">My location drives in from where you really are, %1$s away, and leaves your route as it is. Start of route jumps straight to the first stop.</string>
-    <string name="row_start_choice_far_hold">Your held spot is %1$s from the first stop, too far to drive in. Start of route jumps straight there.</string>
-    <string name="row_start_choice_far_me">Your real location is %1$s from the first stop, too far to drive in. Start of route jumps straight there.</string>
     <string name="mode_picker_title">Travel mode</string>
     <string name="mode_locked">Not available in this build</string>
     <string name="builder_done">Done</string>

@@ -52,7 +52,9 @@ a free non-OSS API is acceptable when it noticeably improves the app (ADR 0001 a
 - New screens follow the Map tab's file split: `XScreen.kt` (layout) /
   `XSheet.kt` or `XComponents.kt` (pieces) / `XDialogs.kt` / `XViewModel.kt` —
   see the per-file function cap under Lint tripwires.
-- User-facing copy goes in `res/values/strings.xml` from day one.
+- User-facing copy goes in `res/values/strings.xml` from day one. Keep on-screen copy
+  minimal: no explanatory help lines under controls (Ethan reverted START FROM's, 2026-09-24)
+  — a label, a band line or a content description carries the meaning; ask before adding prose.
 - Visual system: `DESIGN.md` (tokens + rules) — read it before touching UI.
   Direction: `docs/design/brief.md` + `PRODUCT.md`; references in
   `docs/design/refs/` (raw Mobbin captures are git-ignored — never commit them).

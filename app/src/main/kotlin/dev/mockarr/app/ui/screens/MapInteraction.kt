@@ -124,18 +124,6 @@ class MapInteraction(private val isStop: (Int) -> Boolean) {
         _startChoiceRealStart.value = null
     }
 
-    /**
-     * The points of the route whose drive just ended (arrival or End drive). The
-     * route stays loaded, and while this exact route is on the map Start offers
-     * to drive it again; any edit or new route builds a new points list.
-     */
-    private val _drivenRoutePoints = MutableStateFlow<List<LatLng>?>(null)
-    val drivenRoutePoints: StateFlow<List<LatLng>?> = _drivenRoutePoints.asStateFlow()
-
-    fun markDriven(points: List<LatLng>?) {
-        _drivenRoutePoints.value = points
-    }
-
     /** Every stop edit drops the selection and any pending move. */
     fun reset() {
         _movingWaypoint.value = null

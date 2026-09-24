@@ -113,7 +113,7 @@ class MapViewModel @Inject constructor(
         .stateIn(viewModelScope, SharingStarted.Eagerly, null)
 
     // The state the builder opened on: ✕ → "Discard changes" puts it back whole, so a saved
-    // route stays saved and Drive again still offers itself (undoing step by step refetched it).
+    // route stays saved (undoing step by step refetched it and dropped Saved).
     private var builderEntry: UiState? = null
 
     // Stop names already looked up (a moved-back or undone stop needs no second call), and in flight.
