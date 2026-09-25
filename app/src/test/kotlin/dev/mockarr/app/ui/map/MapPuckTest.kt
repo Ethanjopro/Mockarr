@@ -4,6 +4,7 @@ import kotlin.math.cos
 import kotlin.math.pow
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
@@ -73,5 +74,14 @@ class MapPuckTest {
         assertEquals(500, glideMillis(500))
         assertEquals(150, glideMillis(20))
         assertEquals(1_500, glideMillis(60_000))
+    }
+
+    @Test
+    fun `only a gap well past the fix interval is stale`() {
+        // 0.5 Hz, the slowest tick setting, with scheduling slack.
+        assertFalse(isStaleGap(2_600))
+        assertFalse(isStaleGap(5_000))
+        assertTrue(isStaleGap(5_001))
+        assertTrue(isStaleGap(45_000))
     }
 }

@@ -16,7 +16,6 @@
     <string name="strip_walking">Walking</string>
     <string name="strip_cycling">Cycling</string>
     <string name="strip_paused">Paused</string>
-    <string name="strip_stopping">Stopping…</string>
     <string name="strip_waiting">Waiting at stop %1$d · %2$s</string>
     <string name="strip_waiting_at">Waiting at %1$s · %2$s</string>
     <string name="strip_waiting_destination">Waiting at destination · %1$s</string>
@@ -33,6 +32,7 @@
     <string name="strip_holding_at">Holding at %1$s</string>
     <string name="strip_holding_destination">Holding at destination</string>
     <string name="strip_holding_pin">Holding at dropped pin</string>
+    <string name="strip_holding_pending">Holding your location</string>
     <string name="strip_holding_stopped">Holding where you stopped</string>
     <string name="notification_holding_pending">Looking up the place…</string>
     <string name="notification_hold_at">At %1$s</string>

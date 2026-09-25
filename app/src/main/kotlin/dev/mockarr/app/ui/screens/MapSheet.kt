@@ -242,9 +242,9 @@ internal data class StripModel(
 /**
  * One line of state, highest-priority state wins — the card's single band,
  * from the idle prompt through Ready, Driving, Arrived and Holding. Null means
- * "nothing to say yet" (a hold whose place name is still resolving): the
- * caller keeps showing the previous line rather than raw coordinates. The
- * trio under the band says whether a route is loaded; the band never repeats it.
+ * "nothing new to say" (a drive slowing to its end): the caller keeps showing
+ * the previous line. The trio under the band says whether a route is loaded;
+ * the band never repeats it.
  */
 @Composable
 internal fun stripFor(
@@ -276,14 +276,12 @@ internal fun stripFor(
         actionLabel = if (holding != null) stringResource(R.string.strip_stop_hold) else null,
         action = if (holding != null) StripAction.RELEASE else null,
     )
-    holding != null -> holdingText(holding)?.let { text ->
-        StripModel(
-            text = text,
-            tone = StripTone.Hold,
-            actionLabel = stringResource(R.string.strip_stop_hold),
-            action = StripAction.RELEASE,
-        )
-    }
+    holding != null -> StripModel(
+        text = holdingText(holding),
+        tone = StripTone.Hold,
+        actionLabel = stringResource(R.string.strip_stop_hold),
+        action = StripAction.RELEASE,
+    )
     !setupReady -> StripModel(
         text = stringResource(R.string.strip_not_set_up),
         tone = StripTone.Error,
@@ -334,8 +332,10 @@ private fun playbackStrip(
     playbackState: PlaybackState?,
     profile: RoutingProfile,
     drive: MockSessionRepository.LiveDrive?,
-): StripModel = when (playbackState) {
-    is PlaybackState.Stopping -> StripModel(stringResource(R.string.strip_stopping), StripTone.Neutral)
+): StripModel? = when (playbackState) {
+    // The slow-down after End drive keeps the band as it was (its controls go inert): a
+    // "Stopping…" band flashed for half a second between Paused and Holding.
+    is PlaybackState.Stopping -> null
     is PlaybackState.Paused -> StripModel(stringResource(R.string.strip_paused), StripTone.Hold)
     is PlaybackState.Dwelling -> {
         // Whole seconds rounded up, like the chip over the marker — the two never disagree.
@@ -370,16 +370,20 @@ private fun playbackStrip(
     else -> StripModel(stringResource(profile.movingLabelRes()), StripTone.Accent)
 }
 
-/** Never coordinates: the name, a generic label once the lookup failed, or null while it runs. */
+/**
+ * Never coordinates: the place's name, or a generic label until (or unless) the lookup
+ * finds one. A new hold used to wait for its name and keep the previous state on the
+ * band meanwhile — "Ready to drive" or the idle prompt beside the new pin for seconds.
+ */
 @Composable
-private fun holdingText(holding: MockSessionState.Holding): String? {
+private fun holdingText(holding: MockSessionState.Holding): String {
     val place = holding.placeName
     return when {
         place != null -> stringResource(R.string.strip_holding_at, place)
         holding.source == HoldSource.DESTINATION -> stringResource(R.string.strip_holding_destination)
         holding.source == HoldSource.STOPPED -> stringResource(R.string.strip_holding_stopped)
         holding.nameFailed -> stringResource(R.string.strip_holding_pin)
-        else -> null
+        else -> stringResource(R.string.strip_holding_pending)
     }
 }
 

@@ -52,6 +52,16 @@ case "${1:-help}" in
     "$ADB" shell screenrecord --time-limit "$secs" --bit-rate 4000000 /sdcard/rec.mp4
     "$ADB" pull -q /sdcard/rec.mp4 "$out" && echo "saved $out (${secs}s)"
     ;;
+  # Frame strip of a recording, numbered, for reading a transition frame by frame:
+  # scripts/emu.sh frames <in.mp4> <out.png> [start_s=0] [fps=20] [y0=1300] [h=1100] [cols=9]
+  # (y0/h crop the 1080-wide screen: 1300/1100 = card + sheet peek). Identical frames in a
+  # row are a main-thread stall, not a pause in the animation.
+  frames)
+    in="$2"; out="$3"; ss="${4:-0}"; fps="${5:-20}"; y0="${6:-1300}"; h="${7:-1100}"; cols="${8:-9}"
+    ffmpeg -loglevel error -y -ss "$ss" -i "$in" \
+      -vf "fps=$fps,crop=1080:$h:0:$y0,scale=220:-1,drawtext=text='%{n}':x=4:y=4:fontsize=14:fontcolor=red,tile=${cols}x4" \
+      -frames:v 1 "$out" && echo "saved $out"
+    ;;
   # Raw adb shell passthrough for one-offs (dumpsys location, settings, …).
   shell)     shift; "$ADB" shell "$@" ;;
   # Wait until the app has drawn and the accessibility tree is readable — the
@@ -81,8 +91,13 @@ case "${1:-help}" in
       Routes|Settings)
         "$0" tab Map >/dev/null || exit 1
         label="Saved routes"; [ "$2" = Settings ] && label="All settings"
-        "$ADB" shell input swipe 540 2100 540 600 400
-        "$0" waitfor "$label" 10 >/dev/null || exit 1
+        # The first swipe lifts the sheet; later ones scroll its list when the row is
+        # still below the fold (an already-expanded sheet, a long options list).
+        for _ in 1 2 3; do
+          "$ADB" shell input swipe 540 2100 540 600 400; sleep 1
+          "$0" assert "$label" >/dev/null 2>&1 && break
+        done
+        "$0" waitfor "$label" 5 >/dev/null || exit 1
         sleep 0.5   # let the sheet settle before the row is tapped
         "$0" tapon "$label" >/dev/null && echo "switched to $2" ;;
       *) echo "no screen named $2 (Map|Routes|Settings)" >&2; exit 1 ;;
@@ -238,6 +253,7 @@ usage: scripts/emu.sh <command> [args]
   tab Map|Routes|Settings    open a screen (Map = back to root; others via the sheet's drag-up rows)
   shell <adb shell args…>    raw adb shell passthrough
   record <secs> [out.mp4]    screen recording (blocks for <secs>) for motion checks
+  frames <mp4> <png> [start] [fps] [y0] [h] [cols]  numbered frame strip of a recording (needs ffmpeg)
   kill                       shut the emulator down
   launch                     start the Mockarr main activity as the launcher does
   install                    :app:installDebug via scripts/gradle (refuses while Gradle is busy)

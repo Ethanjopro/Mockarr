@@ -4,6 +4,7 @@ import android.os.SystemClock
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -15,6 +16,7 @@ import androidx.compose.ui.res.stringResource
 import dev.mockarr.app.R
 import dev.mockarr.app.playback.DriveOutcome
 import dev.mockarr.app.playback.MockSessionState
+import dev.mockarr.core.model.PlaybackState
 import kotlinx.coroutines.delay
 
 /**
@@ -91,3 +93,17 @@ internal fun ReleaseSnackbar(session: MockSessionState, snackbarHostState: Snack
 }
 
 private const val ARRIVED_MILLIS = 4_000L
+
+/**
+ * The drive's state as the screen should show it: live while the drive moves, pauses,
+ * waits or slows to its stop, and the last of those once it has ended (the engine's
+ * state goes null a beat before the hold takes over). In that beat the progress bar and
+ * "Distance left" snapped back to the full route, and the ended drive's buttons came back on.
+ */
+@Composable
+internal fun rememberDriveState(playbackState: PlaybackState?): PlaybackState? {
+    var last by remember { mutableStateOf<PlaybackState?>(null) }
+    val live = playbackState.takeUnless { it == null || it is PlaybackState.Finished }
+    SideEffect { if (live != null) last = live }
+    return live ?: last
+}

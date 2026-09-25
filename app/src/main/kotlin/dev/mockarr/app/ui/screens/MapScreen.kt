@@ -120,6 +120,7 @@ import dev.mockarr.core.model.Route
 import dev.mockarr.core.model.Waypoint
 import dev.mockarr.core.model.progressOrZero
 import kotlinx.coroutines.flow.drop
+import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.launch
 import kotlin.math.roundToInt
@@ -150,6 +151,7 @@ fun MapLayer(
     val latestFix by sessionViewModel.latestFix.collectAsStateWithLifecycle()
     val dwell by sessionViewModel.dwell.collectAsStateWithLifecycle()
     val playbackState by sessionViewModel.playbackState.collectAsStateWithLifecycle()
+    val driveState = rememberDriveState(playbackState)
     val drive by sessionViewModel.drive.collectAsStateWithLifecycle()
     val focusManager = LocalFocusManager.current
     val context = LocalContext.current
@@ -267,7 +269,7 @@ fun MapLayer(
         playbackCenter = if (playing) latestFix?.truePosition else null,
         // Off-road spans split the drawn line into pieces, and line-progress is per piece.
         playbackProgress = if (playing && shownRoute?.offRoadSpans.isNullOrEmpty()) {
-            playbackState.progressOrZero.toFloat()
+            driveState.progressOrZero.toFloat()
         } else {
             null
         },
@@ -705,6 +707,16 @@ fun MapScreen(
     ReleaseSnackbar(session = session, snackbarHostState = snackbarHostState)
     val hapticStops = remember(drivenRoute) { stopFractions(drivenRoute) }
     SessionHaptics(session = session, playbackState = playbackState, stops = hapticStops)
+    // The slow-down after End drive keeps the controls that were showing, disabled: End
+    // drive · Resume used to flip to a disabled Pause for that half second.
+    // So do the beats after it, until the hold takes over (rememberDriveState).
+    val driveState = rememberDriveState(playbackState)
+    val windingDown = playbackState !is PlaybackState.Playing &&
+        playbackState !is PlaybackState.Paused &&
+        playbackState !is PlaybackState.Dwelling
+    var lastPausedControls by remember { mutableStateOf(false) }
+    val pausedControls = if (windingDown) lastPausedControls else playbackState is PlaybackState.Paused
+    SideEffect { if (!windingDown) lastPausedControls = pausedControls }
     val expanded = sheetState.currentValue == SheetValue.Expanded
     // Back collapses an expanded sheet, then leaves building like Done (the stops
     // stay) — before, it left the app, and on API 26–30 the unsaved route with it.
@@ -713,6 +725,13 @@ fun MapScreen(
         searchOpen || startChoice != null || movingWaypoint != null || selectedWaypoint != null || pinBack
     BackHandler(enabled = !transientBack && (expanded || (builderMode && !playing))) {
         if (expanded) scope.launch { sheetState.partialExpand() } else viewModel.setBuilderMode(false)
+    }
+    // Leaving the builder (✕, Done, Discard changes) drops an expanded sheet to its peek: its
+    // stop list is gone, and the options list must not open in its place (Ethan, 2026-09-24).
+    LaunchedEffect(Unit) {
+        viewModel.builderMode.drop(1).filter { !it }.collect {
+            if (sheetState.currentValue == SheetValue.Expanded) sheetState.partialExpand()
+        }
     }
     var peekHeightPx by remember { mutableIntStateOf(0) }
     val density = LocalDensity.current
@@ -941,8 +960,8 @@ fun MapScreen(
                             when (mode) {
                                 PeekMode.PLAYING -> PlaybackControls(
                                     profile = state.profile,
-                                    paused = playbackState is PlaybackState.Paused,
-                                    stopping = playbackState is PlaybackState.Stopping,
+                                    paused = pausedControls,
+                                    stopping = windingDown,
                                     onPause = sessionViewModel::pause,
                                     onResume = sessionViewModel::resume,
                                     // The drive-outcome collector in MapLayer clears the route once it has ended.
@@ -968,7 +987,8 @@ fun MapScreen(
                                 PeekMode.RECORD -> RecordPeek(
                                     state = state,
                                     choice = startChoice,
-                                    locating = locatingStart || preparingDrive,
+                                    // Still spinning as it fades out for the drive's controls.
+                                    locating = locatingStart || preparingDrive || playing,
                                     onPickMode = { showModePicker = true },
                                     onStart = ::playOrAskStart,
                                     onEditRoute = { viewModel.setBuilderMode(true) },
@@ -1124,7 +1144,7 @@ fun MapScreen(
                 val recordCells = recordCells(state, plannedSeconds, units)
                 val stats: (@Composable () -> Unit)? = when {
                     playing -> {
-                        { PlaybackStats(playbackState, drivenRoute, units, sessionViewModel) }
+                        { PlaybackStats(driveState, drivenRoute, units, sessionViewModel) }
                     }
                     recordCells != null -> {
                         { StatTrio(cells = recordCells) }

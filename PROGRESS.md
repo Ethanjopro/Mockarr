@@ -2234,6 +2234,46 @@ Implements the four decisions from the session-42 critique (memory
     1.5 mi / 6 min. Both named ", Dallas"
   - first-run hint dismissed; shut down with no stale snapshot and no stale locks
 
+### 2026-09-24 — Session 46 (Ethan: fade resets via the notification, flickery band, ✕ opens the options)
+- **The driven stretch's fade no longer resets through the notification.** It wasn't lost:
+  coming back, the puck glided from where the app left it, and the shade redrew the stretch
+  driven meanwhile. `isStaleGap` (MapPuck.kt): a gap over 5 s between fixes means the app was
+  away (0.5 Hz is the slowest tick), so the puck, the shade and the follow camera jump to now.
+- **Builder ✕ collapses the sheet.** Leaving the builder (✕, Done, Discard changes) drops an
+  expanded sheet to its peek, so the options list no longer opens where the stop list was.
+- **Band transitions, recorded at 20 fps and read frame by frame:**
+  - Only the colour used to fade, so new words sat on the old colour (the idle prompt on
+    amber, "Driving" on green). `StatusStrip` (now in `MapStatusStrip.kt`) fades the colour
+    over 200 ms while the words and pill fade through: old out in 90 ms, then new in. A
+    leaving pill keeps its look but is inert, and the band's text is one stable TalkBack node.
+  - A new hold waited for its place name and left the previous band up for 1–3 s. It now
+    says "Holding your location" at once.
+  - `PlaybackState.Stopping` carried no progress. For the half second after End drive, the
+    band read "Stopping…", the trio showed "—", and the road shade, progress bar and
+    Distance left snapped back to the start. It now carries progress and time left
+    (engine test), and the band and controls stay as they were, inert, until the hold.
+    `strip_stopping` is gone.
+  - Between the engine ending and the hold starting, the drive state is null for a beat.
+    `rememberDriveState` keeps the last live state, so the numbers don't snap back and the
+    ended drive's buttons don't come back on.
+  - The trio folded away blank; it now keeps its last numbers while it shrinks. It has its
+    own size animation, instead of fighting the card's.
+  - Start dropped its spinner before the drive ran, and Start flashed back. The spinner
+    now holds until the session is Playing (or it errors, or 10 s pass).
+  - The leaving band re-centred when the speed chip went away. Alignment now travels
+    with the words.
+- **Left for round 2 (optimize):** a ~200 ms main-thread stall as a drive starts and as it
+  ends: runs of identical frames, and the camera seems to jump because its ease runs during
+  the stall.
+- **Tooling:** `emu.sh tab Routes` retries its swipe when the sheet is already up.
+  `emu.sh frames` makes a numbered frame strip of a recording. The emulator-verify skill
+  has new Motion and Away-and-back passes.
+- **Verified on mockarr_test:**
+  - frame strips of hold → Stop holding, Start → Pause → End drive, and the notification
+    return mid-drive at 4×: the dot and shade are at 0.4 mi on the first frame
+  - ✕ from the expanded builder lands on the collapsed Record peek
+  - build, detekt and tests green
+
 ### NEXT SESSION — loose ends (written 2026-09-24, before a chat reset)
 Work these in order, one commit per round. Verify each on `mockarr_test`, and CI must be
 green after every push.

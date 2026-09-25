@@ -1,16 +1,16 @@
 package dev.mockarr.app.ui.screens
 
 import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.animateContentSize
-import androidx.compose.foundation.background
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.text.TextAutoSize
@@ -19,19 +19,19 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.CustomAccessibilityAction
-import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.Role
-import androidx.compose.ui.semantics.clearAndSetSemantics
-import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.customActions
-import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -39,10 +39,10 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import dev.mockarr.app.R
+import dev.mockarr.app.ui.Motion
 import dev.mockarr.app.ui.rememberFormatter
 import dev.mockarr.app.ui.theme.MapPopover
 import dev.mockarr.app.ui.theme.MockarrTheme
-import dev.mockarr.app.ui.theme.SmallPill
 import dev.mockarr.app.ui.theme.Tokens
 import dev.mockarr.core.model.DistanceUnits
 import dev.mockarr.core.model.Route
@@ -78,7 +78,11 @@ internal fun StatCard(
         border = MockarrTheme.colors.floatingBorder(),
         shadowElevation = Tokens.cardElevation,
     ) {
-        Column(modifier = Modifier.animateContentSize()) {
+        // Leaving, the trio keeps its last numbers while it folds away: it used to redraw
+        // empty, and a blank white block shrank out of the card.
+        var lastStats by remember { mutableStateOf(stats) }
+        SideEffect { if (stats != null) lastStats = stats }
+        Column {
             StatusStrip(
                 text = strip.text,
                 tone = strip.tone,
@@ -88,7 +92,11 @@ internal fun StatCard(
                 spoken = strip.spoken,
                 customActions = stripActions,
             )
-            AnimatedVisibility(visible = stats != null) {
+            AnimatedVisibility(
+                visible = stats != null,
+                enter = expandVertically(tween(Motion.STANDARD_MILLIS)) + fadeIn(tween(Motion.STANDARD_MILLIS)),
+                exit = shrinkVertically(tween(Motion.STANDARD_MILLIS)),
+            ) {
                 // Only the stats block is tappable — the strip keeps its own action.
                 val editLabel = stringResource(R.string.stat_trio_edit_cd)
                 // onClickLabel, not a content description: TalkBack reads the numbers,
@@ -98,71 +106,16 @@ internal fun StatCard(
                 } else {
                     Modifier.semantics { if (statsActions.isNotEmpty()) customActions = statsActions }
                 }
-                Column(modifier = clickable.padding(horizontal = Tokens.inset, vertical = Tokens.space3)) {
-                    stats?.invoke()
+                // Its own size animation: a planned trio becoming the drive's (with its progress
+                // bar) grows smoothly. The whole card used to animate too, and the two fought.
+                Column(
+                    modifier = clickable
+                        .animateContentSize()
+                        .padding(horizontal = Tokens.inset, vertical = Tokens.space3),
+                ) {
+                    (stats ?: lastStats)?.invoke()
                 }
             }
-        }
-    }
-}
-
-/**
- * The card's top band: one line of state copy on a tinted colour that
- * crossfades between states, so a transition reads as one surface changing.
- */
-@Composable
-fun StatusStrip(
-    text: String,
-    tone: StripTone,
-    modifier: Modifier = Modifier,
-    actionLabel: String? = null,
-    onAction: (() -> Unit)? = null,
-    trailing: (@Composable () -> Unit)? = null,
-    spoken: String? = null,
-    customActions: List<CustomAccessibilityAction> = emptyList(),
-) {
-    val colors = MockarrTheme.colors
-    val scheme = MaterialTheme.colorScheme
-    val (container, content) = when (tone) {
-        StripTone.Neutral -> scheme.surfaceContainerHigh to scheme.onSurfaceVariant
-        StripTone.Ready -> colors.readyContainer to colors.onReadyContainer
-        StripTone.Accent -> scheme.primaryContainer to scheme.onPrimaryContainer
-        StripTone.Hold -> colors.holdContainer to colors.onHoldContainer
-        StripTone.Error -> scheme.errorContainer to scheme.onErrorContainer
-    }
-    val background by animateColorAsState(container, label = "stripBackground")
-    val foreground by animateColorAsState(content, label = "stripForeground")
-    Row(
-        modifier = modifier
-            .fillMaxWidth()
-            .background(background)
-            .padding(horizontal = Tokens.inset)
-            .heightIn(min = Tokens.touchTarget),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Text(
-            text = text,
-            style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
-            color = foreground,
-            textAlign = if (actionLabel == null && trailing == null) TextAlign.Center else TextAlign.Start,
-            // Three lines at large font scales: the error line's consequence must not be cut off.
-            maxLines = 3,
-            overflow = TextOverflow.Ellipsis,
-            // The band is the app's one state surface: TalkBack hears Ready → Driving → Arrived —
-            // in its stable spoken form, so a countdown doesn't re-announce every second.
-            modifier = Modifier.weight(1f).clearAndSetSemantics {
-                contentDescription = spoken ?: text
-                liveRegion = LiveRegionMode.Polite
-                if (customActions.isNotEmpty()) this.customActions = customActions
-            },
-        )
-        if (actionLabel != null && onAction != null) {
-            Spacer(Modifier.width(Tokens.space2))
-            SmallPill(actionLabel, onAction, ink = foreground)
-        }
-        if (trailing != null) {
-            Spacer(Modifier.width(Tokens.space2))
-            trailing()
         }
     }
 }

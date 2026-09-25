@@ -51,6 +51,12 @@ private const val GLIDE_MIN_MILLIS = 150L
 private const val GLIDE_MAX_MILLIS = 1_500L
 private const val GLIDE_TELEPORT_METERS = 200.0
 
+/**
+ * Fixes come at least every 2 s (0.5 Hz, the slowest tick setting); a gap well past that
+ * means the app was away or the drive paused.
+ */
+private const val STALE_FIX_MILLIS = 5_000L
+
 /** The puck's two points: the reported fix (the dot) and the true position its range is centred on. */
 internal fun playbackFeatures(position: LatLng?, center: LatLng?): FeatureCollection {
     fun pointOf(at: LatLng, kind: String) = Feature.fromGeometry(at.toPoint()).apply {
@@ -122,6 +128,13 @@ internal fun glideMillis(intervalMillis: Long): Int =
     intervalMillis.coerceIn(GLIDE_MIN_MILLIS, GLIDE_MAX_MILLIS).toInt()
 
 /**
+ * True when what the map drew at the last fix is out of date: coming back to the app, the
+ * puck, its road shade and the follow camera jump to now. Gliding from where they were when
+ * the app left replayed the stretch driven meanwhile, and the shade seemed to reset.
+ */
+internal fun isStaleGap(gapMillis: Long): Boolean = gapMillis > STALE_FIX_MILLIS
+
+/**
  * Where a fix puts the puck: the reported [position] (the dot), the true
  * [center] of its wobble range, and 0–1 of the route driven.
  */
@@ -153,7 +166,8 @@ internal class PuckMotion {
      * leave from, the dot and its range glide there over the interval the fixes
      * are arriving at, starting from wherever they were drawn last — an early
      * fix cuts the glide short instead of snapping. A first fix, a jump
-     * (resume, restart) or reduce-motion sets it directly.
+     * (resume, restart), a return to the app ([isStaleGap]) or reduce-motion
+     * sets it directly.
      */
     suspend fun moveTo(style: Style, fix: PuckFix, animate: Boolean, nowMillis: Long) {
         val from = position
@@ -163,7 +177,7 @@ internal class PuckMotion {
         val interval = nowMillis - lastFixAt
         lastFixAt = nowMillis
         val direct = from == null || fromCenter == null || target == null || targetCenter == null || !animate ||
-            GeoMath.distanceMeters(from, target) > GLIDE_TELEPORT_METERS
+            isStaleGap(interval) || GeoMath.distanceMeters(from, target) > GLIDE_TELEPORT_METERS
         if (direct) {
             position = target
             center = targetCenter

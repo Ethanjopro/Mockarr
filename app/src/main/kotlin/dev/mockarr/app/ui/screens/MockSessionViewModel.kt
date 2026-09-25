@@ -25,10 +25,13 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withTimeoutOrNull
 import javax.inject.Inject
 import kotlin.math.ceil
 
@@ -97,11 +100,11 @@ class MockSessionViewModel @Inject constructor(
      * lead-in is routed now and driven in front of [route], which itself stays as it is.
      */
     fun play(route: Route, profile: RoutingProfile, saved: Boolean = false, from: LatLng? = null) {
+        if (_preparing.value) return
         if (from == null) {
             start(route, profile, saved, planned = null)
             return
         }
-        if (_preparing.value) return
         viewModelScope.launch {
             _preparing.value = true
             val driven = try {
@@ -120,6 +123,17 @@ class MockSessionViewModel @Inject constructor(
         repository.setSpeedMultiplier(1.0)
         repository.requestStart(route, profile, saved = saved, planned = planned)
         startService(Intent(context, MockSessionService::class.java).setAction(MockSessionService.ACTION_START))
+        // Start keeps its spinner until the drive runs (or fails): it used to drop a beat
+        // early, and Start flashed back as if the tap hadn't landed.
+        _preparing.value = true
+        viewModelScope.launch {
+            withTimeoutOrNull(START_WAIT_MILLIS) {
+                combine(repository.session, repository.error) { session, error ->
+                    session is MockSessionState.Playing || error != null
+                }.first { it }
+            }
+            _preparing.value = false
+        }
     }
 
     /** Picks the interrupted session back up: the drive from where it stopped, or the hold at its spot. */
@@ -220,3 +234,6 @@ class MockSessionViewModel @Inject constructor(
         ContextCompat.startForegroundService(context, intent)
     }
 }
+
+/** How long Start spins waiting for the service to report the drive running. */
+private const val START_WAIT_MILLIS = 10_000L

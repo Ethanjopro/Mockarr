@@ -25,18 +25,24 @@ sealed interface PlaybackState {
         val isDestination: Boolean = false,
     ) : PlaybackState
 
-    /** Decelerating to a stop before finishing, so playback never teleports. */
-    data object Stopping : PlaybackState
+    /**
+     * Decelerating to a stop before finishing, so playback never teleports. The drive still
+     * moves: [progress] keeps counting, and [remainingSeconds] is the estimate it stopped
+     * with. (It carried neither, and the road shade, progress bar and distance left all
+     * snapped back to the start while it slowed.)
+     */
+    data class Stopping(val progress: Double, val remainingSeconds: Double = 0.0) : PlaybackState
 
     data object Finished : PlaybackState
 }
 
-/** Route progress of the session, or 0.0 when there is none / it is winding down. */
+/** Route progress of the session, or 0.0 when there is none. */
 val PlaybackState?.progressOrZero: Double
     get() = when (this) {
         is PlaybackState.Playing -> progress
         is PlaybackState.Paused -> progress
         is PlaybackState.Dwelling -> progress
+        is PlaybackState.Stopping -> progress
         else -> 0.0
     }
 
@@ -46,5 +52,6 @@ val PlaybackState?.remainingSecondsOrNull: Double?
         is PlaybackState.Playing -> remainingSeconds
         is PlaybackState.Paused -> remainingSeconds
         is PlaybackState.Dwelling -> remainingSeconds
+        is PlaybackState.Stopping -> remainingSeconds
         else -> null
     }

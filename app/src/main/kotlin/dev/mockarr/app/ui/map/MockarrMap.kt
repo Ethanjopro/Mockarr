@@ -449,6 +449,9 @@ fun MockarrMap(
     // follow first engages; after that the user's pinch zoom is respected, so
     // nothing ratchets in over a long route or lurches when playback ends.
     var followEngaged by remember { mutableStateOf(false) }
+    // When the camera last followed a fix: back in the app, it jumps to the dot instead of
+    // easing over from where it was left (a plain holder, so writing it never recomposes).
+    val lastFollowAt = remember { longArrayOf(0L) }
     LaunchedEffect(cameraFollow) {
         if (!cameraFollow) followEngaged = false
     }
@@ -460,7 +463,8 @@ fun MockarrMap(
         val position = followTarget ?: return@LaunchedEffect
         if (!cameraFollow) return@LaunchedEffect
         val current = libreMap.cameraPosition.zoom
-        val zoom = if (followEngaged) current else maxOf(current, FOLLOW_MIN_ZOOM)
+        val wasEngaged = followEngaged
+        val zoom = if (wasEngaged) current else maxOf(current, FOLLOW_MIN_ZOOM)
         followEngaged = true
         val start = currentStartObstruction.toDouble()
         val update = if (start > 0.0) {
@@ -475,7 +479,10 @@ fun MockarrMap(
         } else {
             CameraUpdateFactory.newLatLngZoom(position.toMapLibre(), zoom)
         }
-        libreMap.move(update, animateCamera, FOLLOW_EASE_MILLIS)
+        val now = SystemClock.uptimeMillis()
+        val stale = isStaleGap(now - lastFollowAt[0])
+        lastFollowAt[0] = now
+        libreMap.move(update, animateCamera && !(wasEngaged && stale), FOLLOW_EASE_MILLIS)
     }
 }
 

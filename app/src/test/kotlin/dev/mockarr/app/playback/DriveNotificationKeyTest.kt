@@ -45,7 +45,7 @@ class DriveNotificationKeyTest {
 
     @Test
     fun `stopping and finished have no key so the bar never flashes empty`() {
-        assertNull(driveNotificationKey(PlaybackState.Stopping, 10_000.0, km))
+        assertNull(driveNotificationKey(PlaybackState.Stopping(0.5), 10_000.0, km))
         assertNull(driveNotificationKey(PlaybackState.Finished, 10_000.0, km))
         assertNull(driveNotificationKey(null, 10_000.0, km))
     }

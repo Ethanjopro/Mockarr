@@ -111,6 +111,16 @@ Run the passes that apply; light features need only the first.
    check for clipped/truncated labels on changed screens, restore `1.0`.
 4. **Rotation** — landscape once through the changed screens if layout changed.
 5. **Logcat** — scan for exceptions/ANRs from `dev.mockarr.app` during the run.
+6. **Motion** — whenever a change touches a state the band, card, peek or map passes
+   through (Ethan found flicker that single screenshots missed, 2026-09-24): start
+   `record` in the background, drive the change, then read it with
+   `scripts/emu.sh frames rec.mp4 out.png <start> 20`. Look at every frame for new words
+   on the old colour, two lines at once, a blank or half-drawn band, a button flipping,
+   numbers snapping back, or a run of identical frames (a stall). Cover idle → hold →
+   Stop holding, Start → Pause → End drive, and arrival.
+7. **Away and back** — mid-drive, go `home`, wait 10 s, return through the notification
+   (`shell cmd statusbar expand-notifications`, then tap it) and record the return: the
+   dot, the faded stretch and the camera must already be where the drive is now.
 
 ## Report format
 State that evidence came from the emulator (vs physical hardware). Then:

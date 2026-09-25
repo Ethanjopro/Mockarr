@@ -3,6 +3,7 @@ package dev.mockarr.core.simulation
 import dev.mockarr.core.model.PlaybackState
 import dev.mockarr.core.model.Route
 import dev.mockarr.core.model.SimulatedFix
+import dev.mockarr.core.model.remainingSecondsOrNull
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
@@ -122,7 +123,7 @@ class SimulationEngine(
         return tickState(dt)
     }
 
-    private fun tickState(dt: Double): SimulatedFix? = when (_state.value) {
+    private fun tickState(dt: Double): SimulatedFix? = when (val current = _state.value) {
         is PlaybackState.Playing -> {
             step(dt)
             val fix = currentFix()
@@ -135,11 +136,13 @@ class SimulationEngine(
         }
         is PlaybackState.Dwelling -> dwellTick(dt)
         is PlaybackState.Paused -> currentFix()
-        PlaybackState.Stopping -> {
+        is PlaybackState.Stopping -> {
             stopStep(dt)
             if (speed <= STOP_SPEED_THRESHOLD) {
                 speed = 0.0
                 _state.value = PlaybackState.Finished
+            } else {
+                _state.value = current.copy(progress = progress())
             }
             currentFix()
         }
@@ -183,7 +186,7 @@ class SimulationEngine(
             current is PlaybackState.Dwelling
         if (stoppable) {
             stoppedBeforeArrival = !(current is PlaybackState.Dwelling && current.isDestination)
-            _state.value = PlaybackState.Stopping
+            _state.value = PlaybackState.Stopping(progress(), current.remainingSecondsOrNull ?: 0.0)
         }
     }
 

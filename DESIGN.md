@@ -574,9 +574,13 @@ Strava's "run box": a 16dp-corner `surface-container-lowest` card with the soft 
 floating `map-edge` above the sheet — **in every state, from cold start to Stop**. With
 nothing loaded it is the empty card: one neutral band, "Tap the map to add stops ·
 long-press to hold". **Status strip** on top: a 48dp-min band of bold Title copy, centred
-when alone, with an optional trailing text action (Fix / Stop) or the speed chip while
-driving. Container and content colours crossfade between the five tones (neutral / ready
-/ accent / hold / error) — a colour animation on one surface, never a swap of components.
+when alone, with an optional trailing `SmallPill` action (Set up / Stop holding) or the speed chip
+while driving. A change of state is one surface changing: the container colour fades between
+the five tones (neutral / ready / accent / hold / error) over 200ms while the words and pill
+fade through — the old out in 90ms, the new in — so new words never sit on the old colour
+and two lines never overlap. The speed chip stays outside the fade. A drive slowing after End
+drive keeps its band and controls (inert) until the hold takes over: no "Stopping…" line.
+A new hold reads "Holding your location" until its place name resolves.
 **One band, never two:** the card never stacks a second strip; the trio under it is what
 says a route is loaded. The end of a drive is its own line — "Arrived at ‹place› · Stop"
 (ready tone, one haptic tick, ~4 s) before the band settles into "Holding at ‹place› ·

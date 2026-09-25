@@ -6,6 +6,7 @@ import dev.mockarr.core.model.PlaybackState
 import dev.mockarr.core.model.Route
 import dev.mockarr.core.model.RouteLeg
 import dev.mockarr.core.model.SimulatedFix
+import dev.mockarr.core.model.progressOrZero
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.TestScope
@@ -161,6 +162,25 @@ class SimulationEngineTest {
             val jump = GeoMath.distanceMeters(a.position, b.position)
             assertTrue(jump <= a.speedMetersPerSecond * 1.05 + 2.5, "teleported $jump m in one tick")
         }
+    }
+
+    @Test
+    fun `stopping keeps the progress driven and keeps counting while it slows`() = runTest {
+        val route = straightRoute(5000.0)
+        val engine = SimulationEngine(route, noJitter, testClock())
+        val job = launch { engine.fixes.collect {} }
+
+        advanceTimeBy(30_000)
+        val before = engine.state.value.progressOrZero
+        engine.stop()
+        val stopping = assertIs<PlaybackState.Stopping>(engine.state.value)
+        assertEquals(before, stopping.progress, 1e-9)
+        assertTrue(stopping.remainingSeconds > 0.0, "time left dropped at the stop")
+        advanceTimeBy(1_000)
+        val slowing = assertIs<PlaybackState.Stopping>(engine.state.value)
+        assertTrue(slowing.progress > before, "progress froze while decelerating")
+        advanceTimeBy(30_000)
+        job.join()
     }
 
     @Test
