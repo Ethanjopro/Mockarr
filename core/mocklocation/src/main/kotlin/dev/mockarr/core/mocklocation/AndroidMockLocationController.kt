@@ -7,15 +7,19 @@ import android.os.SystemClock
 import dev.mockarr.core.model.SimulatedFix
 
 /**
- * Feeds fixes into the platform's test providers. Requires Mockarr to be the
- * selected mock location app in Developer Options; [start] reports
- * [MockStartResult.NotSelectedAsMockApp] otherwise.
+ * Feeds fixes into the platform's test providers and into Google Play services' fused
+ * location. Requires Mockarr to be the selected mock location app in Developer Options;
+ * [start] reports [MockStartResult.NotSelectedAsMockApp] otherwise.
  *
- * Mocks gps + network, plus fused on API 31+. Play services' fused provider
- * honors platform test providers, so consumers like Google Maps follow along.
+ * Mocks gps + network, plus fused on API 31+, for apps that read `LocationManager`. Play
+ * services' fused location (Google Maps and most apps) is a separate engine that ignores
+ * those and blends in real Wi-Fi/cell positioning: on a real phone the true location won
+ * within seconds (ADR 0005). [playServices] puts that engine in mock mode for the session;
+ * null (no Play services) leaves the test providers alone, as before.
  */
 class AndroidMockLocationController(
     private val locationManager: LocationManager,
+    private val playServices: PlayServicesMock? = null,
 ) : MockLocationController {
 
     private val providers: List<String> = buildList {
@@ -31,8 +35,13 @@ class AndroidMockLocationController(
     override val isRunning: Boolean
         get() = activeProviders.isNotEmpty()
 
-    override fun start(): MockStartResult =
-        if (isRunning) MockStartResult.Ok else registerProviders()
+    override fun start(): MockStartResult {
+        val result = if (isRunning) MockStartResult.Ok else registerProviders()
+        // Re-armed on every start (idempotent): a hold becoming a drive also re-asserts it,
+        // in case Play services restarted and dropped mock mode.
+        if (result == MockStartResult.Ok) playServices?.start()
+        return result
+    }
 
     private fun registerProviders(): MockStartResult {
         val added = mutableListOf<String>()
@@ -73,29 +82,19 @@ class AndroidMockLocationController(
     }
 
     override fun push(fix: SimulatedFix) {
+        val time = System.currentTimeMillis()
+        val elapsed = SystemClock.elapsedRealtimeNanos()
         for (provider in activeProviders) {
-            val location = Location(provider).apply {
-                latitude = fix.position.latitude
-                longitude = fix.position.longitude
-                altitude = fix.altitudeMeters
-                speed = fix.speedMetersPerSecond.toFloat()
-                bearing = fix.bearingDegrees.toFloat()
-                // Mandatory: fixes without accuracy/time/elapsedRealtimeNanos are dropped.
-                accuracy = fix.accuracyMeters.toFloat()
-                time = System.currentTimeMillis()
-                elapsedRealtimeNanos = SystemClock.elapsedRealtimeNanos()
-                bearingAccuracyDegrees = BEARING_ACCURACY_DEGREES
-                speedAccuracyMetersPerSecond = SPEED_ACCURACY_MPS
-                verticalAccuracyMeters = VERTICAL_ACCURACY_METERS
-            }
             try {
-                locationManager.setTestProviderLocation(provider, location)
+                locationManager.setTestProviderLocation(provider, fix.toLocation(provider, time, elapsed))
             } catch (_: SecurityException) {
                 // Mock app selection revoked mid-session; stop() cleans up what it can.
             } catch (_: IllegalArgumentException) {
                 // Provider vanished (OEM quirk); skip this tick for it.
             }
         }
+        // The same fix, same instant, for Play services' fused engine.
+        playServices?.push(fix.toLocation(PLAY_SERVICES_PROVIDER, time, elapsed))
     }
 
     /**
@@ -106,6 +105,8 @@ class AndroidMockLocationController(
     override fun stop() {
         providers.forEach(::removeQuietly)
         activeProviders = emptyList()
+        // Hands Play services' fused engine back its real sources, with the providers.
+        playServices?.stop()
     }
 
     /** Stale enabled test providers freeze the device's real location — always clean up. */
@@ -122,7 +123,28 @@ class AndroidMockLocationController(
         }
     }
 
+    /**
+     * One fix as a platform [Location], identical for every provider it goes to.
+     * Mandatory: fixes without accuracy / time / elapsedRealtimeNanos are dropped.
+     */
+    private fun SimulatedFix.toLocation(provider: String, timeMillis: Long, elapsedNanos: Long) =
+        Location(provider).apply {
+            latitude = position.latitude
+            longitude = position.longitude
+            altitude = altitudeMeters
+            speed = speedMetersPerSecond.toFloat()
+            bearing = bearingDegrees.toFloat()
+            accuracy = accuracyMeters.toFloat()
+            time = timeMillis
+            elapsedRealtimeNanos = elapsedNanos
+            bearingAccuracyDegrees = BEARING_ACCURACY_DEGREES
+            speedAccuracyMetersPerSecond = SPEED_ACCURACY_MPS
+            verticalAccuracyMeters = VERTICAL_ACCURACY_METERS
+        }
+
     private companion object {
+        /** The provider name the fused fix carries ("fused", valid on every API level). */
+        const val PLAY_SERVICES_PROVIDER = "fused"
         const val BEARING_ACCURACY_DEGREES = 10f
         const val SPEED_ACCURACY_MPS = 0.5f
         const val VERTICAL_ACCURACY_METERS = 5f

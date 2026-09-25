@@ -131,6 +131,17 @@ Run the passes that apply; light features need only the first.
    on the old colour, two lines at once, a blank or half-drawn band, a button flipping,
    numbers snapping back, or a run of identical frames (a stall). Cover idle → hold →
    Stop holding, Start → Pause → End drive, and arrival.
+8. **Other apps see the mock** — required for any change to the mock path or the session
+   service. A real Pixel leaked the real location to Google Maps within seconds while every
+   emulator check passed (ADR 0005). Set the emulator's real location far away
+   (`scripts/emu.sh geo 37.422 -122.084`), hold or drive in Dallas, open Google Maps (the
+   AVD has it) and re-centre at 3 s, 60 s and after 60 s screen-off (`key 26`). Also read Play
+   services' side:
+   `shell "dumpsys activity service com.google.android.gms/com.google.android.location.internal.GoogleLocationManagerService" | grep -i mock`
+   should show `flp mocked by …dev.mockarr.app` and `set mock location` every second;
+   Stop holding → `flp unmocked`, and Maps returns to the real spot. The emulator has no real
+   Wi-Fi/cell positioning, so it can't show a Play-services leak itself: ask Ethan to confirm
+   on his phone.
 7. **Away and back** — mid-drive, go `home`, wait 10 s, return through the notification
    (`shell cmd statusbar expand-notifications`, then tap it) and record the return: the
    dot, the faded stretch and the camera must already be where the drive is now.

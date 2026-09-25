@@ -1,4 +1,5 @@
 [versions]
+playServicesLocation = "21.4.0"
 agp = "9.3.1"
 kotlin = "2.3.21"
 ksp = "2.3.11"
@@ -19,6 +20,7 @@ junit = "4.13.2"
 retrofit = "3.0.0"
 
 [libraries]
+play-services-location = { group = "com.google.android.gms", name = "play-services-location", version.ref = "playServicesLocation" }
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
 androidx-activity-compose = { group = "androidx.activity", name = "activity-compose", version.ref = "activityCompose" }
 androidx-lifecycle-runtime-compose = { group = "androidx.lifecycle", name = "lifecycle-runtime-compose", version.ref = "lifecycle" }

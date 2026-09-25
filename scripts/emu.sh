@@ -116,6 +116,8 @@ case "${1:-help}" in
     esac
     ;;
   kill)      "$ADB" emu kill ;;
+  # The emulator's REAL location (its virtual GNSS): what must never show while mocking.
+  geo)       "$ADB" emu geo fix "$3" "$2" ;;                        # geo LAT LNG
   tap)       "$ADB" shell input tap "$2" "$3" ;;                    # tap X Y
   swipe)     "$ADB" shell input swipe "$2" "$3" "$4" "$5" "${6:-300}" ;;  # swipe X1 Y1 X2 Y2 [ms]
   type)      "$ADB" shell input text "$(printf '%s' "$2" | sed 's/ /%s/g')" ;;  # type "some text"
@@ -267,6 +269,7 @@ usage: scripts/emu.sh <command> [args]
   record <secs> [out.mp4]    screen recording (blocks for <secs>) for motion checks
   frames <mp4> <png> [start] [fps] [y0] [h] [cols]  numbered frame strip of a recording (needs ffmpeg)
   kill                       shut the emulator down
+  geo LAT LNG                set the emulator's real (non-mocked) location
   launch                     start the Mockarr main activity as the launcher does
   install                    :app:installDebug via scripts/gradle (refuses while Gradle is busy)
   installapk [apk]           install a release APK (default: the unsigned assembleRelease output, debug-signed on the fly)

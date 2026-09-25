@@ -2328,6 +2328,42 @@ Implements the four decisions from the session-42 critique (memory
   At 20:29 something outside this session (likely Android Studio) reinstalled the app on
   the emulator mid-test.
 
+### 2026-09-24 — Session 48 (EMERGENCY, Ethan on a real Pixel 8a: the real location shows through)
+- **Symptom:** holding or driving, Google Maps on Ethan's Pixel showed the real location
+  about 3 s after Mockarr left the screen.
+- **Cause:** Mockarr mocked only `LocationManager`'s test providers (gps, network, fused).
+  Google Maps and most apps read Google Play services' `FusedLocationProviderClient`, a
+  separate engine that blends its own real Wi-Fi/cell positioning. The controller's KDoc
+  claimed the opposite. The emulator couldn't show it: it has no real Wi-Fi or cell
+  positioning, and we had only ever checked `dumpsys location`, never a consumer app.
+  Background pushes were healthy (location-type FGS, `types=0x8`), which ruled out the
+  service-freeze theory.
+- **Fix (ADR 0005):** `core:mocklocation` depends on `play-services-location` 21.4.0.
+  - `PlayServicesMock` wraps the fused client: `start()` sets mock mode on, `push()` calls
+    `setMockLocation`, `stop()` sets mock mode off. Calls are fire-and-forget, failures are
+    logged once per session, and a device without Play services falls back to test providers
+    only.
+  - `AndroidMockLocationController` arms it on every `start()`, sends the same fix to both
+    layers from one `toLocation` builder, and turns it off in `stop()`. The release path is
+    unchanged: only `MockSessionService.release()` / `onDestroy` call it.
+  - `AppModule` passes `PlayServicesMock.createOrNull(context)`.
+- **Verified on mockarr_test, release (R8) build**, real location set to Mountain View:
+  - Play services' own dump: `flp mocked by …dev.mockarr.app`, `set mock location` every
+    1 s, and `MockLocationEngine` holding the Dallas spot
+  - Google Maps kept the Dallas hold at 3 s, 60 s and after 60 s screen-off, and followed a
+    1× drive for 60 s
+  - mock mode never dropped across hold → drive → End drive → hold
+  - Stop holding: `flp unmocked` and Maps back in Mountain View
+  - Before the fix the emulator didn't leak either, so the real proof is **Ethan's Pixel
+    retest**
+- **Changed behaviour:** if the process dies mid-session, Play services drops mock mode with
+  the client, so FLP apps see the real location. The session is over at that point, and the
+  test providers still freeze at the last fix as before.
+- **Tooling and rules:**
+  - `emu.sh geo LAT LNG` sets the emulator's real location
+  - the emulator-verify skill gains "Other apps see the mock" (Google Maps + the GMS dump)
+  - CLAUDE.md zero-leak rule and PRODUCT.md "Operating Context" updated
+
 ### NEXT SESSION — loose ends (written 2026-09-24, before a chat reset)
 Work these in order, one commit per round. Verify each on `mockarr_test`, and CI must be
 green after every push.

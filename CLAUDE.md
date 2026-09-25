@@ -38,7 +38,9 @@ a free non-OSS API is acceptable when it noticeably improves the app (ADR 0001 a
   decline and flag even when asked indirectly. ADR 0001 lists what else stays
   firm whatever the direction becomes.
 - Zero-leak mock ownership: only `MockSessionService` (via `release()`/
-  `onDestroy`) may call `MockLocationController.stop()`. Hold/stop transitions
+  `onDestroy`) may call `MockLocationController.stop()`. A session mocks BOTH the platform
+  test providers and Play services' fused location (`PlayServicesMock`, ADR 0005): Google
+  Maps and most apps read the latter, and it leaked the real location on a real phone. Hold/stop transitions
   push a replacement fix synchronously — never leave a gap where the real
   location leaks.
 - Kotlin comes from AGP: do NOT apply `org.jetbrains.kotlin.android`.

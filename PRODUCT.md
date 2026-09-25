@@ -42,7 +42,8 @@ Realism is the feature; honesty is the trust story.
 
 ## Operating Context
 - Uses Android's official "Select mock location app" developer facility; registers test
-  providers via `LocationManager`. Nothing patched, hooked, or rooted.
+  providers via `LocationManager` and puts Google Play services' fused location in mock mode
+  (ADR 0005; Google Maps and most apps read it). Nothing patched, hooked, or rooted.
 - Typical session: search or tap to place stops → route → Play → switch to another app and
   leave Mockarr running in the background (foreground service with notification controls).
 - Pin mode (long-press to hold a location) and a thumbstick for nudging while held.

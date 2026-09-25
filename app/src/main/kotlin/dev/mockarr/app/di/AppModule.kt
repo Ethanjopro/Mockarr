@@ -19,6 +19,7 @@ import dev.mockarr.core.data.SessionSnapshotStore
 import dev.mockarr.core.data.SettingsRepository
 import dev.mockarr.core.mocklocation.AndroidMockLocationController
 import dev.mockarr.core.mocklocation.MockLocationController
+import dev.mockarr.core.mocklocation.PlayServicesMock
 import dev.mockarr.core.mocklocation.SetupStatusRepository
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -47,8 +48,10 @@ object AppModule {
 
     @Provides
     @Singleton
-    fun provideMockLocationController(locationManager: LocationManager): MockLocationController =
-        AndroidMockLocationController(locationManager)
+    fun provideMockLocationController(
+        @ApplicationContext context: Context,
+        locationManager: LocationManager,
+    ): MockLocationController = AndroidMockLocationController(locationManager, PlayServicesMock.createOrNull(context))
 
     @Provides
     @Singleton
