@@ -3,7 +3,6 @@ package dev.mockarr.app.ui.map
 import android.graphics.Bitmap
 import android.graphics.BlurMaskFilter
 import android.graphics.Canvas
-import android.graphics.Color
 import android.graphics.Paint
 import android.graphics.Path
 import android.graphics.RectF
@@ -25,7 +24,6 @@ private const val TAIL_FACTOR = 1.6f
 private const val DOT_RADIUS_DP = 3.5f
 private const val SHADOW_BLUR_DP = 3f
 private const val SHADOW_DY_DP = 1.5f
-private const val SHADOW_ALPHA = 0x48
 
 // Where the tail leaves the head: the tangent points at (±0.75r, +0.66r) — an
 // arc from the right one over the top to the left one, then two lines to the tip.
@@ -85,7 +83,7 @@ internal fun searchPinBitmap(markerStyle: MarkerStyle): Bitmap {
     val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
     val canvas = Canvas(bitmap)
     val shadow = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        color = Color.argb(SHADOW_ALPHA, 0, 0, 0)
+        color = palette.markerShadow
         maskFilter = BlurMaskFilter(blur, BlurMaskFilter.Blur.NORMAL)
     }
     canvas.save()

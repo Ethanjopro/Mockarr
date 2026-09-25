@@ -8,6 +8,7 @@ import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.Crossfade
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -89,6 +90,7 @@ import dev.mockarr.app.ui.map.nudgeMeters
 import dev.mockarr.app.ui.theme.MapIconPill
 import dev.mockarr.app.ui.theme.MapPill
 import dev.mockarr.app.ui.theme.MockarrSnackbarHost
+import dev.mockarr.app.ui.theme.MockarrTheme
 import dev.mockarr.app.ui.theme.Tokens
 import dev.mockarr.core.model.DistanceUnits
 import dev.mockarr.core.model.GeoMath
@@ -603,8 +605,12 @@ fun MapScreen(
                     scope.launch { if (expanded) sheetState.partialExpand() else sheetState.expand() }
                 }
                 // clipToBounds: the always-composed detail column must never bleed
-                // past the sheet's rounded top while the peek re-anchors.
-                Column(modifier = Modifier.fillMaxWidth().clipToBounds()) {
+                // past the sheet's rounded top while the peek re-anchors. In dark the sheet
+                // wears the floating family's rim: its top edge met the dark map at 1.07:1
+                // and vanished (audit, session 49).
+                val sheetRim = MockarrTheme.colors.floatingBorder()
+                val rimmed = if (sheetRim != null) Modifier.border(sheetRim, Tokens.sheetShape) else Modifier
+                Column(modifier = Modifier.fillMaxWidth().then(rimmed).clipToBounds()) {
                     // The measured peek is everything that must stay visible at rest:
                     // the handle, the peek content and (no navigation bar) the system inset.
                     Column(
@@ -755,10 +761,12 @@ fun MapScreen(
                         .imePadding()
                         .onGloballyPositioned { topChromeBottomPx = it.boundsInParent().bottom.roundToInt() },
                 ) {
+                    // Capped like the card and the sheet: on a tablet it spanned the whole screen.
                     AnimatedVisibility(
                         visible = !playing,
                         enter = Motion.topChromeEnter,
                         exit = Motion.topChromeExit,
+                        modifier = Modifier.widthIn(max = Tokens.sheetMaxWidth).align(Alignment.CenterHorizontally),
                     ) {
                         MapSearchBar(
                             state = searchState,

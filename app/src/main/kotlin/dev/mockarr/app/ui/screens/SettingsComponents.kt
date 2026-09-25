@@ -23,6 +23,7 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.font.FontWeight
@@ -55,7 +56,10 @@ fun SettingTile(
         onClick = onClick,
         shape = Tokens.cardShape,
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
-        modifier = modifier.semantics { contentDescription = "$title, $value" },
+        modifier = modifier.semantics {
+            contentDescription = "$title, $value"
+            role = Role.Button
+        },
     ) {
         Column(modifier = Modifier.padding(Tokens.space4).heightIn(min = TILE_MIN_HEIGHT)) {
             Icon(

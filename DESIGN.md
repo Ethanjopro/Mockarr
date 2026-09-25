@@ -389,9 +389,12 @@ numbers, wait chips) scale with the font size up to 1.3×.
   card content inset and 12dp as the map-edge gutter.
 - **Landscape / compact height**: the sheet keeps its peek and scrolls its detail column;
   Material centres the sheet at its max width, and the floating overlays (stat card,
-  builder tools) cap at the same `{spacing.sheet-max-width}` so they never sprawl behind
-  the centred sheet. Expanded-width side panel is a planned adaptation, not yet built.
-- **Touch targets** are 48dp minimum, including list rows and search results.
+  builder tools, the search bar) cap at the same `{spacing.sheet-max-width}` so they never
+  sprawl behind the centred sheet. Short, wide windows move the whole overlay into a
+  start-side panel (`MapAdaptive.kt`).
+- **Touch targets** are 48dp minimum, including list rows, search results and the map's
+  stop discs: a disc draws ~27dp, but a tap within 24dp of its centre selects it
+  (`MarkerHitTest.kt`, a tap on a drawn disc still wins overlaps).
 
 ## Elevation & Depth
 
@@ -412,7 +415,8 @@ sheet, hierarchy comes from container tone and the 28/16/12dp corner, never a sh
 **In dark**, a near-black shadow on the near-black basemap disappears (1.05:1, audit session
 41), so floating objects use `MockarrTheme.colors.floating` — lighter than the sheet
 (`#292A30`, M3's tonal lift) — rimmed by a 1dp `floatingOutline` (`#6E7079`, ≥3:1 on the dark
-map). Light keeps white plus shadow and no rim.
+map). The sheet wears the same rim on its top edge: the dark sheet met the map at 1.07:1
+(audit, session 49). Light keeps white plus shadow and no rim.
 
 ## Shapes
 

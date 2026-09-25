@@ -2364,6 +2364,27 @@ Implements the four decisions from the session-42 critique (memory
   - the emulator-verify skill gains "Other apps see the mock" (Google Maps + the GMS dump)
   - CLAUDE.md zero-leak rule and PRODUCT.md "Operating Context" updated
 
+### 2026-09-24 — Session 49 (loose end 3: `/impeccable audit`; Ethan confirmed the Pixel leak fix)
+- Ethan retested session 48 on his Pixel 8a: **Google Maps now holds the mock.**
+- **Audit: 16/20 (Good)**, up from 12/20 in August. Report: `docs/design/audit-2026-09.md`.
+  - A11y 3, Perf 3, Theming 4, Conformance 3, Adaptivity 3
+  - uiautomator scans of 8 states found 0 unlabeled controls
+- **Fixed:**
+  - stop markers get a 48dp touch target (`MarkerHitTest.kt`, tested); a tap 19dp from
+    centre now selects
+  - the dark sheet's top edge gets the floating rim: 1.07 → 3.71:1
+  - the Saved routes search field is outlined at rest: 1.04/1.05 → 5.86/4.27:1
+  - the map search bar is capped on tablets
+  - TalkBack hears the current sort order, Follow's on state and the selected stop row
+  - the builder ✕ and Settings tiles are announced as buttons
+  - the marker shadow colour moved into `MapPalette`
+  - DESIGN.md's stale "side panel not yet built" line is corrected
+- **Left for loose end 4 (Ethan's call):**
+  - the search fields' missing label (a visual label, or a name only TalkBack hears)
+  - placing stops without gestures
+- Verified on mockarr_test: contrast measured from light and dark screenshots; tablet
+  2560×1600; the sort menu's accessibility states; the marker tap; build green.
+
 ### NEXT SESSION — loose ends (written 2026-09-24, before a chat reset)
 Work these in order, one commit per round. Verify each on `mockarr_test`, and CI must be
 green after every push.
@@ -2391,7 +2412,7 @@ green after every push.
      - `isSystemInDarkTheme` in MapScreen / SavedRoutesScreen (move to the theme)
      - `splitRouteName` splits at the last ", " (a user name with a comma breaks)
      - search list keys
-3. **`/impeccable audit`.** Last run August, 13/20. Include the dark sheet edge (1.07:1),
+3. ✅ **Done in session 49.** **`/impeccable audit`.** Last run August, 13/20. Include the dark sheet edge (1.07:1),
    the saved-routes search field with no border, and a search-field TalkBack label (needs a
    visual-label call).
 4. **Design decisions for Ethan.** Ask them in one batch, then build; minimal copy only

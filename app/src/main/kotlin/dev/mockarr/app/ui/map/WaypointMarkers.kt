@@ -3,7 +3,6 @@ package dev.mockarr.app.ui.map
 import android.graphics.Bitmap
 import android.graphics.BlurMaskFilter
 import android.graphics.Canvas
-import android.graphics.Color
 import android.graphics.Paint
 import android.graphics.PointF
 import android.graphics.Typeface
@@ -32,7 +31,6 @@ private const val SHIFT_RED = 16
 private const val SHIFT_GREEN = 8
 private const val SHADOW_BLUR_DP = 3f
 private const val SHADOW_DY_DP = 1.5f
-private const val SHADOW_ALPHA = 0x48
 private const val RANK_SELECTED_BOOST = 1_000
 private const val BADGE_RADIUS_DP = 5f
 private const val BADGE_RING_DP = 1.25f
@@ -120,7 +118,7 @@ private fun waypointBitmap(
     val canvas = Canvas(bitmap)
     // Strava's markers sit on a soft shadow, like the pills over the map.
     val shadow = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        color = Color.argb(SHADOW_ALPHA, 0, 0, 0)
+        color = palette.markerShadow
         maskFilter = BlurMaskFilter(shadowBlur, BlurMaskFilter.Blur.NORMAL)
     }
     // Selected: the disc itself lifts to the selection colour and grows a

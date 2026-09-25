@@ -31,10 +31,11 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.selected
+import androidx.compose.ui.semantics.semantics
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dev.mockarr.app.R
@@ -123,7 +124,9 @@ fun SavedRoutesScreen(
                     colors = OutlinedTextFieldDefaults.colors(
                         unfocusedContainerColor = MaterialTheme.colorScheme.surfaceContainerLowest,
                         focusedContainerColor = MaterialTheme.colorScheme.surfaceContainerLowest,
-                        unfocusedBorderColor = Color.Transparent,
+                        // The outline at rest: without it the field met the page at 1.05:1 and
+                        // didn't read as a field (WCAG 1.4.11; audit, session 49).
+                        unfocusedBorderColor = MaterialTheme.colorScheme.outline,
                     ),
                     modifier = Modifier
                         .fillMaxWidth()
@@ -186,6 +189,8 @@ private fun SortAction(sort: SavedRoutesViewModel.Sort, onSort: (SavedRoutesView
                 } else {
                     null
                 },
+                // The check is visual only: TalkBack hears the current order as selected.
+                modifier = Modifier.semantics { selected = option == sort },
                 onClick = {
                     open = false
                     onSort(option)

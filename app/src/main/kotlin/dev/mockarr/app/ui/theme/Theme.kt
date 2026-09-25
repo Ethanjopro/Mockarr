@@ -158,6 +158,7 @@ private val LightExtras = MockarrColors(
         chipActive = 0xFFF0A422.toInt(),
         chipActiveText = 0xFF2B1A00.toInt(),
         attribution = 0x9945464F.toInt(), // onSurfaceVariant at 60 % — legible, not a control
+        markerShadow = 0x48000000,
     ),
     isDark = false,
 )
@@ -195,6 +196,7 @@ private val DarkExtras = MockarrColors(
         chipActive = 0xFFFFBB58.toInt(),
         chipActiveText = 0xFF442B00.toInt(),
         attribution = 0x99C6C5D0.toInt(), // onSurfaceVariant at 60 % — legible, not a control
+        markerShadow = 0x48000000,
     ),
     isDark = true,
 )

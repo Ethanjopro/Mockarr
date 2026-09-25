@@ -47,6 +47,8 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -97,8 +99,9 @@ fun BuilderPeek(
                 shape = CircleShape,
                 color = MaterialTheme.colorScheme.surfaceContainerLowest,
                 border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
-                // The pill's height, so the row reads as one: ✕ · Done.
-                modifier = Modifier.size(Tokens.pillHeight),
+                // The pill's height, so the row reads as one: ✕ · Done. Surface(onClick)
+                // sets no role: announce it as the button it is.
+                modifier = Modifier.size(Tokens.pillHeight).semantics { role = Role.Button },
             ) {
                 Box(contentAlignment = Alignment.Center) {
                     Icon(
@@ -346,6 +349,8 @@ private fun StopRow(
             .fillMaxWidth()
             .background(background)
             .clickable(onClick = onClick, role = Role.Button)
+            // The tint marks the stop whose actions are open; TalkBack hears it as selected.
+            .semantics { this.selected = selected }
             .padding(horizontal = Tokens.inset),
     ) {
         // Fixed row heights keep "three rows" true for the list cap.

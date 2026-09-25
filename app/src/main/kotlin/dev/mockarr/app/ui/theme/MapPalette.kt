@@ -37,6 +37,8 @@ data class MapPalette(
     val chipActiveText: Int,
     /** Tint of MapLibre's attribution "i" (the only stock map control left on). */
     val attribution: Int,
+    /** The soft drop shadow under the stop discs and the search pin. */
+    val markerShadow: Int,
 ) {
     companion object {
         /** MapLibre colour properties take CSS strings; keep this free of android.graphics. */

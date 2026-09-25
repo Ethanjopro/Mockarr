@@ -29,6 +29,7 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntRect
@@ -65,6 +66,8 @@ fun MapPill(
     val semantics = Modifier.semantics {
         role = Role.Button
         if (contentDescription != null) this.contentDescription = contentDescription
+        // The filled state is the toggle (Follow): TalkBack hears it too, not only the colour.
+        if (selected) this.selected = true
     }
     Surface(
         onClick = onClick,
