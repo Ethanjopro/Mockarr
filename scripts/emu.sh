@@ -7,6 +7,13 @@ set -euo pipefail
 SDK="${ANDROID_SDK_ROOT:-$HOME/Library/Android/sdk}"
 ADB="$SDK/platform-tools/adb"
 AVD="${MOCKARR_AVD:-mockarr_test}"
+# Every adb call (and Gradle's installDebug, which honours ANDROID_SERIAL) targets the
+# emulator, never a phone on USB: with Ethan's Pixel plugged in, bare adb refused to pick
+# ("more than one device"), and installDebug would have installed on both.
+if [ -z "${ANDROID_SERIAL:-}" ]; then
+  ANDROID_SERIAL="$("$ADB" devices 2>/dev/null | awk '/^emulator-/ { print $1; exit }')"
+  [ -n "$ANDROID_SERIAL" ] && export ANDROID_SERIAL
+fi
 
 case "${1:-help}" in
   # One emulator per machine. Reuses a running one, recovers an offline one,
@@ -35,14 +42,19 @@ case "${1:-help}" in
     # -no-snapshot-load: cold boot from the current disk, but `kill` still saves the Quick Boot
     # snapshot. With -no-snapshot, Android Studio's Quick Boot later restored a snapshot from
     # before our installs and rolled the disk back with it: Mockarr vanished (2026-09-24).
-    "$SDK/emulator/emulator" -avd "$AVD" -no-window -no-audio -no-boot-anim -no-snapshot-load >/dev/null 2>&1 &
+    # -gpu host: the headless default is SwiftShader (software), whose frame times say nothing
+    # about a phone; MOCKARR_GPU=swiftshader_indirect falls back if the host GPU misbehaves.
+    "$SDK/emulator/emulator" -avd "$AVD" -no-window -no-audio -no-boot-anim -no-snapshot-load \
+      -gpu "${MOCKARR_GPU:-host}" >/dev/null 2>&1 &
     deadline=$(( $(date +%s) + ${BOOT_TIMEOUT_S:-180} ))
-    until [ "$("$ADB" shell getprop sys.boot_completed 2>/dev/null | tr -d '\r')" = "1" ]; do
+    # The emulator appears in `adb devices` only once it starts: pin to it as soon as it does.
+    until serial="$("$ADB" devices | awk '/^emulator-/ { print $1; exit }')" && [ -n "$serial" ] \
+        && [ "$("$ADB" -s "$serial" shell getprop sys.boot_completed 2>/dev/null | tr -d '\r')" = "1" ]; do
       if [ "$(date +%s)" -ge "$deadline" ]; then echo "TIMEOUT: emulator did not boot" >&2; exit 1; fi
       sleep 2
     done
-    "$ADB" shell input keyevent KEYCODE_WAKEUP
-    "$ADB" shell wm dismiss-keyguard 2>/dev/null || true
+    "$ADB" -s "$serial" shell input keyevent KEYCODE_WAKEUP
+    "$ADB" -s "$serial" shell wm dismiss-keyguard 2>/dev/null || true
     echo "booted"
     ;;
   # Screen recording for motion verification: scripts/emu.sh record <seconds> [out.mp4]

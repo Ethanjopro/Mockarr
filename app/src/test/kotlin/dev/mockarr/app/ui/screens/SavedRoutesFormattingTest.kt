@@ -14,20 +14,27 @@ class SavedRoutesFormattingTest {
         ZonedDateTime.of(year, month, day, hour, 0, 0, 0, zone).toInstant().toEpochMilli()
 
     @Test
-    fun `splits the place after the last comma`() {
-        val split = splitRouteName("Portals of the Past to Middle Drive West, San Francisco")
+    fun `a suggested name loses its trailing place, which becomes the place line`() {
+        val split = routeTitle("Portals of the Past to Middle Drive West, San Francisco", "San Francisco")
 
         assertEquals("Portals of the Past to Middle Drive West", split.title)
         assertEquals("San Francisco", split.place)
     }
 
     @Test
-    fun `keeps a name without a comma whole`() {
-        val split = splitRouteName("Route Aug 18, ")
+    fun `a comma the user typed stays in the title`() {
+        val split = routeTitle("Home, then the gym", "Dallas")
 
-        assertEquals("Route Aug 18,", split.title)
-        assertNull(split.place)
-        assertNull(splitRouteName("Loop").place)
+        assertEquals("Home, then the gym", split.title)
+        assertEquals("Dallas", split.place)
+        assertEquals("Home, then the gym", routeTitle("Home, then the gym", null).title)
+        assertNull(routeTitle("Home, then the gym", null).place)
+    }
+
+    @Test
+    fun `a name that is only the place keeps it as the title`() {
+        assertEquals("Dallas", routeTitle("Dallas", "Dallas").title)
+        assertNull(routeTitle("Loop", " ").place)
     }
 
     @Test

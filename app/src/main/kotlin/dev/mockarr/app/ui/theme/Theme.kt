@@ -112,6 +112,11 @@ data class MockarrColors(
     val floating: Color,
     val floatingOutline: Color,
     val map: MapPalette,
+    /**
+     * The theme is dark. Screens pick the dark map style from this, never from
+     * `isSystemInDarkTheme()` themselves, so the map follows whatever the theme follows.
+     */
+    val isDark: Boolean,
 ) {
     /** The floating surfaces' hairline, or none where the shadow already carries the edge. */
     fun floatingBorder(): BorderStroke? =
@@ -154,6 +159,7 @@ private val LightExtras = MockarrColors(
         chipActiveText = 0xFF2B1A00.toInt(),
         attribution = 0x9945464F.toInt(), // onSurfaceVariant at 60 % — legible, not a control
     ),
+    isDark = false,
 )
 
 private val DarkExtras = MockarrColors(
@@ -190,6 +196,7 @@ private val DarkExtras = MockarrColors(
         chipActiveText = 0xFF442B00.toInt(),
         attribution = 0x99C6C5D0.toInt(), // onSurfaceVariant at 60 % — legible, not a control
     ),
+    isDark = true,
 )
 
 val LocalMockarrColors = staticCompositionLocalOf { LightExtras }

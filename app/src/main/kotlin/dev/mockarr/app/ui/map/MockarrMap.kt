@@ -35,6 +35,10 @@ import dev.mockarr.core.model.MapCamera
 import dev.mockarr.core.model.OffRoadSpan
 import dev.mockarr.core.model.Waypoint
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.distinctUntilChangedBy
+import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withTimeoutOrNull
 import org.maplibre.android.camera.CameraPosition
@@ -97,7 +101,7 @@ private const val ENTER_3D_TILT_DEGREES = 30.0
  * ignores it) and never toggle its visibility (that would destroy the surface).
  */
 @Composable
-fun MockarrMap(
+internal fun MockarrMap(
     waypoints: List<Waypoint>,
     routePoints: List<LatLng>,
     routeIsFallback: Boolean,
@@ -125,12 +129,14 @@ fun MockarrMap(
     pinPosition: LatLng? = null,
     searchedPlace: LatLng? = null,
     onSearchPinTap: () -> Unit = {},
-    /** The reported (wobbled) fix: where the dot draws. */
-    playbackPosition: LatLng? = null,
-    /** The true route position: the centre of the wobble range, and what the follow camera tracks. */
-    playbackCenter: LatLng? = null,
-    /** 0–1 of the route driven, or null to paint the whole line in the accent. */
-    playbackProgress: Float? = null,
+    /**
+     * The drive's latest fix: where the dot draws (the reported, wobbled position), the
+     * true route position (the range's centre, and what the follow camera tracks), and 0–1
+     * of the route driven (null paints the whole line in the accent). A reader, not a
+     * value: the map follows it in its own snapshot flows, so a fix never recomposes the
+     * map or the screen that hosts it (it did, several times a second). Null: no drive.
+     */
+    puckFix: () -> PuckFix? = { null },
     /** How far the GPS wobble reaches (metres) around the dot and the held pin; null hides the circle. */
     wobbleRadiusMeters: Double? = null,
     cameraFollow: Boolean = false,
@@ -405,18 +411,22 @@ fun MockarrMap(
 
     // Each fix cancels the glide in flight and starts a new one from where the
     // puck was drawn; the range and the road shade move in the same frames.
-    LaunchedEffect(style, playbackPosition, playbackCenter, playbackProgress) {
+    val currentPuckFix by rememberUpdatedState(puckFix)
+    val currentAnimate by rememberUpdatedState(animateCamera)
+    LaunchedEffect(style) {
         val loadedStyle = style ?: return@LaunchedEffect
-        val fix = PuckFix(playbackPosition, playbackCenter, playbackProgress)
-        puck.moveTo(loadedStyle, fix, animate = animateCamera, nowMillis = SystemClock.uptimeMillis())
+        snapshotFlow { currentPuckFix() ?: NO_FIX }.distinctUntilChanged().collectLatest { fix ->
+            puck.moveTo(loadedStyle, fix, animate = currentAnimate, nowMillis = SystemClock.uptimeMillis())
+        }
     }
     // The range is metre-true, and metres per dp shrink with cos(latitude):
     // re-size per half-degree of latitude (~1 %), not per fix.
-    val rangeLatitude = (playbackCenter ?: pinPosition)?.latitude ?: 0.0
-    val latitudeBucket = (rangeLatitude * LATITUDE_BUCKETS_PER_DEGREE).roundToInt()
-    LaunchedEffect(style, wobbleRadiusMeters, latitudeBucket) {
+    val currentPin by rememberUpdatedState(pinPosition)
+    LaunchedEffect(style, wobbleRadiusMeters) {
         val loadedStyle = style ?: return@LaunchedEffect
-        applyWobbleRadius(loadedStyle, wobbleRadiusMeters, rangeLatitude)
+        snapshotFlow { (currentPuckFix()?.center ?: currentPin)?.latitude ?: 0.0 }
+            .distinctUntilChangedBy { (it * LATITUDE_BUCKETS_PER_DEGREE).roundToInt() }
+            .collect { latitude -> applyWobbleRadius(loadedStyle, wobbleRadiusMeters, latitude) }
     }
 
     // Read at apply time, not as a key: a taller overlay must not re-run the last fit.
@@ -457,35 +467,39 @@ fun MockarrMap(
     }
     // The camera tracks the true position, not the wobbling report: the map
     // stays steady while the dot jitters inside its range.
-    val followTarget = playbackCenter ?: playbackPosition
-    LaunchedEffect(map, followTarget, cameraFollow) {
+    LaunchedEffect(map, cameraFollow) {
         val libreMap = map ?: return@LaunchedEffect
-        val position = followTarget ?: return@LaunchedEffect
         if (!cameraFollow) return@LaunchedEffect
-        val current = libreMap.cameraPosition.zoom
-        val wasEngaged = followEngaged
-        val zoom = if (wasEngaged) current else maxOf(current, FOLLOW_MIN_ZOOM)
-        followEngaged = true
-        val start = currentStartObstruction.toDouble()
-        val update = if (start > 0.0) {
-            // Side panel: centre the dot in the clear map to its right.
-            CameraUpdateFactory.newCameraPosition(
-                CameraPosition.Builder(libreMap.cameraPosition)
-                    .target(position.toMapLibre())
-                    .zoom(zoom)
-                    .padding(start, 0.0, 0.0, 0.0)
-                    .build(),
-            )
-        } else {
-            CameraUpdateFactory.newLatLngZoom(position.toMapLibre(), zoom)
-        }
-        val now = SystemClock.uptimeMillis()
-        val stale = isStaleGap(now - lastFollowAt[0])
-        lastFollowAt[0] = now
-        libreMap.move(update, animateCamera && !(wasEngaged && stale), FOLLOW_EASE_MILLIS)
+        snapshotFlow { currentPuckFix()?.let { it.center ?: it.position } }
+            .filterNotNull()
+            .collect { position ->
+                val current = libreMap.cameraPosition.zoom
+                val wasEngaged = followEngaged
+                val zoom = if (wasEngaged) current else maxOf(current, FOLLOW_MIN_ZOOM)
+                followEngaged = true
+                val start = currentStartObstruction.toDouble()
+                val update = if (start > 0.0) {
+                    // Side panel: centre the dot in the clear map to its right.
+                    CameraUpdateFactory.newCameraPosition(
+                        CameraPosition.Builder(libreMap.cameraPosition)
+                            .target(position.toMapLibre())
+                            .zoom(zoom)
+                            .padding(start, 0.0, 0.0, 0.0)
+                            .build(),
+                    )
+                } else {
+                    CameraUpdateFactory.newLatLngZoom(position.toMapLibre(), zoom)
+                }
+                val now = SystemClock.uptimeMillis()
+                val stale = isStaleGap(now - lastFollowAt[0])
+                lastFollowAt[0] = now
+                libreMap.move(update, currentAnimate && !(wasEngaged && stale), FOLLOW_EASE_MILLIS)
+            }
     }
 }
 
+/** The puck's fix with no drive: nothing drawn, the whole line in the accent. */
+private val NO_FIX = PuckFix(position = null, center = null, progress = null)
 private const val CASING_OPACITY = 0.9f
 private const val GLOW_Z10 = 10f
 private const val GLOW_Z15 = 18f

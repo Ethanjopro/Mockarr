@@ -2,22 +2,38 @@ package dev.mockarr.app.ui.screens
 
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.derivedStateOf
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawWithContent
@@ -28,17 +44,27 @@ import androidx.compose.ui.graphics.CompositingStrategy
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import dev.mockarr.app.R
 import dev.mockarr.app.ui.Motion
+import dev.mockarr.app.ui.captionCase
+import dev.mockarr.app.ui.rememberFormatter
 import dev.mockarr.app.ui.theme.DialogAction
 import dev.mockarr.app.ui.theme.MapIconPill
 import dev.mockarr.app.ui.theme.MapPill
 import dev.mockarr.app.ui.theme.MockarrDialog
+import dev.mockarr.app.ui.theme.MockarrTheme
 import dev.mockarr.app.ui.theme.Pill
+import dev.mockarr.app.ui.theme.SmallPill
 import dev.mockarr.app.ui.theme.Tokens
+import dev.mockarr.core.model.Waypoint
 
 /**
  * Builder-mode peek: the illustrated hint until the route exists (no stops:
@@ -229,3 +255,169 @@ fun Modifier.bottomFade(visible: Boolean, height: Dp): Modifier {
             )
         }
 }
+
+/** Expanded builder content: the stops (three rows tall, scrolling inside), then Save. */
+@Composable
+internal fun BuilderDetails(
+    state: MapViewModel.UiState,
+    selectedWaypoint: Int?,
+    stayAtDestination: Boolean,
+    listScrollEnabled: Boolean,
+    onSelectWaypoint: (Int?) -> Unit,
+    onSetWait: (Int) -> Unit,
+    onClearWait: (Int) -> Unit,
+    onRemoveStop: (Int) -> Unit,
+    onMoveStop: (Int) -> Unit,
+) {
+    if (state.waypoints.isEmpty()) return
+    val count = state.waypoints.size
+    Text(
+        text = captionCase(stringResource(R.string.sheet_stops_header, count)),
+        style = MaterialTheme.typography.labelSmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        modifier = Modifier.padding(horizontal = Tokens.inset, vertical = Tokens.space1).semantics { heading() },
+    )
+    // Long routes would bury the sheet: about three rows show and the rest scroll
+    // inside — only once the sheet is expanded, so a drag up isn't spent on the list.
+    // Longer lists end mid-row, fade at the bottom and count the hidden rows, so the
+    // cut never reads as "that's all".
+    val listState = rememberLazyListState()
+    if (selectedWaypoint != null) {
+        LaunchedEffect(selectedWaypoint) {
+            // Marker taps can pick stop 6: bring its row in, but leave a visible row alone.
+            val info = listState.layoutInfo
+            val row = info.visibleItemsInfo.firstOrNull { it.index == selectedWaypoint }
+            val visible = row != null && row.offset >= 0 && row.offset + row.size <= info.viewportEndOffset
+            if (!visible) listState.animateScrollToItem(selectedWaypoint)
+        }
+    }
+    val rows = if (count > STOP_LIST_VISIBLE_ROWS) STOP_LIST_PEEK_ROWS else STOP_LIST_VISIBLE_ROWS.toFloat()
+    val cap = Tokens.touchTarget * rows + if (selectedWaypoint != null) Tokens.touchTarget else 0.dp
+    val hidden by remember(count) {
+        derivedStateOf {
+            val info = listState.layoutInfo
+            val lastFull = info.visibleItemsInfo.lastOrNull { it.offset + it.size <= info.viewportEndOffset }
+            if (lastFull == null) 0 else count - lastFull.index - 1
+        }
+    }
+    LazyColumn(
+        state = listState,
+        userScrollEnabled = listScrollEnabled,
+        modifier = Modifier.heightIn(max = cap).bottomFade(visible = hidden > 0, height = Tokens.touchTarget / 2),
+    ) {
+        itemsIndexed(state.waypoints) { index, waypoint ->
+            StopRow(
+                index = index,
+                waypoint = waypoint,
+                count = count,
+                selected = index == selectedWaypoint,
+                stayAtDestination = stayAtDestination,
+                onClick = { onSelectWaypoint(if (index == selectedWaypoint) null else index) },
+                onSetWait = { onSetWait(index) },
+                onClearWait = { onClearWait(index) },
+                onRemove = { onRemoveStop(index) },
+                onMove = { onMoveStop(index) },
+            )
+        }
+    }
+}
+
+/** One stop: numbered disc, role, wait, and its actions when selected. */
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun StopRow(
+    index: Int,
+    waypoint: Waypoint,
+    count: Int,
+    selected: Boolean,
+    stayAtDestination: Boolean,
+    onClick: () -> Unit,
+    onSetWait: () -> Unit,
+    onClearWait: () -> Unit,
+    onRemove: () -> Unit,
+    onMove: () -> Unit,
+) {
+    // Mirrors the map markers: the first stop is always the start.
+    val isStart = index == 0
+    val isEnd = index == count - 1 && count >= 2
+    val background = if (selected) MaterialTheme.colorScheme.surfaceContainerHigh else Color.Transparent
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(background)
+            .clickable(onClick = onClick, role = Role.Button)
+            .padding(horizontal = Tokens.inset),
+    ) {
+        // Fixed row heights keep "three rows" true for the list cap.
+        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.heightIn(min = Tokens.touchTarget)) {
+            StopDisc(number = index + 1, isStart = isStart, isEnd = isEnd)
+            Spacer(Modifier.width(Tokens.space3))
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = stopName(index, count, waypoint.name),
+                    style = MaterialTheme.typography.bodyLarge,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+                // A named stop still says which one it is (Start / Stop 2 / Destination), then its wait.
+                val role = if (waypoint.name != null) stopName(index, count) else null
+                val wait = if (waypoint.waitSeconds > 0) {
+                    stringResource(R.string.sheet_waits, rememberFormatter().duration(waypoint.waitSeconds.toDouble()))
+                } else {
+                    null
+                }
+                if (role != null || wait != null) {
+                    Row {
+                        val secondary = MaterialTheme.typography.bodySmall
+                        role?.let { Text(it, style = secondary, color = MaterialTheme.colorScheme.onSurfaceVariant) }
+                        if (role != null && wait != null) {
+                            Text(
+                                stringResource(R.string.separator),
+                                style = secondary,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                        wait?.let { Text(it, style = secondary, color = MockarrTheme.colors.hold) }
+                    }
+                }
+            }
+            IconButton(onClick = onRemove) {
+                Icon(
+                    painterResource(R.drawable.ic_delete),
+                    contentDescription = stringResource(
+                        R.string.sheet_remove_stop_named,
+                        stopName(index, count, waypoint.name),
+                    ),
+                )
+            }
+        }
+        if (selected) {
+            // On-sheet equivalent of the marker popover (TalkBack path). Wraps: three pills
+            // outgrow the sheet at large font scales.
+            FlowRow(
+                horizontalArrangement = Arrangement.spacedBy(Tokens.space2),
+                itemVerticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.heightIn(min = Tokens.touchTarget),
+            ) {
+                if (stopStays(index, count, stayAtDestination)) {
+                    // A fact, not a disabled button: 38 % ink failed contrast (critique, session 42).
+                    Text(
+                        text = stringResource(R.string.stop_menu_stays),
+                        style = MaterialTheme.typography.labelLarge,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                } else {
+                    val waitLabel = if (waypoint.waitSeconds > 0) R.string.sheet_edit_wait else R.string.sheet_set_wait
+                    SmallPill(stringResource(waitLabel), onSetWait)
+                }
+                if (waypoint.waitSeconds > 0) {
+                    SmallPill(stringResource(R.string.sheet_remove_wait), onClearWait)
+                }
+                SmallPill(stringResource(R.string.stop_menu_move), onMove)
+            }
+        }
+    }
+}
+
+private const val STOP_LIST_VISIBLE_ROWS = 3
+private const val STOP_LIST_PEEK_ROWS = 3.5f

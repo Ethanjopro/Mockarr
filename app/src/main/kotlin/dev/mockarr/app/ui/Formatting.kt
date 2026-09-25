@@ -4,6 +4,7 @@ import android.content.Context
 import android.content.res.Resources
 import android.text.format.DateFormat
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.ReadOnlyComposable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
@@ -28,6 +29,14 @@ private const val SMALL_ROUNDING = 10
 
 /** From 100 km / mi up, a decimal is noise: "1,460 mi", not "1459.5 mi". */
 private const val WHOLE_UNITS_FROM = 100.0
+
+/**
+ * [text] in capitals for a caption or section header, in the UI's locale: a plain
+ * `uppercase()` uses the default locale, which can differ (Turkish dotted İ).
+ */
+@Composable
+@ReadOnlyComposable
+fun captionCase(text: String): String = text.uppercase(LocalConfiguration.current.locales[0])
 
 /** A whole, grouped number in the device's format ("1,460" / "1.460"). */
 fun wholeUnits(value: Double, locale: Locale = Locale.getDefault()): String =

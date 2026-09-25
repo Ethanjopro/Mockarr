@@ -20,6 +20,7 @@ import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.State
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
@@ -43,6 +44,7 @@ import dev.mockarr.app.playback.MockSessionState
 import dev.mockarr.app.playback.StopRef
 import dev.mockarr.app.playback.stopRef
 import dev.mockarr.app.ui.Motion.fadeThrough
+import dev.mockarr.app.ui.captionCase
 import dev.mockarr.app.ui.map.formatChipCountdown
 import dev.mockarr.app.ui.rememberFormatter
 import dev.mockarr.app.ui.theme.ActionPill
@@ -57,7 +59,6 @@ import dev.mockarr.core.model.SessionSnapshot
 import dev.mockarr.core.model.progressOrZero
 import dev.mockarr.core.model.remainingSecondsOrNull
 import dev.mockarr.core.simulation.SimulationEngine
-import kotlin.math.ceil
 import kotlin.math.roundToInt
 
 /**
@@ -168,7 +169,7 @@ fun SpeedChips(
         itemVerticalAlignment = Alignment.CenterVertically,
     ) {
         Text(
-            text = stringResource(R.string.sheet_speed).uppercase(),
+            text = captionCase(stringResource(R.string.sheet_speed)),
             style = MaterialTheme.typography.labelSmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.semantics { heading() },
@@ -219,7 +220,6 @@ private const val HALF_SPEED = 0.5
 private const val DOUBLE_SPEED = 2.0
 private val HANDLE_HEIGHT = 36.dp
 private val HANDLE_PILL_HEIGHT = 4.dp
-private const val SKIP_MIN_SECONDS = 3.0
 private const val PERCENT = 100
 
 internal enum class StripAction { FIX, RELEASE, CANCEL_MOVE, ADD_STOP, SKIP_WAIT, RESUME_SESSION }
@@ -249,7 +249,7 @@ internal data class StripModel(
 @Composable
 internal fun stripFor(
     state: MapViewModel.UiState,
-    playbackState: PlaybackState?,
+    playback: BandPlayback,
     holding: MockSessionState.Holding?,
     playing: Boolean,
     builder: Boolean,
@@ -261,7 +261,7 @@ internal fun stripFor(
     /** The drive in flight, for naming the stop it waits at. */
     drive: MockSessionRepository.LiveDrive? = null,
 ): StripModel? = when {
-    playing -> playbackStrip(playbackState, state.profile, drive)
+    playing -> playbackStrip(playback, state.profile, drive)
     movingStop != null -> StripModel(
         text = stringResource(R.string.strip_moving_stop, movingStop),
         tone = StripTone.Neutral,
@@ -329,22 +329,21 @@ private fun RoutingError.stripRes(): Int = when (this) {
 
 @Composable
 private fun playbackStrip(
-    playbackState: PlaybackState?,
+    playback: BandPlayback,
     profile: RoutingProfile,
     drive: MockSessionRepository.LiveDrive?,
-): StripModel? = when (playbackState) {
+): StripModel? = when (playback) {
     // The slow-down after End drive keeps the band as it was (its controls go inert): a
     // "Stopping…" band flashed for half a second between Paused and Holding.
-    is PlaybackState.Stopping -> null
-    is PlaybackState.Paused -> StripModel(stringResource(R.string.strip_paused), StripTone.Hold)
-    is PlaybackState.Dwelling -> {
-        // Whole seconds rounded up, like the chip over the marker — the two never disagree.
-        val countdown = formatChipCountdown(ceil(playbackState.waitSecondsLeft).toInt())
+    BandPlayback.WindingDown -> null
+    BandPlayback.Paused -> StripModel(stringResource(R.string.strip_paused), StripTone.Hold)
+    is BandPlayback.Waiting -> {
+        val countdown = formatChipCountdown(playback.secondsLeft)
         // A synthesized off-road pause carries no waypoint (index -1); a stop is named as the user
         // knows it — "Waiting at Reunion Tower", or its number in their route, never the drive's.
-        val stop = playbackState.waypointIndex
+        val stop = playback.waypointIndex
             .takeIf { it >= 0 }
-            ?.let { drive.stopRef(it, playbackState.isDestination) }
+            ?.let { drive.stopRef(it, playback.isDestination) }
         val text = when (stop) {
             null -> stringResource(R.string.strip_offroad_pause, countdown)
             is StopRef.Named -> stringResource(R.string.strip_waiting_at, stop.name, countdown)
@@ -357,17 +356,15 @@ private fun playbackStrip(
             StopRef.Destination -> stringResource(R.string.strip_waiting_destination_spoken)
             is StopRef.Numbered -> stringResource(R.string.strip_waiting_spoken, stop.number)
         }
-        // A real stop's wait can be skipped; the off-road pause is part of the drive itself.
-        val skippable = playbackState.waypointIndex >= 0 && playbackState.waitSecondsLeft > SKIP_MIN_SECONDS
         StripModel(
             text = text,
             tone = StripTone.Hold,
-            actionLabel = if (skippable) stringResource(R.string.strip_skip_wait) else null,
-            action = if (skippable) StripAction.SKIP_WAIT else null,
+            actionLabel = if (playback.skippable) stringResource(R.string.strip_skip_wait) else null,
+            action = if (playback.skippable) StripAction.SKIP_WAIT else null,
             spoken = spoken,
         )
     }
-    else -> StripModel(stringResource(profile.movingLabelRes()), StripTone.Accent)
+    BandPlayback.Moving -> StripModel(stringResource(profile.movingLabelRes()), StripTone.Accent)
 }
 
 /**
@@ -390,16 +387,19 @@ private fun holdingText(holding: MockSessionState.Holding): String {
 /** The card's trio while driving: time left · distance left · speed, and the progress bar. */
 @Composable
 internal fun PlaybackStats(
-    playbackState: PlaybackState?,
+    /** Read here, not by the screen: only this block follows every fix. */
+    playbackState: State<PlaybackState?>,
     route: Route?,
     units: DistanceUnits,
     sessionViewModel: MockSessionViewModel,
 ) {
     val formatter = rememberFormatter()
-    val progress = playbackState.progressOrZero
+    // The last live state holds through the drive's end ([rememberDriveState]).
+    val driveState = rememberDriveState(playbackState.value)
+    val progress = driveState.progressOrZero
     val total = route?.distanceMeters ?: 0.0
     val remainingMeters = (total * (1 - progress)).coerceAtLeast(0.0)
-    val secondsLeft = playbackState.remainingSecondsOrNull
+    val secondsLeft = driveState.remainingSecondsOrNull
     val timeLeft = secondsLeft?.let(formatter::duration) ?: stringResource(R.string.stat_placeholder)
     // Only this composable follows every fix; the rest of the overlay stays still.
     val fix by sessionViewModel.latestFix.collectAsStateWithLifecycle()

@@ -2274,6 +2274,60 @@ Implements the four decisions from the session-42 critique (memory
   - ✕ from the expanded builder lands on the collapsed Record peek
   - build, detekt and tests green
 
+### 2026-09-24 — Session 47 (loose end 2: `/impeccable optimize`)
+- **Measured first.** The headless emulator rendered with SwiftShader, so frame numbers
+  were fiction (48 ms median; the "200 ms stall" at drive start was mostly software
+  rendering). `emu.sh boot` now uses `-gpu host` (Apple M4). On the real GPU a drive start
+  drops 4 of 264 frames.
+- **The real cost: every fix recomposed the whole Map screen.** A 5 s count while driving
+  (temporary log lines) found `MapScreen`, `MapLayer` and `MockarrMap` recomposing on every
+  fix. After:
+  - `MapScreen` reads `BandPlayback` (`BandPlayback.kt`) through `derivedStateOf`. It is
+    steady while moving and changes only on Paused, a wait's second, or wind-down; this is
+    the `playbackPhase` extraction.
+  - `SessionHaptics`, the stats block (`PlaybackStats` takes the State) and the TalkBack
+    wait actions (`stopsPassed`) read the state themselves.
+  - `MockarrMap` takes `puckFix: () -> PuckFix?`: the puck, the wobble range and the follow
+    camera collect it in `snapshotFlow`s instead of recomposing.
+  - The stop popover reads the marker's screen position itself, so a pan with a stop
+    selected no longer recomposes the screen every frame.
+  - **Result**, 5 s of driving at 1 Hz on mockarr_test: `MapScreen` / `MapLayer` /
+    `MockarrMap` went from 5 recompositions each to 0. UI-thread work per fix went from a
+    ~2.9 ms median to ~1.9 ms. A pan with a stop selected: 0 `MapScreen` recompositions.
+- **Hygiene:**
+  - `captionCase()` (Formatting.kt) replaces 4 locale-less `.uppercase()` calls and the one
+    hand-rolled locale call.
+  - `MockarrColors.isDark` replaces `isSystemInDarkTheme()` in MapScreen / SavedRoutesScreen.
+  - The search list has stable keys (`suggestionKeys`, counted, so a repeat never
+    duplicates a key).
+- **Saved routes: `place` column (Room v6).** The card's city was whatever followed the last
+  ", " in the name, so "Home, then the gym" read as title "Home" and place "then the gym".
+  The city from the save-time lookup now has its own column, `routeTitle(name, place)`
+  strips only a trailing ", place", and keyword search matches the place too.
+  `MIGRATION_5_6` backfilled old rows from the last comma; on the AVD both routes read the
+  same as before.
+- **MapScreen split:** the file went from 1,585 to about 1,080 lines.
+  - `MapLayer` → `MapLayer.kt`
+  - `BuilderDetails` / `StopRow` → `MapBuilder.kt`
+  - the Start flow (permission gate, drive-in choice, route-from-here prompts, locating
+    spinner) → `MapStartFlow` (`MapStartFlow.kt`)
+- **Fixed on sight:**
+  - Start's spinner kept running under the drive's controls (a leftover from session 46);
+    removed.
+  - `emu.sh tab Routes` now scrolls when the sheet is already up.
+  - `emu.sh` pins adb and its Gradle install to the emulator (`ANDROID_SERIAL`): Ethan's
+    Pixel was plugged in over USB. Nothing was installed on it (checked read-only).
+- **Verified on mockarr_test:**
+  - the migration on the real v5 database (user_version 6, place = Dallas)
+  - rename to "Museum loop, fast" keeps the comma in the title, with Dallas as the place
+  - START FROM → Start of route
+  - wait band counts 0:58 → 0:55 in place, and Skip wait works
+  - "Drive interrupted at 32%" → Resume kept 4×
+  - End drive; a pan with a stop selected
+  - build, detekt, lint and tests green
+  At 20:29 something outside this session (likely Android Studio) reinstalled the app on
+  the emulator mid-test.
+
 ### NEXT SESSION — loose ends (written 2026-09-24, before a chat reset)
 Work these in order, one commit per round. Verify each on `mockarr_test`, and CI must be
 green after every push.
@@ -2292,7 +2346,7 @@ green after every push.
    - **Same round, bug:** the saved route "Klyde Warren Park … to Canton @ Farmers Market"
      shows city "Sayreville" (NJ) for a Dallas route. The city comes from
      `geocoder.reverse(route.points.last())` in `MapViewModel.suggestName`.
-2. **`/impeccable optimize`.**
+2. ✅ **Done in session 47.** **`/impeccable optimize`.**
    - Split `MapScreen()` (971 lines) and extract `playbackPhase`.
    - `MarkerTracker` recomposes per frame, and `MapScreen` reads `playbackState` in its
      body, which recomposes the whole screen.

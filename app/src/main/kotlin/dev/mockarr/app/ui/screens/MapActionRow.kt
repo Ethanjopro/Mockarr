@@ -29,7 +29,6 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
@@ -42,6 +41,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import dev.mockarr.app.R
 import dev.mockarr.app.ui.Motion.fadeThrough
+import dev.mockarr.app.ui.captionCase
 import dev.mockarr.app.ui.theme.ActionPill
 import dev.mockarr.app.ui.theme.OutlinedActionPill
 import dev.mockarr.app.ui.theme.Tokens
@@ -112,7 +112,7 @@ private fun StartChoiceRow(choice: StartChoice) {
         // heading to TalkBack — nothing more (Ethan, 2026-09-24: the help line and Cancel
         // were too much text; Back and a map tap cancel).
         Text(
-            text = stringResource(R.string.row_start_choice_title).uppercase(LocalConfiguration.current.locales[0]),
+            text = captionCase(stringResource(R.string.row_start_choice_title)),
             style = MaterialTheme.typography.labelSmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             textAlign = TextAlign.Center,

@@ -12,7 +12,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.Card
@@ -132,7 +132,8 @@ fun MapSearchBar(
                             .heightIn(max = RESULTS_MAX_HEIGHT)
                             .bottomFade(visible = overflows, height = Tokens.touchTarget / 2),
                     ) {
-                        items(state.results) { suggestion ->
+                        val keys = suggestionKeys(state.results)
+                        itemsIndexed(state.results, key = { index, _ -> keys[index] }) { _, suggestion ->
                             SearchResultRow(suggestion, state.query, units) { onResultSelected(suggestion.result) }
                             HorizontalDivider()
                         }

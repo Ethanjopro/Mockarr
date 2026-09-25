@@ -95,4 +95,19 @@ class MapSearchLogicTest {
         longitude = at.longitude,
         pickedAtMillis = millis,
     )
+
+    @Test
+    fun `row keys are unique even when a place repeats`() {
+        val place = GeocodingResult("Reunion Tower", LatLng(32.77, -96.81))
+        val rows = listOf(
+            SearchSuggestion(place, 100.0, recent = true),
+            SearchSuggestion(place, 100.0),
+            SearchSuggestion(place, 100.0),
+        )
+
+        val keys = suggestionKeys(rows)
+
+        assertEquals(3, keys.toSet().size)
+        assertEquals(keys, suggestionKeys(rows))
+    }
 }

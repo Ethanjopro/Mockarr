@@ -6,18 +6,26 @@ import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.util.Locale
 
-/** How a saved-route card reads its name: the title, and the place after the last comma. */
+/** How a saved-route card reads its name: the title, and the place line under it. */
 data class RouteTitle(val title: String, val place: String?)
 
 /**
- * Geocoded names arrive as "Portals of the Past to Middle Drive West, San Francisco".
- * The card shows the part before the last comma as the title and the rest as the
- * location line, so titles stop wrapping to three lines.
+ * A suggested name arrives as "Portals of the Past to Middle Drive West, San Francisco",
+ * and the route's [place] is stored on its own. The card shows the name without that
+ * trailing ", place" as the title and the place as the location line, so titles stop
+ * wrapping to three lines. A comma the user typed stays in the title: the place never
+ * comes from the name (it used to be whatever followed the last comma).
  */
-fun splitRouteName(name: String): RouteTitle {
-    val index = name.lastIndexOf(", ")
-    if (index <= 0 || index == name.length - 2) return RouteTitle(name.trim(), null)
-    return RouteTitle(name.substring(0, index).trim(), name.substring(index + 2).trim())
+fun routeTitle(name: String, place: String?): RouteTitle {
+    val trimmed = name.trim()
+    val city = place?.trim()?.takeIf { it.isNotEmpty() } ?: return RouteTitle(trimmed, null)
+    val suffix = ", $city"
+    val title = if (trimmed.length > suffix.length && trimmed.endsWith(suffix, ignoreCase = true)) {
+        trimmed.dropLast(suffix.length).trim()
+    } else {
+        trimmed
+    }
+    return RouteTitle(title, city)
 }
 
 /** Bucket for the "Created …" line; the screen turns it into localised copy. */

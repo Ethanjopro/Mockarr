@@ -375,7 +375,8 @@ class MapViewModel @Inject constructor(
         scheduleRouteFetch()
     }
 
-    fun saveRoute(name: String) {
+    /** [place]: the route's city from [suggestName], kept apart from whatever the name says. */
+    fun saveRoute(name: String, place: String? = null) {
         val state = _uiState.value
         val route = state.route ?: return
         viewModelScope.launch {
@@ -384,6 +385,7 @@ class MapViewModel @Inject constructor(
                 route = route,
                 profile = state.profile,
                 nowEpochMillis = System.currentTimeMillis(),
+                place = place,
             )
             _uiState.update { it.copy(savedName = name, routeSaved = true) }
         }

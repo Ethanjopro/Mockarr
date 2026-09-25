@@ -87,7 +87,7 @@ fun SavedRouteCard(
     onDelete: () -> Unit,
 ) {
     val formatter = rememberFormatter()
-    val split = remember(entity.name) { splitRouteName(entity.name) }
+    val split = remember(entity.name, entity.place) { routeTitle(entity.name, entity.place) }
     val profile = RoutingProfile.fromNameOrDefault(entity.profile)
     Card(
         onClick = onClick,

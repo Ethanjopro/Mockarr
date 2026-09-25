@@ -26,6 +26,7 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import dev.mockarr.app.R
+import dev.mockarr.app.ui.captionCase
 import dev.mockarr.app.ui.theme.Tokens
 import dev.mockarr.core.data.MockarrSettings
 
@@ -179,7 +180,7 @@ fun OptionsList(
 @Composable
 private fun OptionsHeader(text: String) {
     Text(
-        text = text.uppercase(),
+        text = captionCase(text),
         style = MaterialTheme.typography.labelSmall,
         color = MaterialTheme.colorScheme.onSurfaceVariant,
         modifier = Modifier

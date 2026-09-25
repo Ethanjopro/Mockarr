@@ -15,7 +15,9 @@ a free non-OSS API is acceptable when it noticeably improves the app (ADR 0001 a
   Core boundary alone: `scripts/gradle checkCoreBoundary`.
 - One Gradle at a time: never run `scripts/emu.sh install` while a build agent
   is running `scripts/gradle` (the script refuses, but don't try).
-- Emulator: drive it ONLY through `scripts/emu.sh` (run it bare for usage).
+- Emulator: drive it ONLY through `scripts/emu.sh` (run it bare for usage). It pins adb and
+  its Gradle install to the emulator (`ANDROID_SERIAL`) because Ethan's Pixel may be on USB:
+  never run `scripts/gradle :app:installDebug` yourself without `ANDROID_SERIAL=emulator-5554`.
   Always `settle` after `launch`; one emulator per machine. Never call bare
   `adb` — it is not on PATH in non-login shells. Details: `emulator-verify` skill.
 - Release build: R8 is on for `release` (`app/proguard-rules.pro`); verify R8-sensitive flows
@@ -66,8 +68,8 @@ a free non-OSS API is acceptable when it noticeably improves the app (ADR 0001 a
 - `app` — Compose + Hilt UI, `MockSessionService`, map in `ui/map/MockarrMap.kt`. No
   navigation bar: Map is the root, Routes/Settings/Setup are pushed from the Map sheet
   (`MockarrApp.kt`); the floating stat card lives in `ui/screens/MapStatCard.kt`.
-- `core:data` — Room schema v5 (`SavedRouteEntity`; migrations 1→…→5 in `MockarrDatabase`, registered in
-  `AppModule`), DataStore settings.
+- `core:data` — Room schema v6 (`SavedRouteEntity`; migrations 1→…→6 in `MockarrDatabase`, registered in
+  `AppModule`), DataStore settings. A saved route's city is its own `place` column, never parsed from the name.
 - `core:mocklocation` — mock providers + setup-status detection (Android, no Hilt).
 
 ## Lint tripwires (detekt flags AT threshold)

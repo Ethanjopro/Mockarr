@@ -28,4 +28,21 @@ data class SavedRouteEntity(
 
     /** JSON `List<String?>` of stop names, aligned with [waypointsJson]; null on pre-v5 rows. */
     val waypointNamesJson: String? = null,
+
+    /**
+     * Where the route is (its city), looked up when it was saved — its own field, so a
+     * comma in a name the user typed is never read as a place. Pre-v6 rows were backfilled
+     * from the text after their name's last comma. Null: not known.
+     */
+    val place: String? = null,
 )
+
+/**
+ * The place a pre-v6 name carries after its last ", " ("Reunion Tower to Main Street,
+ * Dallas"), or null. Only for backfilling old rows; new rows store [SavedRouteEntity.place].
+ */
+fun legacyPlaceOf(name: String): String? {
+    val index = name.lastIndexOf(", ")
+    if (index <= 0) return null
+    return name.substring(index + 2).trim().takeIf { it.isNotEmpty() }
+}

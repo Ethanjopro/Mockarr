@@ -16,10 +16,17 @@ class SavedRoutesRepository(
 
     fun observeAll(): Flow<List<SavedRouteEntity>> = dao.observeAll()
 
-    suspend fun save(name: String, route: Route, profile: RoutingProfile, nowEpochMillis: Long): Long =
+    suspend fun save(
+        name: String,
+        route: Route,
+        profile: RoutingProfile,
+        nowEpochMillis: Long,
+        place: String? = null,
+    ): Long =
         dao.insert(
             SavedRouteEntity(
                 name = name,
+                place = place,
                 createdAtEpochMillis = nowEpochMillis,
                 profile = profile.name,
                 distanceMeters = route.distanceMeters,

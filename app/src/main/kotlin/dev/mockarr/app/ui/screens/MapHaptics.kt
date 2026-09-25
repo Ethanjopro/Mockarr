@@ -2,6 +2,8 @@ package dev.mockarr.app.ui.screens
 
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.State
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -10,7 +12,6 @@ import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
 import dev.mockarr.app.playback.MockSessionState
 import dev.mockarr.core.model.PlaybackState
-import dev.mockarr.core.model.progressOrZero
 
 /**
  * The drive's touch vocabulary (arrival already ticks in [rememberArrived]):
@@ -20,7 +21,7 @@ import dev.mockarr.core.model.progressOrZero
  * mark. The system haptic setting silences all of it.
  */
 @Composable
-internal fun SessionHaptics(session: MockSessionState, playbackState: PlaybackState?, stops: List<Float>) {
+internal fun SessionHaptics(session: MockSessionState, playbackState: State<PlaybackState?>, stops: List<Float>) {
     val haptic = LocalHapticFeedback.current
     val playing = session is MockSessionState.Playing
     var wasPlaying by remember { mutableStateOf(playing) }
@@ -28,7 +29,10 @@ internal fun SessionHaptics(session: MockSessionState, playbackState: PlaybackSt
         if (playing && !wasPlaying) haptic.performHapticFeedback(HapticFeedbackType.GestureThresholdActivate)
         wasPlaying = playing
     }
-    val waiting = playing && playbackState is PlaybackState.Dwelling
+    // Derived, so this scope wakes only when a wait begins or ends or a stop is passed —
+    // never on the fixes in between.
+    val dwelling by remember { derivedStateOf { playbackState.value is PlaybackState.Dwelling } }
+    val waiting = playing && dwelling
     var wasWaiting by remember { mutableStateOf(waiting) }
     LaunchedEffect(waiting) {
         if (waiting != wasWaiting && playing) haptic.performHapticFeedback(HapticFeedbackType.SegmentTick)
@@ -39,8 +43,12 @@ internal fun SessionHaptics(session: MockSessionState, playbackState: PlaybackSt
     // so a pause, a wait or any transient state re-bases it instead of ticking;
     // the tolerance covers the rounding between the bar's fractions and the
     // engine's progress, so a dwell never ticks twice.
-    val moving = playing && playbackState is PlaybackState.Playing
-    val passed = if (moving) stops.count { it <= playbackState.progressOrZero + PASSED_TOLERANCE } else null
+    val movingPassed by remember(stops) {
+        derivedStateOf {
+            (playbackState.value as? PlaybackState.Playing)?.let { stopsPassed(stops, it.progress, PASSED_TOLERANCE) }
+        }
+    }
+    val passed = if (playing) movingPassed else null
     var wasPassed by remember { mutableStateOf(passed) }
     LaunchedEffect(passed) {
         val previous = wasPassed

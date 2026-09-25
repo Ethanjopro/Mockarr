@@ -39,7 +39,8 @@ internal fun StopPopover(
     index: Int,
     waypoint: Waypoint,
     count: Int,
-    anchor: Offset,
+    /** The marker's window position; read here, as it moves with every camera frame. */
+    anchor: () -> Offset,
     stayAtDestination: Boolean,
     playing: Boolean,
     onSetWait: () -> Unit,
@@ -65,7 +66,7 @@ internal fun StopPopover(
         hasWait -> MockarrTheme.colors.hold
         else -> scheme.onSurface
     }
-    MapPopover(anchor = anchor, onDismiss = onDismiss, modal = false) {
+    MapPopover(anchor = anchor(), onDismiss = onDismiss, modal = false) {
         Row(
             modifier = Modifier
                 .padding(Tokens.space1)

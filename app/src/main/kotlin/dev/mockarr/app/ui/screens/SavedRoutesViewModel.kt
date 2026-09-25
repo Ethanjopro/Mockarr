@@ -144,7 +144,9 @@ internal fun filterAndSort(
 ): List<SavedRouteEntity> {
     val trimmed = query.trim()
     val filtered = all.filter { entity ->
-        trimmed.isEmpty() || entity.name.contains(trimmed, ignoreCase = true)
+        trimmed.isEmpty() ||
+            entity.name.contains(trimmed, ignoreCase = true) ||
+            entity.place?.contains(trimmed, ignoreCase = true) == true
     }
     return when (sort) {
         SavedRoutesViewModel.Sort.RECENT -> filtered.sortedByDescending { it.createdAtEpochMillis }

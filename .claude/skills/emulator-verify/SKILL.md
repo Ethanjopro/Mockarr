@@ -34,6 +34,19 @@ emulator binary yourself.
    sampled twice; `launch` starts the app as the launcher does (MAIN +
    LAUNCHER), which is what makes a notification tap reuse the task.
 
+## Measuring performance
+- `boot` uses the host GPU (`-gpu host`). The old headless default, SwiftShader, rendered in
+  software: 48 ms median frames and "stalls" that weren't in the app. Never judge jank on it
+  (`MOCKARR_GPU=swiftshader_indirect` only if the host GPU misbehaves).
+- UI-thread cost per frame: `shell dumpsys gfxinfo dev.mockarr.app reset`, run the scenario,
+  then `shell dumpsys gfxinfo dev.mockarr.app framestats` and compute SyncQueued −
+  HandleInputStart per frame (the Flags=0 rows). Total frame time on the emulator includes
+  host compositing; ignore it.
+- What recomposes: a temporary `android.util.Log.d("RCMP", "<name>")` as the first line of
+  the composables in question, `shell logcat -c`, drive 5 s, count. Remove it before committing.
+- Measure a real drive: a Start tap can open START FROM instead (the emulator's own location
+  moves on a cold boot); tap "Start of route" and confirm "Driving" before sampling.
+
 ## Interaction rules (hard-won — do not rediscover these)
 - **Wait for UI states with `scripts/emu.sh waitfor "text" [timeout]`** — it
   polls until the text/desc appears and echoes what it matched (check that

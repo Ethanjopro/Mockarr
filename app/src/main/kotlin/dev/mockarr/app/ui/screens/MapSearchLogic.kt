@@ -118,3 +118,19 @@ private fun GeocodingResult.suggestion(anchor: LatLng?, recent: Boolean) = Searc
 )
 
 private const val SAME_PLACE_METERS = 50.0
+
+/**
+ * One stable key per row, for the results list: a row keeps its identity (and its
+ * place on screen) while the list around it refreshes as the query grows. Built from
+ * what the row shows; a repeat of the same place gets a counter, because a lazy list
+ * with two equal keys crashes.
+ */
+internal fun suggestionKeys(suggestions: List<SearchSuggestion>): List<String> {
+    val seen = mutableMapOf<String, Int>()
+    return suggestions.map { suggestion ->
+        val result = suggestion.result
+        val base = "${suggestion.recent}|${result.name}|${result.position.latitude},${result.position.longitude}"
+        val repeat = seen.merge(base, 1, Int::plus) ?: 1
+        if (repeat == 1) base else "$base#$repeat"
+    }
+}

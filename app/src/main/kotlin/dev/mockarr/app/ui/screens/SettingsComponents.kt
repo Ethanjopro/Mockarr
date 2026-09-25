@@ -29,6 +29,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import dev.mockarr.app.R
+import dev.mockarr.app.ui.captionCase
 import dev.mockarr.app.ui.theme.MockarrTheme
 import dev.mockarr.app.ui.theme.Tokens
 
@@ -87,7 +88,7 @@ enum class TileTone { Neutral, Ready, Error }
 @Composable
 fun SectionHeader(text: String) {
     Text(
-        text = text.uppercase(),
+        text = captionCase(text),
         style = MaterialTheme.typography.labelSmall,
         color = MaterialTheme.colorScheme.onSurfaceVariant,
         modifier = Modifier

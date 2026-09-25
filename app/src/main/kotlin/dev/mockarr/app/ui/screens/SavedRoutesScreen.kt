@@ -1,6 +1,5 @@
 package dev.mockarr.app.ui.screens
 
-import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -64,7 +63,7 @@ fun SavedRoutesScreen(
     val sort by viewModel.sort.collectAsStateWithLifecycle()
     val units by viewModel.units.collectAsStateWithLifecycle()
     val mapStyleUrl by viewModel.mapStyleUrl.collectAsStateWithLifecycle()
-    val thumbStyleUrl = effectiveStyleUrl(mapStyleUrl, isSystemInDarkTheme())
+    val thumbStyleUrl = effectiveStyleUrl(mapStyleUrl, MockarrTheme.colors.isDark)
     val palette = MockarrTheme.colors.map
     val snackbarHost = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
@@ -157,7 +156,7 @@ fun SavedRoutesScreen(
                                 viewModel.delete(entity)
                                 scope.launch {
                                     val result = snackbarHost.showSnackbar(
-                                        message = deletedTemplate.format(splitRouteName(entity.name).title),
+                                        message = deletedTemplate.format(routeTitle(entity.name, entity.place).title),
                                         actionLabel = undoLabel,
                                     )
                                     if (result == SnackbarResult.ActionPerformed) viewModel.restore(entity)
