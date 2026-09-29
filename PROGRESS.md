@@ -2385,6 +2385,51 @@ Implements the four decisions from the session-42 critique (memory
 - Verified on mockarr_test: contrast measured from light and dark screenshots; tablet
   2560×1600; the sort menu's accessibility states; the marker tap; build green.
 
+### 2026-09-29 — Session 50 (loose end 4: Ethan's design batch, "do all recommended")
+Ethan's 17 decisions are in memory `loose-end-4-decisions`. Items 1, 14 and 17 needed no change.
+- **Band and notification:**
+  - Paused reads "Paused · location held"; paused during a wait, "Paused · 0:57 wait left".
+    `PlaybackState.Paused` now carries the frozen `waitSecondsLeft` (tested).
+  - The notification title holds the time left: "Driving · 3 min left", "Paused · 3 min
+    left". While waiting, "Waiting at X", with the time left in the text.
+  - An arrival ends with a summary: "Arrived at X · 0.6 mi · 2 min" (`DriveSummary` from the
+    service; stops and resumed drives get none; tested). The thumbstick waits until the band
+    settles into Holding.
+  - Map names are tidied for display: `tidyRoadName` expands Fwy/Hwy/Pkwy/Expy and drops a
+    trailing NB/SB/EB/WB (tested).
+  - "Ride" everywhere: mode Ride, band Riding.
+- **Glyphs, one meaning each:**
+  - Follow is the navigation arrow; wobble is a scatter; rush hour is a traffic light; the
+    options list's Save uses the save disk (the same glyph as the builder's Save, rather than
+    a new bookmark); the new add-stop row is a pin-with-plus.
+  - Discard changes already had the undo arrow, and Held spot already had the pin.
+- **Layout:**
+  - Settings drops the mode tile (tiles are Mock location · Units).
+  - The saved card shows "🚗 Drive · 1.5 mi · 5 min" as plain text.
+  - Speed presets are one row of segmented buttons (the popover is capped at 360dp).
+  - A hold under the thumbstick eases left so the pin sits clear of it: measured from where
+    the camera target is drawn, because the padding from a route fit had also pulled the map
+    up.
+  - START FROM pills share one text size (`rememberPillTextSize`).
+- **Setup:** a fifth step, "Location access allowed". It's required, and the readiness band
+  counts it. Verified: revoking → "1 required step left" → Allow location → system dialog →
+  "All set".
+- **TalkBack:**
+  - "Add a stop at the map centre" is in the options list and under the builder's stop list
+    (DESIGN.md shows Ethan removed it in session 25; restored per this batch).
+  - Both search fields get a name that isn't shown on screen. It sits in the field's own
+    accessibility subtree, but TalkBack's speech couldn't be captured on the emulator.
+    **Needs a phone check.**
+- **Bugs fixed:**
+  - the stop popover opens below a stop that sits under the search bar
+  - the search dropdown floats, so the 3D and locate buttons don't jump
+  - the held pin stays in view after rotating (the keep-in-view check re-runs when the map
+    resizes)
+  - the attribution "i" sits steady beside the landscape panel, clear of the gesture bar
+- **Verified on mockarr_test:** light theme, font 1.3 (START FROM, Setup), landscape; the
+  release (R8) build for drive, notification, pause and the saved list; logcat clean. The
+  build and tests are green.
+
 ### NEXT SESSION — loose ends (written 2026-09-24, before a chat reset)
 Work these in order, one commit per round. Verify each on `mockarr_test`, and CI must be
 green after every push.
@@ -2415,7 +2460,7 @@ green after every push.
 3. ✅ **Done in session 49.** **`/impeccable audit`.** Last run August, 13/20. Include the dark sheet edge (1.07:1),
    the saved-routes search field with no border, and a search-field TalkBack label (needs a
    visual-label call).
-4. **Design decisions for Ethan.** Ask them in one batch, then build; minimal copy only
+4. ✅ **Done in session 50.** **Design decisions for Ethan.** Ask them in one batch, then build; minimal copy only
    (memory `minimal-ui-copy`). From the 2026-09-24 critique:
    - **Status:**
      - idle doesn't say what location other apps see

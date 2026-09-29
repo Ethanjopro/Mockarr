@@ -3,7 +3,6 @@ package dev.mockarr.app.ui.screens
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -11,11 +10,9 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.DropdownMenu
@@ -114,15 +111,23 @@ fun SavedRouteCard(
                     overflow = TextOverflow.Ellipsis,
                 )
                 Spacer(Modifier.height(Tokens.space1))
+                // The mode is a fact about the route, so it reads as text, never as a button:
+                // glyph + word inline with the numbers (Ethan, 2026-09-29).
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    ModePill(profile = profile)
-                    Spacer(Modifier.width(Tokens.space2))
+                    Icon(
+                        painter = painterResource(profile.iconRes()),
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.size(CHIP_ICON),
+                    )
+                    Spacer(Modifier.width(Tokens.space1))
                     Text(
-                        text = stringResource(
-                            R.string.routes_card_meta,
-                            formatter.distance(entity.distanceMeters, units),
-                            formatter.duration(totalDurationSeconds),
-                        ),
+                        text = stringResource(profile.shortLabelRes()) + stringResource(R.string.separator) +
+                            stringResource(
+                                R.string.routes_card_meta,
+                                formatter.distance(entity.distanceMeters, units),
+                                formatter.duration(totalDurationSeconds),
+                            ),
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         maxLines = 1,
@@ -146,32 +151,6 @@ fun SavedRouteCard(
             }
             CardOverflow(name = split.title, onRename = onRename, onDelete = onDelete)
         }
-    }
-}
-
-/** Read-only mode tag: outlined pill, never a button (a disabled chip reads as broken). */
-@Composable
-private fun ModePill(profile: RoutingProfile) {
-    val shape = RoundedCornerShape(CHIP_HEIGHT / 2)
-    Row(
-        modifier = Modifier
-            .heightIn(min = CHIP_HEIGHT)
-            .border(1.dp, MaterialTheme.colorScheme.outlineVariant, shape)
-            .padding(horizontal = Tokens.space2),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(Tokens.space1),
-    ) {
-        Icon(
-            painter = painterResource(profile.iconRes()),
-            contentDescription = null,
-            tint = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.size(CHIP_ICON),
-        )
-        Text(
-            text = stringResource(profile.shortLabelRes()),
-            style = MaterialTheme.typography.labelMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
     }
 }
 
@@ -365,7 +344,6 @@ private val THUMB_SIZE = 88.dp
 private val THUMB_PADDING = Tokens.space2
 private val GLYPH_STROKE = 3.dp
 private val GLYPH_DOT = 3.5.dp
-private val CHIP_HEIGHT = Tokens.space6
 private val CHIP_ICON = Tokens.space4
 private val EMPTY_GLYPH = 56.dp
 private const val MAX_THUMB_POINTS = 64

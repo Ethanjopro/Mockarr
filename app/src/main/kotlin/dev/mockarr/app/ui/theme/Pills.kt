@@ -14,9 +14,15 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.Stable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.takeOrElse
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -40,6 +46,7 @@ fun Pill(
     enabled: Boolean = true,
     iconRes: Int? = null,
     contentDescription: String? = null,
+    textSize: PillTextSize? = null,
 ) {
     Button(
         onClick = onClick,
@@ -47,7 +54,7 @@ fun Pill(
         modifier = modifier.pillModifier(contentDescription),
         contentPadding = PillPadding,
     ) {
-        PillContent(label, iconRes)
+        PillContent(label, iconRes, textSize)
     }
 }
 
@@ -60,6 +67,7 @@ fun OutlinedPill(
     enabled: Boolean = true,
     iconRes: Int? = null,
     contentDescription: String? = null,
+    textSize: PillTextSize? = null,
 ) {
     OutlinedButton(
         onClick = onClick,
@@ -67,7 +75,7 @@ fun OutlinedPill(
         modifier = modifier.pillModifier(contentDescription),
         contentPadding = PillPadding,
     ) {
-        PillContent(label, iconRes)
+        PillContent(label, iconRes, textSize)
     }
 }
 
@@ -79,7 +87,8 @@ fun RowScope.ActionPill(
     onClick: () -> Unit,
     iconRes: Int? = null,
     contentDescription: String? = null,
-) = Pill(label, onClick, Modifier.weight(1f), enabled, iconRes, contentDescription)
+    textSize: PillTextSize? = null,
+) = Pill(label, onClick, Modifier.weight(1f), enabled, iconRes, contentDescription, textSize)
 
 /** An [OutlinedPill] taking an equal share of a two-up row: Cancel, End drive, Held spot. */
 @Composable
@@ -89,7 +98,8 @@ fun RowScope.OutlinedActionPill(
     onClick: () -> Unit,
     iconRes: Int? = null,
     contentDescription: String? = null,
-) = OutlinedPill(label, onClick, Modifier.weight(1f), enabled, iconRes, contentDescription)
+    textSize: PillTextSize? = null,
+) = OutlinedPill(label, onClick, Modifier.weight(1f), enabled, iconRes, contentDescription, textSize)
 
 /**
  * The compact button, for actions inside rows, lists, the search card, the band and
@@ -129,8 +139,25 @@ private fun Modifier.pillModifier(contentDescription: String?): Modifier {
     return height(Tokens.pillHeight).then(semantics)
 }
 
+/**
+ * One text size for the pills of a row. Each pill reports the size auto-fit chose and all of
+ * them use the smallest, so a long label shrinking to 12sp doesn't sit beside a 16sp one
+ * (START FROM at large text; Ethan, 2026-09-29).
+ */
+@Stable
+class PillTextSize internal constructor() {
+    internal var cap by mutableStateOf(PILL_MAX_FONT)
+}
+
+/** A [PillTextSize] for one row; new [keys] (other labels) start over from full size. */
 @Composable
-private fun PillContent(label: String, iconRes: Int?) {
+fun rememberPillTextSize(vararg keys: Any?): PillTextSize {
+    val fontScale = LocalDensity.current.fontScale
+    return remember(fontScale, *keys) { PillTextSize() }
+}
+
+@Composable
+private fun PillContent(label: String, iconRes: Int?, textSize: PillTextSize?) {
     if (iconRes != null) {
         Icon(painterResource(iconRes), contentDescription = null)
         Spacer(Modifier.width(Tokens.space2))
@@ -144,7 +171,11 @@ private fun PillContent(label: String, iconRes: Int?) {
         maxLines = 1,
         softWrap = false,
         overflow = TextOverflow.Ellipsis,
-        autoSize = TextAutoSize.StepBased(minFontSize = PILL_MIN_FONT, maxFontSize = PILL_MAX_FONT),
+        autoSize = TextAutoSize.StepBased(minFontSize = PILL_MIN_FONT, maxFontSize = textSize?.cap ?: PILL_MAX_FONT),
+        onTextLayout = { result ->
+            val size = result.layoutInput.style.fontSize
+            if (textSize != null && size.isSp && size < textSize.cap) textSize.cap = size
+        },
     )
 }
 

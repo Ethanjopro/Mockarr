@@ -41,6 +41,8 @@ internal fun StopPopover(
     count: Int,
     /** The marker's window position; read here, as it moves with every camera frame. */
     anchor: () -> Offset,
+    /** Window y the card must stay below when it opens above the stop (the search bar). */
+    topClearPx: Int,
     stayAtDestination: Boolean,
     playing: Boolean,
     onSetWait: () -> Unit,
@@ -66,7 +68,7 @@ internal fun StopPopover(
         hasWait -> MockarrTheme.colors.hold
         else -> scheme.onSurface
     }
-    MapPopover(anchor = anchor(), onDismiss = onDismiss, modal = false) {
+    MapPopover(anchor = anchor(), onDismiss = onDismiss, modal = false, topClearPx = topClearPx) {
         Row(
             modifier = Modifier
                 .padding(Tokens.space1)

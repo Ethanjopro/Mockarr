@@ -156,7 +156,7 @@ class SimulationEngine(
                 _state.value = PlaybackState.Paused(current.progress, current.remainingSeconds)
             }
             is PlaybackState.Dwelling ->
-                _state.value = PlaybackState.Paused(current.progress, current.remainingSeconds)
+                _state.value = PlaybackState.Paused(current.progress, current.remainingSeconds, current.waitSecondsLeft)
             else -> Unit
         }
     }

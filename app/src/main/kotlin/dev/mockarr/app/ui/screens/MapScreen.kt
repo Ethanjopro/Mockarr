@@ -44,6 +44,7 @@ import androidx.compose.material3.SnackbarResult
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberBottomSheetScaffoldState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.derivedStateOf
@@ -76,6 +77,7 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.zIndex
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -87,6 +89,7 @@ import dev.mockarr.app.ui.map.CameraCommand
 import dev.mockarr.app.ui.map.NUDGE_TICK_MILLIS
 import dev.mockarr.app.ui.map.ThumbstickOverlay
 import dev.mockarr.app.ui.map.nudgeMeters
+import dev.mockarr.app.ui.rememberFormatter
 import dev.mockarr.app.ui.theme.MapIconPill
 import dev.mockarr.app.ui.theme.MapPill
 import dev.mockarr.app.ui.theme.MockarrSnackbarHost
@@ -176,6 +179,11 @@ fun MapScreen(
     }
 
     fun mapCentre(): LatLng? = viewModel.camera.value?.target
+
+    // The sheet's "Add a stop at the map centre" (TalkBack / switch access): what a map tap does.
+    fun addStopAtCentre() {
+        mapCentre()?.let { viewModel.addWaypoint(it) }
+    }
 
     fun holdAtCentre() {
         val centre = mapCentre() ?: return
@@ -394,7 +402,7 @@ fun MapScreen(
     // So do the beats after it, until the hold takes over.
     val windingDown = band == BandPlayback.WindingDown
     var lastPausedControls by remember { mutableStateOf(false) }
-    val pausedControls = if (windingDown) lastPausedControls else band == BandPlayback.Paused
+    val pausedControls = if (windingDown) lastPausedControls else band is BandPlayback.Paused
     SideEffect { if (!windingDown) lastPausedControls = pausedControls }
     val expanded = sheetState.currentValue == SheetValue.Expanded
     // Back collapses an expanded sheet, then leaves building like Done (the stops
@@ -447,6 +455,12 @@ fun MapScreen(
     // The strip never shows raw coordinates: while a hold's name resolves,
     // stripFor returns null and the previous line stays on screen.
     val arrived = rememberArrived(session = session, outcome = { sessionViewModel.driveOutcome.value })
+    val summary by sessionViewModel.arrivalSummary.collectAsStateWithLifecycle()
+    val summaryFormatter = rememberFormatter()
+    val separator = stringResource(R.string.separator)
+    val arrivalSummary = summary?.let {
+        summaryFormatter.distance(it.distanceMeters, units) + separator + summaryFormatter.duration(it.elapsedSeconds)
+    }
     val nextStrip = stripFor(
         state = state,
         playback = band,
@@ -459,6 +473,7 @@ fun MapScreen(
         searchedPlace = searchedPlace?.name,
         interrupted = interrupted,
         drive = drive,
+        arrivalSummary = arrivalSummary,
     )
     var lastStrip by remember { mutableStateOf(nextStrip ?: StripModel("", StripTone.Neutral, hidden = true)) }
     val strip = nextStrip ?: lastStrip
@@ -485,6 +500,8 @@ fun MapScreen(
     // phase (offset lambda), never composed.
     var scaffoldHeightPx by remember { mutableIntStateOf(0) }
     var topChromeBottomPx by remember { mutableIntStateOf(0) }
+    // The search bar's bottom edge in window px: a stop's popover must not open over it.
+    var searchBottomWindowPx by remember { mutableIntStateOf(0) }
     val mapEdgePx = with(LocalDensity.current) { Tokens.mapEdge.roundToPx() }
     fun rawLiftPx(): Int {
         val sheetTop = runCatching { sheetState.requireOffset() }.getOrNull() ?: return 0
@@ -532,12 +549,18 @@ fun MapScreen(
         // sheet instead of floating dead on top of either. It also yields to
         // the search dropdown, which it used to paint over (Close hidden).
         AnimatedVisibility(
-            visible = holding != null && !playing && !builderMode && !expanded && !searchOpen,
+            // Not during the arrival moment either: the thumbstick comes with the settled hold.
+            visible = holding != null && !playing && !builderMode && !expanded && !searchOpen && !arrived,
             enter = Motion.floatingEnter,
             exit = Motion.floatingExit,
             modifier = modifier,
         ) {
+            // Reports where it sits, so the map can keep the held pin out from under it.
+            DisposableEffect(Unit) { onDispose { viewModel.interaction.setThumbstickBounds(null) } }
             ThumbstickOverlay(
+                modifier = Modifier.onGloballyPositioned {
+                    viewModel.interaction.setThumbstickBounds(it.boundsInWindow())
+                },
                 enabled = true,
                 onNudge = { bearingDegrees, deflection ->
                     // Read the live hold at nudge time — the composition capture
@@ -726,6 +749,7 @@ fun MapScreen(
                                     onClearWait = { viewModel.setWaypointWait(it, 0) },
                                     onRemoveStop = viewModel::removeWaypoint,
                                     onMoveStop = viewModel.interaction::beginMove,
+                                    onAddAtCentre = ::addStopAtCentre,
                                 )
                             } else if (!playing) {
                                 OptionsList(
@@ -738,6 +762,7 @@ fun MapScreen(
                                     saving = naming,
                                     onSaveRoute = ::beginSave,
                                     onHoldAtCentre = ::holdAtCentre,
+                                    onAddStopAtCentre = ::addStopAtCentre,
                                     followCamera = followCamera,
                                     onFollowChange = viewModel::setFollowCamera,
                                     onStayChange = optionsViewModel::setStayAtDestination,
@@ -766,7 +791,12 @@ fun MapScreen(
                         visible = !playing,
                         enter = Motion.topChromeEnter,
                         exit = Motion.topChromeExit,
-                        modifier = Modifier.widthIn(max = Tokens.sheetMaxWidth).align(Alignment.CenterHorizontally),
+                        // zIndex: the floating dropdown draws (and takes touches) above the buttons under it.
+                        modifier = Modifier
+                            .widthIn(max = Tokens.sheetMaxWidth)
+                            .align(Alignment.CenterHorizontally)
+                            .zIndex(1f)
+                            .onGloballyPositioned { searchBottomWindowPx = it.boundsInWindow().bottom.roundToInt() },
                     ) {
                         MapSearchBar(
                             state = searchState,
@@ -917,6 +947,8 @@ fun MapScreen(
                         waypoint = waypoint,
                         count = state.waypoints.size,
                         anchor = { markerScreen.value ?: Offset.Zero },
+                        // Below the search bar (hidden while driving): with no room above, it opens under the stop.
+                        topClearPx = if (playing) 0 else searchBottomWindowPx + mapEdgePx,
                         stayAtDestination = options.stayAtDestination,
                         playing = playing,
                         onSetWait = {
@@ -1033,7 +1065,9 @@ private fun MapControls(
         Crossfade(targetState = playing, label = "locateOrFollow") { isPlaying ->
             if (isPlaying) {
                 MapIconPill(
-                    painter = painterResource(R.drawable.ic_target),
+                    // The navigation arrow means "the camera follows"; the crosshair means only
+                    // "your location" (one glyph, one meaning: Ethan, 2026-09-29).
+                    painter = painterResource(R.drawable.ic_navigation),
                     contentDescription = stringResource(
                         if (followCamera) R.string.map_following_cd else R.string.map_follow_cd,
                     ),

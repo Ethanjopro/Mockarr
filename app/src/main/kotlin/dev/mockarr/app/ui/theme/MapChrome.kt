@@ -31,6 +31,7 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntRect
 import androidx.compose.ui.unit.IntSize
@@ -116,6 +117,13 @@ fun MapPopover(
     onDismiss: () -> Unit,
     modifier: Modifier = Modifier,
     modal: Boolean = true,
+    /** The widest the card may grow; rows of equal buttons (speed) need more than a menu. */
+    maxWidth: Dp = POPOVER_MAX_WIDTH,
+    /**
+     * Window y (px) the card must stay below when it opens above its anchor: the search bar.
+     * Without room there it opens below instead (it used to cover the search field).
+     */
+    topClearPx: Int = 0,
     content: @Composable ColumnScope.() -> Unit,
 ) {
     val density = LocalDensity.current
@@ -123,8 +131,8 @@ fun MapPopover(
     val caretPx = with(density) { CARET_SIZE.roundToPx() }
     val marginPx = with(density) { Tokens.mapEdge.roundToPx() }
     var placement by remember { mutableStateOf(PopoverPlacement(above = true, caretX = 0)) }
-    val provider = remember(anchor, gapPx, marginPx) {
-        AnchorPositionProvider(anchor, gapPx, marginPx) { placement = it }
+    val provider = remember(anchor, gapPx, marginPx, topClearPx) {
+        AnchorPositionProvider(anchor, gapPx, maxOf(marginPx, topClearPx), marginPx) { placement = it }
     }
     Popup(
         popupPositionProvider = provider,
@@ -137,7 +145,7 @@ fun MapPopover(
         val cardColor = MockarrTheme.colors.floating
         // Intrinsic width: the card hugs its widest row (rows fillMaxWidth, so a
         // plain wrap would balloon to the max) and only long content hits the cap.
-        Column(modifier = modifier.width(IntrinsicSize.Max).widthIn(max = POPOVER_MAX_WIDTH)) {
+        Column(modifier = modifier.width(IntrinsicSize.Max).widthIn(max = maxWidth)) {
             if (!placement.above) Caret(cardColor, placement.caretX, caretPx, pointsUp = true)
             Surface(
                 shape = Tokens.cardShape,
@@ -183,6 +191,8 @@ private data class PopoverPlacement(val above: Boolean, val caretX: Int)
 private class AnchorPositionProvider(
     private val anchor: Offset,
     private val gapPx: Int,
+    /** The highest window y the card may reach when above its anchor. */
+    private val topPx: Int,
     private val marginPx: Int,
     private val onPlaced: (PopoverPlacement) -> Unit,
 ) : PopupPositionProvider {
@@ -196,7 +206,7 @@ private class AnchorPositionProvider(
         val anchorY = anchor.y.roundToInt()
         val maxX = (windowSize.width - popupContentSize.width - marginPx).coerceAtLeast(marginPx)
         val x = (anchorX - popupContentSize.width / 2).coerceIn(marginPx, maxX)
-        val above = anchorY - gapPx - popupContentSize.height >= marginPx
+        val above = anchorY - gapPx - popupContentSize.height >= topPx
         val y = if (above) anchorY - gapPx - popupContentSize.height else anchorY + gapPx
         onPlaced(PopoverPlacement(above = above, caretX = anchorX - x))
         return IntOffset(x, y)

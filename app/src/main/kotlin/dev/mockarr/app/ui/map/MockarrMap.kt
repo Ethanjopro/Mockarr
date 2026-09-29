@@ -4,9 +4,12 @@ import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.graphics.Paint
 import android.graphics.Path
+import android.graphics.PointF
 import android.os.SystemClock
 import android.view.Gravity
 import android.view.ViewConfiguration
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -19,10 +22,13 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Rect
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
@@ -127,6 +133,8 @@ internal fun MockarrMap(
     /** Width in px of an overlay panel covering the map's start edge (short windows), else 0. */
     startObstructionPx: Int = 0,
     pinPosition: LatLng? = null,
+    /** A control over the map (the hold's thumbstick), window px: the held pin is kept out from under it. */
+    pinAvoidWindowRect: Rect? = null,
     searchedPlace: LatLng? = null,
     onSearchPinTap: () -> Unit = {},
     /**
@@ -288,7 +296,8 @@ internal fun MockarrMap(
 
     // The map view is a bare Android view to the accessibility tree: name it and
     // say where the gesture-free path is (the sheet's rows).
-    AndroidView(factory = { mapView }, modifier = modifier)
+    var mapSize by remember { mutableStateOf(IntSize.Zero) }
+    AndroidView(factory = { mapView }, modifier = modifier.onSizeChanged { mapSize = it })
 
     // One-shot cold-start restore, skipped if the user already panned away.
     LaunchedEffect(map) {
@@ -307,17 +316,25 @@ internal fun MockarrMap(
     // Attribution "i" (ODbL / OpenFreeMap terms want it visible) keeps MapLibre's
     // bottom-left corner but rides the overlay stack (sheet peek, card, pills) so
     // it never hides under the sheet — the least conspicuous spot that stays on
-    // screen in every state. The logo is a courtesy, not a licence term.
-    LaunchedEffect(map, bottomObstructionPx, palette) {
+    // screen in every state. The logo is a courtesy, not a licence term. With a side panel
+    // (short windows) the overlay sits beside the map, not over its bottom: the "i" takes the
+    // clear map's own bottom-left corner, right of the panel, and holds still (it rode the
+    // panel's content height and jumped as that changed).
+    val navBarBottomPx = WindowInsets.navigationBars.getBottom(LocalDensity.current)
+    LaunchedEffect(map, bottomObstructionPx, startObstructionPx, navBarBottomPx, palette) {
         val libreMap = map ?: return@LaunchedEffect
+        val edge = (Tokens.mapEdge.value * density).roundToInt()
+        val aboveOverlayPx = (Tokens.space2.value * density).roundToInt()
+        val beside = startObstructionPx > 0
         with(libreMap.uiSettings) {
             isLogoEnabled = false
             setAttributionGravity(Gravity.BOTTOM or Gravity.START)
             setAttributionMargins(
-                (Tokens.mapEdge.value * density).roundToInt(),
+                if (beside) startObstructionPx + edge else edge,
                 0,
                 0,
-                bottomObstructionPx + (Tokens.space2.value * density).roundToInt(),
+                // Beside: clear of the gesture bar too (the sheet's peek carries it in portrait).
+                if (beside) navBarBottomPx + edge else bottomObstructionPx + aboveOverlayPx,
             )
             setAttributionTintColor(palette.attribution)
         }
@@ -392,21 +409,38 @@ internal fun MockarrMap(
     }
 
     val currentStartObstruction by rememberUpdatedState(startObstructionPx)
-    // Keep a nudged hold pin in view: when it crosses into the outer margin of
-    // the viewport, ease the camera back onto it. A stationary pin never
-    // triggers this — the effect only runs when pinPosition changes.
-    LaunchedEffect(map, pinPosition) {
+    // Keep the hold pin in view: when it crosses into the outer margin of the viewport, ease
+    // the camera back onto it; when it sits under the thumbstick, ease it out to the left
+    // (Ethan, 2026-09-29). Re-checked when the map resizes: a rotation left it off-edge. A
+    // stationary pin otherwise never moves the camera.
+    LaunchedEffect(map, pinPosition, mapSize, pinAvoidWindowRect) {
         val libreMap = map ?: return@LaunchedEffect
         val pin = pinPosition ?: return@LaunchedEffect
+        if (mapSize.width == 0 || mapSize.height == 0) return@LaunchedEffect
         val screen = libreMap.projection.toScreenLocation(pin.toMapLibre())
         val marginX = libreMap.width * KEEP_IN_VIEW_MARGIN
         val marginY = libreMap.height * KEEP_IN_VIEW_MARGIN
         // A side panel (short windows) covers the start edge: the pin must stay right of it.
         val outside = screen.x < currentStartObstruction + marginX || screen.x > libreMap.width - marginX ||
             screen.y < marginY || screen.y > libreMap.height - marginY
-        if (outside) {
-            libreMap.move(CameraUpdateFactory.newLatLng(pin.toMapLibre()), animateCamera, KEEP_IN_VIEW_EASE_MILLIS)
+        // The control's window rect in the map view's own pixels, plus a finger of clearance.
+        val origin = IntArray(2).also(mapView::getLocationInWindow)
+        val avoid = pinAvoidWindowRect
+            ?.translate(-origin[0].toFloat(), -origin[1].toFloat())
+            ?.inflate(PIN_CLEARANCE_DP * density)
+        val target = when {
+            outside -> pin.toMapLibre()
+            avoid != null && avoid.contains(Offset(screen.x, screen.y)) -> {
+                // Move the camera right by how far the pin must go left of the control. Measured
+                // from where the camera's target is drawn, not the view's centre: a fit's padding
+                // sets the target off-centre, and the view centre dragged the map up as well.
+                val shift = screen.x - avoid.left
+                val anchor = libreMap.projection.toScreenLocation(libreMap.cameraPosition.target ?: pin.toMapLibre())
+                libreMap.projection.fromScreenLocation(PointF(anchor.x + shift, anchor.y))
+            }
+            else -> return@LaunchedEffect
         }
+        libreMap.move(CameraUpdateFactory.newLatLng(target), animateCamera, KEEP_IN_VIEW_EASE_MILLIS)
     }
 
     // Each fix cancels the glide in flight and starts a new one from where the
@@ -513,6 +547,9 @@ private const val MAX_MARKER_TEXT_SCALE = 1.3f
 private const val SHEET_SETTLE_MILLIS = 400L
 private const val FOLLOW_EASE_MILLIS = 900
 private const val KEEP_IN_VIEW_MARGIN = 0.2f
+
+/** How far clear of the thumbstick the held pin is kept, beyond its edge. */
+private const val PIN_CLEARANCE_DP = 24f
 private const val KEEP_IN_VIEW_EASE_MILLIS = 400
 
 // World-landmark fallback for a fresh install with no saved camera yet.

@@ -464,6 +464,12 @@ two-up row — and the pills take **no colour parameter**, so no screen can repa
   the verb does (Start / End drive · walk · ride).
 - **Icon-only controls** (map pills, the action row's circles, the stop popover's glyphs)
   are not "button prompts" and keep their own forms; their trash glyph is neutral ink too.
+- **One glyph, one meaning** (Ethan, 2026-09-29): trash = delete (Clear route, Remove stop,
+  Delete route; Discard changes is the undo arrow); crosshair = your location (locate, My
+  location); navigation arrow = the camera follows; pin = the held spot; pin-with-plus = add
+  a stop; clock = a wait; traffic light = rush hour; scatter = GPS wobble; squiggle = a
+  route; save disk = save. A new control picks an unused glyph or reuses one only for the
+  same meaning.
 - **Disabled:** Material's 38% alpha; never hidden to signal disabled.
 
 ### Dialog
@@ -518,8 +524,9 @@ disabled (Save on a straight-line fallback); a tool that doesn't apply yet isn't
 ### Popover
 Strava's builder menu and its tap-a-point callout: a 16dp `surface-container-lowest` card
 with the popover shadow and a **caret** on its anchor (`MapPopover`), sitting above the
-anchor and flipping below when there is no room. The card hugs its widest row (intrinsic
-width, 280dp cap). A popover's one verb is a `SmallPill` at its bottom-right (the first-run
+anchor and flipping below when there is no room — "room" ends at the search bar, so a stop
+just under it opens its popover below, never over the field. The card hugs its widest row
+(intrinsic width, 280dp cap; the speed popover's single row of five takes 360dp). A popover's one verb is a `SmallPill` at its bottom-right (the first-run
 hint's "Got it"), never a bare text row. The **stop popover** (`StopPopover`) rides the selected marker
 on every camera frame and is **symbols only**: one row of three 48dp icon buttons —
 *Move* (four-way arrows, `ic_open_with`) · *Wait* (clock; hold-tinted once a wait is set,
@@ -586,9 +593,14 @@ and two lines never overlap. The speed chip stays outside the fade. A drive slow
 drive keeps its band and controls (inert) until the hold takes over: no "Stopping…" line.
 A new hold reads "Holding your location" until its place name resolves.
 **One band, never two:** the card never stacks a second strip; the trio under it is what
-says a route is loaded. The end of a drive is its own line — "Arrived at ‹place› · Stop"
-(ready tone, one haptic tick, ~4 s) before the band settles into "Holding at ‹place› ·
-Stop". Below the strip the **Stat Trio** when there is something to count — while
+says a route is loaded. The end of a drive is its own line with how far and how long —
+"Arrived at ‹place› · 2.7 mi · 11 min · Stop holding" (ready tone, one haptic tick, ~4 s) —
+before the band settles into "Holding at ‹place›"; the thumbstick arrives with the settled
+hold, not during the arrival. Paused says the location stays put — "Paused · location
+held" — and a pause during a wait keeps its countdown: "Paused · 0:56 wait left". Place
+names from the map are tidied for display (Fwy / Hwy / Pkwy / Expy spelled out, a trailing
+NB / SB / EB / WB dropped). Cycling is "Ride" everywhere: Ride · Riding · Ready to ride ·
+Start / End ride. Below the strip the **Stat Trio** when there is something to count — while
 building too (the builder's peek holds only the hint and the Done row). The card **rides
 the sheet**: as the sheet expands (speed chips, options, stops) the card and the builder
 pills lift with it, capped under the top chrome — and the sheet in turn stops `map-edge`
@@ -597,7 +609,9 @@ never buried. The only state with no card is a single
 placed stop ("Building a route") — unless a search pin is up, when the band names the
 place in the accent tone with *Add stop* as its action. A wait names its stop: "Waiting at
 Reunion Tower · 0:56" (the stop's number in *your* route when it has no name yet), and the
-notification's title says the same. With a route loaded (not driving) the **stats block is
+notification's title says the same. Otherwise the notification's title carries the time
+left, because a collapsed notification shows only the title: "Driving · 4 min left",
+"Paused · 4 min left". With a route loaded (not driving) the **stats block is
 tappable** — it opens the expanded sheet's stop list (`Role.Button`, "Edit the route");
 the in-drive stats are inert.
 
@@ -613,18 +627,25 @@ are undefined (nothing loaded).
 
 ### Chips
 - **Filter chip:** 12dp radius, 32dp tall, 16dp padding; unselected is outlined, selected
-  is `surface-container-highest` fill with on-surface text. Used for speed presets and wait
-  presets. The speed pill in the action row is the same component, selected while the
-  chip row is open.
+  is `surface-container-highest` fill with on-surface text. Used for wait presets. The
+  speed pill on the band is the same component, selected while its popover is open.
+- **Speed presets** are one row of M3 segmented buttons (0.25× · 0.5× · 1× · 2× · 4×) under
+  a SPEED caption, the selected one filled, no check mark: five chips wrapped 3 + 2 and
+  read as two groups.
 
 ### Cards / Containers
 - **Corner:** 16dp. **Background:** `surface-container`. **Shadow:** none (see Elevation).
   **Padding:** 12dp; list cards keep a map thumbnail on the left at 88dp with an 8dp radius.
+- **Saved route card:** title (two lines max), then the meta line with the mode as a plain
+  16dp glyph and word — "🚗 Drive · 1.5 mi · 5 min" — never an outlined tag, which read as
+  a button; then the place and "Created …".
 
 ### Inputs / Fields
 - **Search field:** `surface-container-lowest` fill, 12dp radius, no visible border until
-  focused (then the indigo outline), trailing search icon or a 24dp progress spinner.
-  Results drop as a 16dp `surface-container-lowest` card at popover elevation with 48dp-min
+  focused (then the indigo outline), trailing search icon or a 24dp progress spinner. No
+  visible label; TalkBack gets the field's name as a description, so it survives typing.
+  Results drop as a 16dp `surface-container-lowest` card that floats — it takes no layout
+  room, so the 3D / locate buttons under the field never move; the dropdown draws over them — at popover elevation with 48dp-min
   rows and a scroll cap of 280dp; past four rows the list fades at the bottom. Each row:
   a 24dp `on-surface-variant` glyph by kind (pin = place, signpost = street, house =
   address, skyline = city/region, history = recent), the name with the typed text bold,
@@ -642,10 +663,18 @@ are undefined (nothing loaded).
   arrow; Setup opens from Settings or the strip's Fix action, and on first run only when a
   required step is missing. System back always returns to the map.
 - **Every map gesture has a row twin** in the sheet (the TalkBack and precision path): a
-  "Map" group with "Hold my location at the map centre", and compass nudges as custom
-  accessibility actions on the thumbstick. Clickable rows carry a `Role`. ("Add a stop at
-  the map centre" was removed at Ethan's request, session 25 — placing a stop currently
-  has no gesture-free twin; restore one if accessibility becomes a goal.)
+  "Map" group with "Add a stop at the map centre" (pin-with-plus) and "Hold my location at
+  the map centre", the first repeated under the builder's stop list so a route can be built
+  row by row; compass nudges are custom accessibility actions on the thumbstick, and a
+  pending Move has "Move it to the map centre". Clickable rows carry a `Role`. (The add-stop
+  row was removed in session 25 and restored by Ethan on 2026-09-29 for the TalkBack path.)
+- **Setup** is a five-step checklist: developer options, mock app and **location access**
+  are required (the readiness band counts them; location is granted in place, or opens the
+  app's settings once Android stops asking); notifications and battery are optional.
+- **Settings** tiles are Mock location · Units. Travel mode lives once in Settings (the
+  Routing section's "Default travel mode", for new routes) and per route on the map.
+- **Two-up pill rows** share one text size (`rememberPillTextSize`): when a long label must
+  shrink, its neighbour shrinks with it (START FROM at large text).
 
 ### Map markers
 - **Thumbstick (hold only):** a 120dp white pill-family base with the floating shadow and a

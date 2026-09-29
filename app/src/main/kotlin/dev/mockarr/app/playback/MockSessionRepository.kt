@@ -93,6 +93,14 @@ class MockSessionRepository @Inject constructor() {
     val driveOutcome: StateFlow<DriveOutcome?> = _driveOutcome.asStateFlow()
     private var stopRequested = false
 
+    /** How far and how long the drive that just arrived went: the arrival band's summary line. */
+    data class DriveSummary(val distanceMeters: Double, val elapsedSeconds: Double)
+
+    private val _arrivalSummary = MutableStateFlow<DriveSummary?>(null)
+
+    /** The last arrival's summary; null after a Stop / End drive, or a drive resumed mid-way. */
+    val arrivalSummary: StateFlow<DriveSummary?> = _arrivalSummary.asStateFlow()
+
     // Latest-wins thumbstick nudge targets. Only the service's hold job
     // collects, so nudges are structurally dead outside a hold.
     private val _holdMoves = MutableSharedFlow<LatLng>(
@@ -182,6 +190,7 @@ class MockSessionRepository @Inject constructor() {
         this.engine = engine
         stopRequested = false
         _driveOutcome.value = null
+        _arrivalSummary.value = null
         _liveDrive.value = drive
         _error.value = null
         _session.value = MockSessionState.Playing
@@ -223,9 +232,13 @@ class MockSessionRepository @Inject constructor() {
         }
     }
 
-    /** The playback engine is done; the session may continue as a hold. */
-    internal fun engineEnded() {
-        if (engine != null) _driveOutcome.value = if (stopRequested) DriveOutcome.STOPPED else DriveOutcome.ARRIVED
+    /** The playback engine is done; the session may continue as a hold. [summary] counts only on arrival. */
+    internal fun engineEnded(summary: DriveSummary? = null) {
+        if (engine != null) {
+            val arrived = !stopRequested
+            _arrivalSummary.value = summary.takeIf { arrived }
+            _driveOutcome.value = if (arrived) DriveOutcome.ARRIVED else DriveOutcome.STOPPED
+        }
         engine = null
         _liveDrive.value = null
         _state.value = null

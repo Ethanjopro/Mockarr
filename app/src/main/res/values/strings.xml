@@ -14,8 +14,10 @@
     <string name="strip_routing">Finding a road route…</string>
     <string name="strip_driving">Driving</string>
     <string name="strip_walking">Walking</string>
-    <string name="strip_cycling">Cycling</string>
+    <string name="strip_cycling">Riding</string>
     <string name="strip_paused">Paused</string>
+    <string name="strip_paused_held">Paused · location held</string>
+    <string name="strip_paused_wait">Paused · %1$s wait left</string>
     <string name="strip_waiting">Waiting at stop %1$d · %2$s</string>
     <string name="strip_waiting_at">Waiting at %1$s · %2$s</string>
     <string name="strip_waiting_destination">Waiting at destination · %1$s</string>
@@ -132,7 +134,7 @@
     <!-- Map: action row + builder + options (brief 2) -->
     <string name="row_mode_drive">Drive</string>
     <string name="row_mode_walk">Walk</string>
-    <string name="row_mode_cycle">Cycle</string>
+    <string name="row_mode_cycle">Ride</string>
     <string name="row_mode_cd">Travel mode: %1$s</string>
     <string name="row_start">Start</string>
     <string name="row_start_cd">Start the drive</string>
@@ -187,7 +189,8 @@
     <string name="option_settings">All settings</string>
     <string name="options_map_header">Map</string>
     <string name="option_hold_centre">Hold my location at the map centre</string>
-    <string name="map_cd">Map. Tap to add a stop, long-press to hold your location there. Without gestures: search for a place and choose Add stop, or use Hold my location at the map centre in the sheet.</string>
+    <string name="option_add_centre">Add a stop at the map centre</string>
+    <string name="map_cd">Map. Tap to add a stop, long-press to hold your location there. Without gestures: use Add a stop at the map centre or Hold my location at the map centre in the sheet, or search for a place.</string>
     <string name="thumbstick_nudge_north">Nudge north</string>
     <string name="thumbstick_nudge_east">Nudge east</string>
     <string name="thumbstick_nudge_south">Nudge south</string>
@@ -200,6 +203,7 @@
     <string name="routes_sort_longest">Longest first</string>
     <string name="routes_sort_name">A to Z</string>
     <string name="routes_search_hint">Search by keyword</string>
+    <string name="routes_search_cd">Search saved routes</string>
     <string name="routes_card_meta">%1$s · %2$s</string>
     <string name="routes_created_today">Created today</string>
     <string name="routes_created_yesterday">Created yesterday</string>
@@ -225,7 +229,6 @@
     <string name="settings_tile_units">Units</string>
     <string name="settings_units_miles">Miles</string>
     <string name="settings_units_km">Kilometres</string>
-    <string name="settings_tile_mode">Travel mode</string>
     <string name="settings_section_playback">Playback</string>
     <string name="settings_section_gps">GPS</string>
     <string name="settings_section_routing">Routing</string>
@@ -257,7 +260,7 @@
 
     <!-- Setup checklist -->
     <string name="setup_title">Set up mocking</string>
-    <string name="setup_intro">Mockarr uses Android\'s built-in mock location testing feature. Two one-time steps are required; the rest make long drives more reliable.</string>
+    <string name="setup_intro">Mockarr uses Android\'s built-in mock location testing feature. Three one-time steps are required; the rest make long drives more reliable.</string>
     <string name="setup_ready">All set — Mockarr can mock your location</string>
     <string name="setup_required">Required</string>
     <string name="setup_optional">Optional</string>
@@ -269,6 +272,9 @@
     <string name="setup_mock_title">Mockarr selected as mock location app</string>
     <string name="setup_mock_how">Developer options → “Select mock location app” → Mockarr.</string>
     <string name="setup_mock_action">Open developer options</string>
+    <string name="setup_location_title">Location access allowed</string>
+    <string name="setup_location_how">Holds and drives need precise location access.</string>
+    <string name="setup_location_action">Allow location</string>
     <string name="setup_notif_title">Notifications allowed</string>
     <string name="setup_notif_sub">Shows playback progress and controls</string>
     <string name="setup_notif_how">Playback runs as a foreground service; its notification lets you pause or stop from anywhere.</string>
@@ -317,7 +323,6 @@
     <string name="notification_action_pause">Pause</string>
     <string name="notification_action_resume">Resume</string>
     <string name="notification_time_left">%1$s left</string>
-    <string name="notification_paused">paused</string>
     <string name="notification_chip_paused">Paused</string>
     <string name="separator">" · "</string>
     <string name="error_mock_not_selected">Mockarr isn\'t selected as the mock location app — open the Setup checklist.</string>

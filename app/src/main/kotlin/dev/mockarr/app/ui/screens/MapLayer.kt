@@ -53,6 +53,7 @@ fun MapLayer(
     val selectedWaypoint by viewModel.interaction.selectedWaypoint.collectAsStateWithLifecycle()
     val movingWaypoint by viewModel.interaction.movingWaypoint.collectAsStateWithLifecycle()
     val overlayBottomPx by viewModel.interaction.overlayBottomPx.collectAsStateWithLifecycle()
+    val thumbstickBounds by viewModel.interaction.thumbstickBounds.collectAsStateWithLifecycle()
     val session by sessionViewModel.session.collectAsStateWithLifecycle()
     // Both change on every fix: read only inside the map's fix reader below, never in this body.
     val latestFix = sessionViewModel.latestFix.collectAsStateWithLifecycle()
@@ -184,6 +185,7 @@ fun MapLayer(
             ?.let { ActiveDwell(it.waypointIndex, it.secondsLeft) },
         cameraCommand = cameraCommand,
         bottomObstructionPx = overlayBottomPx,
+        pinAvoidWindowRect = thumbstickBounds,
         startObstructionPx = startObstructionPx,
         pinPosition = (session as? MockSessionState.Holding)?.position,
         searchedPlace = searchedPlace?.position,

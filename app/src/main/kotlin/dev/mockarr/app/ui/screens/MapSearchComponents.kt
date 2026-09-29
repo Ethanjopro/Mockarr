@@ -2,6 +2,7 @@ package dev.mockarr.app.ui.screens
 
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -31,10 +32,12 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.takeOrElse
+import androidx.compose.ui.layout.layout
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
@@ -45,6 +48,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.withStyle
+import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.dp
 import dev.mockarr.app.R
 import dev.mockarr.app.ui.rememberFormatter
@@ -72,6 +76,7 @@ fun MapSearchBar(
     onClearRecents: () -> Unit,
     onDismiss: () -> Unit,
 ) {
+    val searchName = stringResource(R.string.map_search_hint)
     Column {
         OutlinedTextField(
             value = state.query,
@@ -110,41 +115,83 @@ fun MapSearchBar(
             ),
             modifier = Modifier
                 .fillMaxWidth()
-                .onFocusChanged { onFocusChange(it.isFocused) },
+                .onFocusChanged { onFocusChange(it.isFocused) }
+                // The placeholder names the field only while it's empty; TalkBack keeps the name
+                // once something is typed (audit 2026-09; no visible label: Ethan, 2026-09-29).
+                .semantics(mergeDescendants = true) { contentDescription = searchName },
         )
         val recentsOnly = state.query.isBlank() && state.results.isNotEmpty() && state.results.all { it.recent }
         if (state.results.isNotEmpty() || state.status != MapSearchViewModel.Status.IDLE) {
+            // The dropdown floats: it takes no room in the layout, so the 3D and locate buttons
+            // under the field stay put instead of jumping down as the list grows (critique,
+            // 2026-09-24). The host draws the search bar above them.
+            DropdownFloat {
+                DropdownCard(
+                    state = state,
+                    units = units,
+                    recentsOnly = recentsOnly,
+                    onResultSelected = onResultSelected,
+                    onClearRecents = onClearRecents,
+                    onDismiss = onDismiss,
+                )
+            }
+        }
+    }
+}
+
+/** Lays [content] out below the field while reporting zero height, so nothing under it moves. */
+@Composable
+private fun DropdownFloat(content: @Composable () -> Unit) {
+    Box(
+        modifier = Modifier.layout { measurable, constraints ->
+            val placeable = measurable.measure(constraints.copy(minHeight = 0, maxHeight = Constraints.Infinity))
+            layout(placeable.width, 0) { placeable.place(0, 0) }
+        },
+    ) {
+        Column {
             Spacer(Modifier.height(Tokens.space1))
-            // The popover family: the floating surface (DESIGN.md → Search).
-            Card(
-                shape = Tokens.cardShape,
-                colors = CardDefaults.cardColors(containerColor = MockarrTheme.colors.floating),
-                elevation = CardDefaults.cardElevation(defaultElevation = Tokens.popoverElevation),
-                border = MockarrTheme.colors.floatingBorder(),
+            content()
+        }
+    }
+}
+
+@Composable
+private fun DropdownCard(
+    state: MapSearchViewModel.SearchState,
+    units: DistanceUnits,
+    recentsOnly: Boolean,
+    onResultSelected: (GeocodingResult) -> Unit,
+    onClearRecents: () -> Unit,
+    onDismiss: () -> Unit,
+) {
+    // The popover family: the floating surface (DESIGN.md → Search).
+    Card(
+        shape = Tokens.cardShape,
+        colors = CardDefaults.cardColors(containerColor = MockarrTheme.colors.floating),
+        elevation = CardDefaults.cardElevation(defaultElevation = Tokens.popoverElevation),
+        border = MockarrTheme.colors.floatingBorder(),
+    ) {
+        Column {
+            if (recentsOnly) RecentsHeader(onClearRecents)
+            SearchNotice(state.status)
+            // A long list ends in a fade, so the cut reads as "more below", not a clipped row.
+            val overflows = state.results.size > RESULTS_ROWS_BEFORE_FADE
+            LazyColumn(
+                modifier = Modifier
+                    .heightIn(max = RESULTS_MAX_HEIGHT)
+                    .bottomFade(visible = overflows, height = Tokens.touchTarget / 2),
             ) {
-                Column {
-                    if (recentsOnly) RecentsHeader(onClearRecents)
-                    SearchNotice(state.status)
-                    // A long list ends in a fade, so the cut reads as "more below", not a clipped row.
-                    val overflows = state.results.size > RESULTS_ROWS_BEFORE_FADE
-                    LazyColumn(
-                        modifier = Modifier
-                            .heightIn(max = RESULTS_MAX_HEIGHT)
-                            .bottomFade(visible = overflows, height = Tokens.touchTarget / 2),
-                    ) {
-                        val keys = suggestionKeys(state.results)
-                        itemsIndexed(state.results, key = { index, _ -> keys[index] }) { _, suggestion ->
-                            SearchResultRow(suggestion, state.query, units) { onResultSelected(suggestion.result) }
-                            HorizontalDivider()
-                        }
-                    }
-                    SmallPill(
-                        label = stringResource(R.string.map_search_close),
-                        onClick = onDismiss,
-                        modifier = Modifier.align(Alignment.End).padding(horizontal = Tokens.space3),
-                    )
+                val keys = suggestionKeys(state.results)
+                itemsIndexed(state.results, key = { index, _ -> keys[index] }) { _, suggestion ->
+                    SearchResultRow(suggestion, state.query, units) { onResultSelected(suggestion.result) }
+                    HorizontalDivider()
                 }
             }
+            SmallPill(
+                label = stringResource(R.string.map_search_close),
+                onClick = onDismiss,
+                modifier = Modifier.align(Alignment.End).padding(horizontal = Tokens.space3),
+            )
         }
     }
 }

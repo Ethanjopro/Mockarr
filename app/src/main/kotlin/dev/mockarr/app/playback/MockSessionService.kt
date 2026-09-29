@@ -19,6 +19,7 @@ import dev.mockarr.app.R
 import dev.mockarr.app.ui.Formatter
 import dev.mockarr.app.ui.screens.endLabelRes
 import dev.mockarr.app.ui.screens.movingLabelRes
+import dev.mockarr.app.ui.tidyRoadName
 import dev.mockarr.core.data.SessionSnapshotStore
 import dev.mockarr.core.data.SettingsRepository
 import dev.mockarr.core.mocklocation.MockLocationController
@@ -81,6 +82,9 @@ class MockSessionService : Service() {
     private var holdJob: Job? = null
     private var wakeLock: PowerManager.WakeLock? = null
     private var routeDistanceMeters: Double = 0.0
+
+    /** When this drive began (elapsedRealtime ms), for the arrival summary; null for a drive resumed mid-way. */
+    private var driveStartedAt: Long? = null
 
     /** The drive's legs and stops as the notification's progress bar shows them (Android 16 Live Updates). */
     private var progressLayout: ProgressLayout? = null
@@ -210,6 +214,7 @@ class MockSessionService : Service() {
         acquireWakeLock()
         lastNotified = null
         routeDistanceMeters = route.distanceMeters
+        driveStartedAt = SystemClock.elapsedRealtime().takeIf { pending.resumeFrom == null }
         progressLayout = progressLayoutOf(route, pending.profile)
         val engine = buildSimulationEngine(route, pending)
         activeDrive = ActiveDrive(route, pending.profile, engine)
@@ -309,7 +314,14 @@ class MockSessionService : Service() {
     private fun onEngineEnded(stoppedEarly: Boolean) {
         // The clean spot, not the last wobbled report: the hold scatters around it by itself.
         val endPosition = repository.latestFix.value?.truePosition
-        repository.engineEnded()
+        val summary = driveStartedAt?.let { started ->
+            MockSessionRepository.DriveSummary(
+                distanceMeters = routeDistanceMeters,
+                elapsedSeconds = (SystemClock.elapsedRealtime() - started) / MILLIS_PER_SECOND,
+            )
+        }
+        driveStartedAt = null
+        repository.engineEnded(summary)
         lastNotified = null
         val pin = rememberedPin
         when {
@@ -382,7 +394,7 @@ class MockSessionService : Service() {
 
     private suspend fun resolveHoldName(position: LatLng) {
         val name = withTimeoutOrNull(HOLD_NAME_TIMEOUT_MILLIS) {
-            geocoder.reverse(position).getOrNull()?.name
+            geocoder.reverse(position).getOrNull()?.name?.let(::tidyRoadName)
         }
         repository.holdNameResolved(position, name)
         getSystemService(NotificationManager::class.java)
@@ -478,12 +490,20 @@ class MockSessionService : Service() {
         val units = settingsRepository.settings.value.units
         val formatter = Formatter(resources)
         val timeLeft = state.remainingSecondsOrNull?.let(formatter::duration)
-        val parts = listOfNotNull(
-            formatter.distanceProgress(routeDistanceMeters * progress, routeDistanceMeters, units),
-            timeLeft?.let { getString(R.string.notification_time_left, it) },
-            if (paused) getString(R.string.notification_paused) else null,
-        )
-        val text = parts.joinToString(getString(R.string.separator))
+        val timeLeftLine = timeLeft?.let { getString(R.string.notification_time_left, it) }
+        val distance = formatter.distanceProgress(routeDistanceMeters * progress, routeDistanceMeters, units)
+        val drive = repository.liveDrive.value
+        val profile = activeDrive?.profile ?: drive?.profile ?: RoutingProfile.DRIVING
+        // The title is what a collapsed notification shows, so the time left rides in it:
+        // "Driving · 4 min left", "Paused · 4 min left" (Ethan, 2026-09-29). At a stop it names
+        // where — "Waiting at Reunion Tower" — and the drive's time left moves to the text.
+        val waiting = waitingTitle(resources, state, drive)
+        val separator = getString(R.string.separator)
+        val title = waiting ?: listOfNotNull(
+            getString(if (paused) R.string.strip_paused else profile.movingLabelRes()),
+            timeLeftLine,
+        ).joinToString(separator)
+        val text = if (waiting != null) listOfNotNull(distance, timeLeftLine).joinToString(separator) else distance
 
         val toggleAction = if (paused) {
             NotificationCompat.Action(0, getString(R.string.notification_action_resume), resumeIntent)
@@ -495,11 +515,6 @@ class MockSessionService : Service() {
         // left, lock-screen card whose bar has the legs as segments and the stops
         // as points. Older versions ignore the style and keep the plain bar.
         val chip = if (paused) getString(R.string.notification_chip_paused) else timeLeft
-        val drive = repository.liveDrive.value
-        val profile = activeDrive?.profile ?: drive?.profile ?: RoutingProfile.DRIVING
-        // "Driving" / "Walking" / "Cycling", as the app's band says it (the header already names
-        // Mockarr) — or, at a stop, where: "Waiting at Reunion Tower", not "Driving · waiting".
-        val title = waitingTitle(resources, state, drive) ?: getString(profile.movingLabelRes())
         return NotificationCompat.Builder(this, CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_stat_pin)
             .setContentTitle(title)
@@ -547,6 +562,7 @@ class MockSessionService : Service() {
         private const val SNAPSHOT_EVERY_SECONDS = 5
         private const val PROGRESS_MAX = 1_000
         private const val HOLD_TICK_MILLIS = 1_000L
+        private const val MILLIS_PER_SECOND = 1_000.0
         private const val HOLD_SETTLE_MILLIS = 1_500L
         private const val HOLD_NAME_TIMEOUT_MILLIS = 5_000L
         private const val HOLD_ACCURACY_METERS = 5.0

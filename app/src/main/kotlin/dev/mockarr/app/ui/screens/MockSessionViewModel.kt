@@ -65,6 +65,7 @@ class MockSessionViewModel @Inject constructor(
     val playbackState = repository.state
     val latestFix = repository.latestFix
     val error = repository.error
+    val arrivalSummary = repository.arrivalSummary
 
     /** The drive in flight: what the engine drives and the user's route it plays; null between drives. */
     val drive: StateFlow<MockSessionRepository.LiveDrive?> = repository.liveDrive

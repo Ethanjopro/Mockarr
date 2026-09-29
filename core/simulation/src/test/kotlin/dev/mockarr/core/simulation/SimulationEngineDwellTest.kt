@@ -175,7 +175,9 @@ class SimulationEngineDwellTest {
         val beforePause = assertIs<PlaybackState.Dwelling>(engine.state.value)
         engine.pause()
         advanceTimeBy(120_000)
-        assertIs<PlaybackState.Paused>(engine.state.value)
+        val paused = assertIs<PlaybackState.Paused>(engine.state.value)
+        // The pause carries the frozen wait, so the band can keep it in view.
+        assertEquals(beforePause.waitSecondsLeft, paused.waitSecondsLeft, 1.0)
 
         engine.resume()
         advanceTimeBy(1_000)

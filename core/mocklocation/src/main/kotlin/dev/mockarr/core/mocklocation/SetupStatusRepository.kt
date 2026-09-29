@@ -1,6 +1,8 @@
 package dev.mockarr.core.mocklocation
 
+import android.Manifest
 import android.content.Context
+import android.content.pm.PackageManager
 import android.location.LocationManager
 import android.provider.Settings
 
@@ -9,9 +11,11 @@ data class SetupStatus(
     val selectedAsMockLocationApp: Boolean,
     val notificationsEnabled: Boolean,
     val batteryOptimizationExempt: Boolean,
+    /** Precise location granted: no hold or drive starts without it. */
+    val locationPermitted: Boolean,
 ) {
-    /** The two hard requirements; notifications/battery are quality-of-life. */
-    val readyToMock: Boolean get() = developerOptionsEnabled && selectedAsMockLocationApp
+    /** The three hard requirements; notifications/battery are quality-of-life. */
+    val readyToMock: Boolean get() = developerOptionsEnabled && selectedAsMockLocationApp && locationPermitted
 }
 
 /**
@@ -31,6 +35,8 @@ class SetupStatusRepository(
             ?.areNotificationsEnabled() == true,
         batteryOptimizationExempt = context.getSystemService(android.os.PowerManager::class.java)
             ?.isIgnoringBatteryOptimizations(context.packageName) == true,
+        locationPermitted = context.checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION) ==
+            PackageManager.PERMISSION_GRANTED,
     )
 
     private fun isDeveloperOptionsEnabled(): Boolean = Settings.Global.getInt(

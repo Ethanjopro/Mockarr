@@ -34,6 +34,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
@@ -114,6 +115,7 @@ fun SavedRoutesScreen(
     ) { padding ->
         Column(modifier = Modifier.fillMaxSize().padding(padding)) {
             if (hasAnyRoutes) {
+                val searchName = stringResource(R.string.routes_search_cd)
                 OutlinedTextField(
                     value = query,
                     onValueChange = viewModel::setQuery,
@@ -130,7 +132,9 @@ fun SavedRoutesScreen(
                     ),
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = Tokens.space3, vertical = Tokens.space2),
+                        .padding(horizontal = Tokens.space3, vertical = Tokens.space2)
+                        // Named for TalkBack even once typed in (the placeholder goes); no visible label.
+                        .semantics(mergeDescendants = true) { contentDescription = searchName },
                 )
             }
             if (routes.isEmpty()) {

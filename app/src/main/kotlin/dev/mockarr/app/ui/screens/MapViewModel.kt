@@ -13,6 +13,7 @@ import dev.mockarr.app.playback.trafficFactorAt
 import dev.mockarr.app.ui.RouteHandoff
 import dev.mockarr.app.ui.map.CameraCommand
 import dev.mockarr.app.ui.map.wobbleRadiusOf
+import dev.mockarr.app.ui.tidyRoadName
 import dev.mockarr.core.data.SavedRoutesRepository
 import dev.mockarr.core.data.SettingsRepository
 import dev.mockarr.core.model.DistanceUnits
@@ -263,7 +264,7 @@ class MapViewModel @Inject constructor(
                         if (!stopsBeingNamed.add(position)) continue
                         launch {
                             val name = stopNameCache[position]
-                                ?: geocoder.reverse(position).getOrNull()?.routeEndpointName()
+                                ?: geocoder.reverse(position).getOrNull()?.routeEndpointName()?.let(::tidyRoadName)
                             stopsBeingNamed.remove(position)
                             if (name != null) {
                                 stopNameCache[position] = name
@@ -408,10 +409,10 @@ class MapViewModel @Inject constructor(
             // The stops' own names first ("Reunion Tower to Dallas Museum of Art"); the city
             // is its own lookup, since the end's address record can name the wrong one.
             val startName = state.waypoints.firstOrNull()?.name
-                ?: geocoder.reverse(route.points.first()).getOrNull()?.routeEndpointName()
+                ?: geocoder.reverse(route.points.first()).getOrNull()?.routeEndpointName()?.let(::tidyRoadName)
                 ?: return@withTimeoutOrNull null
             val endName = state.waypoints.lastOrNull()?.name
-                ?: geocoder.reverse(route.points.last()).getOrNull()?.routeEndpointName()
+                ?: geocoder.reverse(route.points.last()).getOrNull()?.routeEndpointName()?.let(::tidyRoadName)
                 ?: return@withTimeoutOrNull null
             RouteNameParts(startName, endName, geocoder.city(route.points.last()).getOrNull())
         }

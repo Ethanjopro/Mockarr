@@ -6,18 +6,20 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.ExperimentalLayoutApi
-import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.requiredHeight
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material3.FilterChip
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.SegmentedButton
+import androidx.compose.material3.SegmentedButtonDefaults
+import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.State
@@ -152,34 +154,40 @@ fun SheetHandle(expanded: Boolean, onToggle: () -> Unit, modifier: Modifier = Mo
     }
 }
 
-/** The chip row the speed pill opens. */
-@OptIn(ExperimentalLayoutApi::class)
+/** The speeds the speed pill opens: one row of segmented buttons under a caption. */
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SpeedChips(
     speedMultiplier: Double,
     onSpeedChange: (Double) -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    // Wraps: the popover is narrower than five chips, and a scroll row hid 2×/4×
-    // past its edge with nothing to say so (sessions 35/37).
-    FlowRow(
-        modifier = modifier.fillMaxWidth().selectableGroup(),
-        horizontalArrangement = Arrangement.spacedBy(Tokens.space2),
-        verticalArrangement = Arrangement.spacedBy(Tokens.space1),
-        itemVerticalAlignment = Alignment.CenterVertically,
-    ) {
+    Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(Tokens.space2)) {
         Text(
             text = captionCase(stringResource(R.string.sheet_speed)),
             style = MaterialTheme.typography.labelSmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.semantics { heading() },
         )
-        SPEED_PRESETS.forEach { preset ->
-            FilterChip(
-                selected = preset == speedMultiplier,
-                onClick = { onSpeedChange(preset) },
-                label = { Text(stringResource(R.string.sheet_speed_value, formatMultiplier(preset))) },
-            )
+        // One row (Ethan, 2026-09-29): five chips wrapped 3 + 2 and read as two groups. The
+        // selected fill says which; no check mark, which would crowd "0.25×" out.
+        SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
+            SPEED_PRESETS.forEachIndexed { index, preset ->
+                SegmentedButton(
+                    selected = preset == speedMultiplier,
+                    onClick = { onSpeedChange(preset) },
+                    shape = SegmentedButtonDefaults.itemShape(index = index, count = SPEED_PRESETS.size),
+                    icon = {},
+                    contentPadding = PaddingValues(horizontal = Tokens.space1),
+                    label = {
+                        Text(
+                            text = stringResource(R.string.sheet_speed_value, formatMultiplier(preset)),
+                            maxLines = 1,
+                            softWrap = false,
+                        )
+                    },
+                )
+            }
         }
     }
 }
@@ -260,6 +268,8 @@ internal fun stripFor(
     interrupted: SessionSnapshot? = null,
     /** The drive in flight, for naming the stop it waits at. */
     drive: MockSessionRepository.LiveDrive? = null,
+    /** "2.7 mi · 11 min" for the arrival band, already worded; null shows none. */
+    arrivalSummary: String? = null,
 ): StripModel? = when {
     playing -> playbackStrip(playback, state.profile, drive)
     movingStop != null -> StripModel(
@@ -269,9 +279,13 @@ internal fun stripFor(
         action = StripAction.CANCEL_MOVE,
     )
     // The end of a drive gets its own moment before the band settles into Holding.
+    // Ends with how far and how long ("· 2.7 mi · 11 min"): a drive has an ending (Ethan, 2026-09-29).
     arrived -> StripModel(
-        text = holding?.placeName?.let { stringResource(R.string.strip_arrived_at, it) }
-            ?: stringResource(R.string.strip_arrived),
+        text = listOfNotNull(
+            holding?.placeName?.let { stringResource(R.string.strip_arrived_at, it) }
+                ?: stringResource(R.string.strip_arrived),
+            arrivalSummary,
+        ).joinToString(stringResource(R.string.separator)),
         tone = StripTone.Ready,
         actionLabel = if (holding != null) stringResource(R.string.strip_stop_hold) else null,
         action = if (holding != null) StripAction.RELEASE else null,
@@ -336,7 +350,15 @@ private fun playbackStrip(
     // The slow-down after End drive keeps the band as it was (its controls go inert): a
     // "Stopping…" band flashed for half a second between Paused and Holding.
     BandPlayback.WindingDown -> null
-    BandPlayback.Paused -> StripModel(stringResource(R.string.strip_paused), StripTone.Hold)
+    // Paused still holds the location, and a paused wait keeps its countdown in view (Ethan, 2026-09-29).
+    is BandPlayback.Paused -> if (playback.waitSecondsLeft > 0) {
+        StripModel(
+            text = stringResource(R.string.strip_paused_wait, formatChipCountdown(playback.waitSecondsLeft)),
+            tone = StripTone.Hold,
+        )
+    } else {
+        StripModel(stringResource(R.string.strip_paused_held), StripTone.Hold)
+    }
     is BandPlayback.Waiting -> {
         val countdown = formatChipCountdown(playback.secondsLeft)
         // A synthesized off-road pause carries no waypoint (index -1); a stop is named as the user

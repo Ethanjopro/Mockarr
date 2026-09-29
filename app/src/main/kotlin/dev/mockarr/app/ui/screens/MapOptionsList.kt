@@ -109,6 +109,8 @@ fun OptionsList(
     saving: Boolean,
     onSaveRoute: () -> Unit,
     onHoldAtCentre: () -> Unit,
+    /** Drops a stop at the map centre: with search, the gesture-free path to a route (TalkBack). */
+    onAddStopAtCentre: () -> Unit,
     followCamera: Boolean,
     onFollowChange: (Boolean) -> Unit,
     onStayChange: (Boolean) -> Unit,
@@ -121,7 +123,7 @@ fun OptionsList(
         val saved = saveState == SaveRowState.SAVED
         OptionLinkRow(
             divider = false,
-            iconRes = if (saved) R.drawable.ic_check else R.drawable.ic_route,
+            iconRes = if (saved) R.drawable.ic_check else R.drawable.ic_save,
             title = stringResource(if (saved) R.string.option_saved else R.string.option_save_route),
             onClick = onSaveRoute,
             enabled = !saved && !saving,
@@ -131,13 +133,18 @@ fun OptionsList(
     OptionsHeader(stringResource(R.string.options_map_header))
     OptionLinkRow(
         divider = false,
+        iconRes = R.drawable.ic_add_stop,
+        title = stringResource(R.string.option_add_centre),
+        onClick = onAddStopAtCentre,
+    )
+    OptionLinkRow(
         iconRes = R.drawable.ic_stat_pin,
         title = stringResource(R.string.option_hold_centre),
         onClick = onHoldAtCentre,
     )
     OptionsHeader(stringResource(R.string.options_header))
     OptionSwitchRow(
-        iconRes = R.drawable.ic_target,
+        iconRes = R.drawable.ic_navigation,
         title = stringResource(R.string.option_follow),
         description = stringResource(R.string.option_follow_desc),
         checked = followCamera,
@@ -151,14 +158,14 @@ fun OptionsList(
         onCheckedChange = onStayChange,
     )
     OptionSwitchRow(
-        iconRes = R.drawable.ic_schedule,
+        iconRes = R.drawable.ic_traffic,
         title = stringResource(R.string.option_traffic),
         description = stringResource(R.string.option_traffic_desc),
         checked = settings.trafficSimEnabled,
         onCheckedChange = onTrafficChange,
     )
     OptionSwitchRow(
-        iconRes = R.drawable.ic_route,
+        iconRes = R.drawable.ic_scatter,
         title = stringResource(R.string.option_wobble),
         description = stringResource(R.string.option_wobble_desc),
         checked = settings.jitterEnabled,

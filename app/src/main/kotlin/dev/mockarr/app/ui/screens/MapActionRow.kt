@@ -45,6 +45,7 @@ import dev.mockarr.app.ui.captionCase
 import dev.mockarr.app.ui.theme.ActionPill
 import dev.mockarr.app.ui.theme.OutlinedActionPill
 import dev.mockarr.app.ui.theme.Tokens
+import dev.mockarr.app.ui.theme.rememberPillTextSize
 import dev.mockarr.core.model.RoutingProfile
 
 /** Where a drive can begin when Start is pressed away from the route's first stop. */
@@ -131,7 +132,9 @@ private fun StartChoiceRow(choice: StartChoice) {
 @Composable
 private fun RowScope.StartChoicePills(choice: StartChoice) {
     // Equal choices, one system: the alternative outlined on the left, the
-    // route's own start filled on the right (no amber / pale / black fills).
+    // route's own start filled on the right (no amber / pale / black fills),
+    // at one text size even when a long label has to shrink.
+    val textSize = rememberPillTextSize(choice.origin)
     when (choice.origin) {
         StartOrigin.HELD_SPOT -> OutlinedActionPill(
             label = stringResource(R.string.row_start_from_hold),
@@ -139,6 +142,7 @@ private fun RowScope.StartChoicePills(choice: StartChoice) {
             enabled = true,
             onClick = choice.onFromOrigin,
             contentDescription = stringResource(R.string.row_start_from_hold_cd),
+            textSize = textSize,
         )
         StartOrigin.MY_LOCATION -> OutlinedActionPill(
             label = stringResource(R.string.row_start_from_me),
@@ -146,6 +150,7 @@ private fun RowScope.StartChoicePills(choice: StartChoice) {
             enabled = true,
             onClick = choice.onFromOrigin,
             contentDescription = stringResource(R.string.row_start_from_me_cd),
+            textSize = textSize,
         )
     }
     ActionPill(
@@ -154,6 +159,7 @@ private fun RowScope.StartChoicePills(choice: StartChoice) {
         enabled = true,
         onClick = choice.onFromRouteStart,
         contentDescription = stringResource(R.string.row_start_from_route_cd),
+        textSize = textSize,
     )
 }
 

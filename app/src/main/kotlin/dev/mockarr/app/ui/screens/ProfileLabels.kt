@@ -16,7 +16,7 @@ internal fun RoutingProfile.shortLabelRes(): Int = when (this) {
     RoutingProfile.CYCLING -> R.string.row_mode_cycle
 }
 
-/** The strip while playback moves: "Driving" / "Walking" / "Cycling". */
+/** The strip while playback moves: "Driving" / "Walking" / "Riding" (one word family: Ride). */
 internal fun RoutingProfile.movingLabelRes(): Int = when (this) {
     RoutingProfile.DRIVING -> R.string.strip_driving
     RoutingProfile.WALKING -> R.string.strip_walking

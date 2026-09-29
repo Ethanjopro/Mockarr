@@ -111,7 +111,6 @@ fun SettingsScreen(
                         if (settings.units == DistanceUnits.MILES) DistanceUnits.KILOMETERS else DistanceUnits.MILES
                     viewModel.setUnits(next)
                 },
-                onPickMode = { showModePicker = true },
             )
 
             SectionHeader(stringResource(R.string.settings_section_playback))
@@ -123,7 +122,7 @@ fun SettingsScreen(
                 onCheckedChange = viewModel::setStayAtDestination,
             )
             OptionSwitchRow(
-                iconRes = R.drawable.ic_schedule,
+                iconRes = R.drawable.ic_traffic,
                 title = stringResource(R.string.settings_traffic),
                 description = stringResource(R.string.settings_traffic_desc),
                 checked = settings.trafficSimEnabled,
@@ -169,7 +168,6 @@ private fun TileGrid(
     mockReady: Boolean?,
     onOpenSetup: () -> Unit,
     onToggleUnits: () -> Unit,
-    onPickMode: () -> Unit,
 ) {
     Column(
         modifier = Modifier.padding(horizontal = Tokens.space3, vertical = Tokens.space2),
@@ -204,13 +202,8 @@ private fun TileGrid(
                 modifier = Modifier.weight(1f),
             )
         }
-        SettingTile(
-            iconRes = settings.defaultProfile.iconRes(),
-            title = stringResource(R.string.settings_tile_mode),
-            value = stringResource(settings.defaultProfile.shortLabelRes()),
-            onClick = onPickMode,
-            modifier = Modifier.fillMaxWidth(),
-        )
+        // Travel mode is set once here, by the Routing section's "Default mode" row, and per
+        // route on the map (Ethan, 2026-09-29): a third place, a tile, read as the current mode.
     }
 }
 
@@ -233,7 +226,7 @@ private fun GpsRows(settings: MockarrSettings, viewModel: SettingsViewModel) {
         spokenValue = stringResource(R.string.settings_tick_cd, tickHzDrag),
     )
     OptionSwitchRow(
-        iconRes = R.drawable.ic_route,
+        iconRes = R.drawable.ic_scatter,
         title = stringResource(R.string.settings_wobble),
         description = stringResource(R.string.settings_wobble_desc),
         checked = settings.jitterEnabled,
@@ -242,7 +235,7 @@ private fun GpsRows(settings: MockarrSettings, viewModel: SettingsViewModel) {
     if (settings.jitterEnabled) {
         var sigmaDrag by remember(settings.jitterSigmaMeters) { mutableStateOf(settings.jitterSigmaMeters.toFloat()) }
         SliderRow(
-            iconRes = R.drawable.ic_target,
+            iconRes = R.drawable.ic_scatter,
             title = stringResource(R.string.settings_wobble_amount),
             description = stringResource(R.string.settings_wobble_amount_desc),
             valueText = stringResource(R.string.settings_wobble_value, sigmaDrag),

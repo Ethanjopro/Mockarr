@@ -3,6 +3,7 @@ package dev.mockarr.app.ui.screens
 import android.Manifest
 import android.content.Context
 import android.content.Intent
+import android.net.Uri
 import android.os.Build
 import android.provider.Settings
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -80,6 +81,14 @@ fun SetupScreen(
     val notificationLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission(),
     ) { viewModel.refresh() }
+    // Asked in place; once Android stops showing the dialog (denied twice), the step opens
+    // Mockarr's app settings instead.
+    val locationLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestMultiplePermissions(),
+    ) { grants ->
+        if (grants[Manifest.permission.ACCESS_FINE_LOCATION] != true) context.openAppDetails()
+        viewModel.refresh()
+    }
 
     LifecycleResumeEffect(Unit) {
         viewModel.refresh()
@@ -118,7 +127,11 @@ fun SetupScreen(
                 .padding(horizontal = Tokens.space3, vertical = Tokens.space2),
             verticalArrangement = Arrangement.spacedBy(Tokens.space3),
         ) {
-            val required = listOf(status?.developerOptionsEnabled, status?.selectedAsMockLocationApp)
+            val required = listOf(
+                status?.developerOptionsEnabled,
+                status?.selectedAsMockLocationApp,
+                status?.locationPermitted,
+            )
             val missing = required.count { it != true }
             ReadinessStrip(ready = status?.readyToMock == true, missing = missing)
             Text(
@@ -144,6 +157,21 @@ fun SetupScreen(
                 instructions = stringResource(R.string.setup_mock_how),
                 actionLabel = stringResource(R.string.setup_mock_action),
                 onAction = { context.openSettings(Settings.ACTION_APPLICATION_DEVELOPMENT_SETTINGS) },
+            )
+            // Listed here, not only asked at the first hold (Ethan, 2026-09-29): the checklist is
+            // the one place that says everything a drive needs.
+            SetupStep(
+                iconRes = R.drawable.ic_target,
+                title = stringResource(R.string.setup_location_title),
+                required = true,
+                done = status?.locationPermitted == true,
+                instructions = stringResource(R.string.setup_location_how),
+                actionLabel = stringResource(R.string.setup_location_action),
+                onAction = {
+                    locationLauncher.launch(
+                        arrayOf(Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION),
+                    )
+                },
             )
             SetupStep(
                 iconRes = R.drawable.ic_notifications,
@@ -299,6 +327,14 @@ private fun StepMark(done: Boolean, required: Boolean) {
 }
 
 /** OEM settings screens vary; fall back to the top-level Settings app. */
+private fun Context.openAppDetails() {
+    try {
+        startActivity(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.fromParts("package", packageName, null)))
+    } catch (_: RuntimeException) {
+        openSettings(Settings.ACTION_SETTINGS)
+    }
+}
+
 private fun Context.openSettings(action: String) {
     try {
         startActivity(Intent(action))

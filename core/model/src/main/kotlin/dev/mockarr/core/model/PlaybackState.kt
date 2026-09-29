@@ -9,7 +9,15 @@ sealed interface PlaybackState {
      */
     data class Playing(val progress: Double, val remainingSeconds: Double = 0.0) : PlaybackState
 
-    data class Paused(val progress: Double, val remainingSeconds: Double = 0.0) : PlaybackState
+    /**
+     * @property waitSecondsLeft the stop wait frozen by the pause (0.0 when it paused on the
+     *   move): the band says "Paused · 0:56 wait left" instead of hiding the countdown.
+     */
+    data class Paused(
+        val progress: Double,
+        val remainingSeconds: Double = 0.0,
+        val waitSecondsLeft: Double = 0.0,
+    ) : PlaybackState
 
     /**
      * Waiting at a user-set stop; playback resumes when the wait elapses.

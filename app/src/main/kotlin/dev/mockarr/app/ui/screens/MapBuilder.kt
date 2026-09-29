@@ -271,6 +271,8 @@ internal fun BuilderDetails(
     onClearWait: (Int) -> Unit,
     onRemoveStop: (Int) -> Unit,
     onMoveStop: (Int) -> Unit,
+    /** The gesture-free way to the next stop (TalkBack, switch access): drop one at the map centre. */
+    onAddAtCentre: () -> Unit,
 ) {
     if (state.waypoints.isEmpty()) return
     val count = state.waypoints.size
@@ -323,6 +325,11 @@ internal fun BuilderDetails(
             )
         }
     }
+    OptionLinkRow(
+        iconRes = R.drawable.ic_add_stop,
+        title = stringResource(R.string.option_add_centre),
+        onClick = onAddAtCentre,
+    )
 }
 
 /** One stop: numbered disc, role, wait, and its actions when selected. */

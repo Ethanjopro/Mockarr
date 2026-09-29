@@ -128,7 +128,7 @@ internal fun SpeedPopover(
     onSpeedChange: (Double) -> Unit,
     onDismiss: () -> Unit,
 ) {
-    MapPopover(anchor = anchor, onDismiss = onDismiss) {
+    MapPopover(anchor = anchor, onDismiss = onDismiss, maxWidth = SPEED_POPOVER_MAX_WIDTH) {
         SpeedChips(
             speedMultiplier = speedMultiplier,
             // Menu semantics: pick, apply, close — the pill's label confirms it.
@@ -259,3 +259,6 @@ private val TRIO_MAX_FONT = 28.sp
 // RollingText fits in the same 2 sp steps, so a rolling and a still value settle at one size.
 private val TRIO_FONT_STEP = 2.sp
 private val PROGRESS_HEIGHT = 4.dp
+
+/** Five speeds in one row need more than a menu's 280dp (they wrapped 3 + 2). */
+private val SPEED_POPOVER_MAX_WIDTH = 360.dp

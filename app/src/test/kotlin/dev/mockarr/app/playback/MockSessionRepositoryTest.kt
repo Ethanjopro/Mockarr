@@ -41,6 +41,22 @@ class MockSessionRepositoryTest {
     }
 
     @Test
+    fun `an arrival keeps its summary, a stop drops it, a new drive clears it`() {
+        val summary = MockSessionRepository.DriveSummary(distanceMeters = 4_300.0, elapsedSeconds = 660.0)
+        val arrived = playing()
+        arrived.engineEnded(summary)
+        assertEquals(summary, arrived.arrivalSummary.value)
+
+        arrived.playingStarted(SimulationEngine(route), drive)
+        assertNull(arrived.arrivalSummary.value)
+
+        val stopped = playing()
+        stopped.stop()
+        stopped.engineEnded(summary)
+        assertNull(stopped.arrivalSummary.value)
+    }
+
+    @Test
     fun `a stop request makes it a stop, even unseen by the UI`() {
         // Stop pressed in the notification while the app was away.
         val repository = playing()

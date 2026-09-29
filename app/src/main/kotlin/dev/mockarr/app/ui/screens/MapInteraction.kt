@@ -1,6 +1,7 @@
 package dev.mockarr.app.ui.screens
 
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Rect
 import dev.mockarr.core.model.LatLng
 import dev.mockarr.core.model.Route
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -63,6 +64,14 @@ class MapInteraction(private val isStop: (Int) -> Boolean) {
 
     fun setOverlayBottom(px: Int) {
         _overlayBottomPx.value = px
+    }
+
+    /** Where the hold's thumbstick sits (window px) while shown; the map keeps the held pin out from under it. */
+    private val _thumbstickBounds = MutableStateFlow<Rect?>(null)
+    val thumbstickBounds: StateFlow<Rect?> = _thumbstickBounds.asStateFlow()
+
+    fun setThumbstickBounds(bounds: Rect?) {
+        _thumbstickBounds.value = bounds
     }
 
     /**

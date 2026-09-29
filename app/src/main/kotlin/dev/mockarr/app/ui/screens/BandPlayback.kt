@@ -13,7 +13,8 @@ internal sealed interface BandPlayback {
     /** Moving along the route (or a state with nothing to say yet). */
     data object Moving : BandPlayback
 
-    data object Paused : BandPlayback
+    /** [waitSecondsLeft]: the stop wait the pause froze, whole seconds rounded up; 0 when paused on the move. */
+    data class Paused(val waitSecondsLeft: Int) : BandPlayback
 
     /** Slowing to a stop after End drive, or ended a beat before the hold takes over. */
     data object WindingDown : BandPlayback
@@ -33,7 +34,7 @@ internal sealed interface BandPlayback {
 /** The band's view of [state]; equal across the fixes of an uneventful stretch. */
 internal fun bandPlayback(state: PlaybackState?): BandPlayback = when (state) {
     is PlaybackState.Playing -> BandPlayback.Moving
-    is PlaybackState.Paused -> BandPlayback.Paused
+    is PlaybackState.Paused -> BandPlayback.Paused(ceil(state.waitSecondsLeft).toInt())
     is PlaybackState.Dwelling -> BandPlayback.Waiting(
         secondsLeft = ceil(state.waitSecondsLeft).toInt(),
         waypointIndex = state.waypointIndex,
