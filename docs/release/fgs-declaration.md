@@ -10,7 +10,8 @@ description and a demo video per type.
 > Mockarr plays back a user-chosen route as the device's mock location using Android's
 > official mock-location developer feature. The location-type foreground service runs only
 > while the user has pressed Play (or holds a pinned location); it publishes simulated fixes
-> to the platform test providers about once a second so that other apps see a continuous,
+> about once a second to the platform test providers and to Google Play services' mock mode
+> (both official developer facilities) so that other apps see a continuous,
 > realistic drive even while Mockarr is in the background or the screen is off. The ongoing
 > notification shows progress and offers Pause / Resume / Stop; the service stops itself when
 > playback ends or the user stops it. The service is never started without a user action, and
@@ -22,7 +23,8 @@ in the foreground") matches publishing location fixes. Alternatives considered: 
 location work), `specialUse` (Play asks for a justification and it is worse-fitting).
 
 ## Video (unlisted YouTube link, 20–40 s, phone portrait)
-Record on the emulator once the release build is installed:
+Recorded 2026-09-29 from the release build on the emulator: `~/Desktop/Mockarr launch/fgs-demo.mp4`
+(not committed). To re-record:
 
 ```sh
 scripts/emu.sh boot && scripts/emu.sh launch && scripts/emu.sh settle

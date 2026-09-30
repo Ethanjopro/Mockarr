@@ -2,13 +2,15 @@ Mockarr drives a fake route through the real world using Android's built-in "moc
 
 Features:
 
-• Tap or search to place stops; a real road route is generated between them
+• Tap or search to place stops; a real road route is generated between them, and every stop keeps its place name
+• Drive, ride or walk
 • Playback with human-like acceleration, braking before turns and GPS-style noise
 • Wait times at stops — the drive pulls up, waits, and moves on
-• Pin mode: long-press to hold your location anywhere, with a thumbstick to nudge it
+• Hold: long-press anywhere to hold your location there, with a thumbstick to nudge it
 • Background playback with Pause / Resume / Stop from the notification; survives screen-off
-• Save routes and replay them fully offline
+• Save routes and replay them any time
 • Live speed control (0.25× – 4×)
+• Realism settings: rush-hour traffic, GPS wobble, off-road stops
 • No accounts, no sign-in
 
 Setup takes a minute: enable Developer Options, then choose Mockarr under "Select mock location app". The in-app checklist walks you through each step and shows what is still missing.

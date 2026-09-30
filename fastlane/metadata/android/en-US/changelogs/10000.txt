@@ -1,0 +1,6 @@
+First Google Play release:
+• Road routes you can drive, ride or walk, with realistic speed, turns and waits at stops
+• Place search and named stops; save routes and replay them
+• Hold your location anywhere, with a thumbstick to nudge it
+• Pause, resume and stop from the notification
+• Realism settings: rush-hour traffic, GPS wobble, off-road stops

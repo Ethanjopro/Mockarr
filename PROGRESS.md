@@ -2503,7 +2503,7 @@ Ethan's 17 decisions are in memory `loose-end-4-decisions`. Items 1, 14 and 17 n
   several filled pills in Setup; search relevance (a Réunion result). The search field's
   TalkBack name still needs a check on a real phone.
 
-### NEXT SESSION — the Play launch push (written 2026-09-29, before a chat reset)
+### (Done in session 53) NEXT SESSION — the Play launch push (written 2026-09-29, before a chat reset)
 Ethan clears this chat after session 52; the next chat starts the launch. All 5 loose ends
 from 2026-09-24 are done (sessions 45–51) and the critique's bugs are fixed (session 52).
 
@@ -2520,3 +2520,71 @@ from 2026-09-24 are done (sessions 45–51) and the critique's bugs are fixed (s
 
 The `mockarr_test` AVD: mock app selected, permissions granted, 3 Dallas routes saved, the
 latest debug build installed. End every round with `scripts/emu.sh kill`.
+
+### 2026-09-29 — Session 53 (the Play launch push: Claude does the repo side, Ethan gets a checklist)
+Ethan: "make it as easy as possible for me to launch this app on the Play Store… do as much as you can on
+your own". He decided on a publisher identity: a new Gmail, **ThreeStreets@gmail.com**, as his
+app-releasing account for "Three Streets Studios". It owns the Play Console (Personal), the YouTube channel
+and the tester group, and it is the public contact (memory `three-streets-identity`).
+- **Repo and build side, done:**
+  - **Upload key.** `~/Keys/mockarr-upload.jks` (CN=Three Streets Studios) and `keystore.properties`
+    (git-ignored). The password is random and was never printed. The `.jks` is backed up in iCloud
+    Drive › Mockarr keys.
+  - **Signed 1.0.0 bundle.** `versionName` 1.0.0 → versionCode 10000, changelog `10000.txt`. Checked:
+    `jarsigner`, 16 KB alignment (zip and every `.so` LOAD segment), targetSdk 37, and no `AD_ID` in
+    the merged manifest.
+  - **Store images.** Six screenshots at 1080×1920. Play rejects a long side over 2× the short one, so
+    the old 1080×2400 shots from before the redesign had to go. They were taken with `emu.sh resize` and
+    a demo-mode status bar; the emulator's undismissable "Serial console" notification is painted out
+    of #6. Also a new feature graphic and a 512 icon rendered from the adaptive layers.
+  - **FGS demo video** (42 s): Start, then the notification's Pause, Resume and End drive, then Stop
+    holding clears it.
+  - **Launch folder.** Everything to upload is in `~/Desktop/Mockarr launch/`.
+- **Policy fixes:**
+  - **In-app privacy link** (Play's User Data policy): a `SmallPill` "Privacy policy" in Settings ›
+    About that opens `R.string.privacy_policy_url`
+    (`https://ethanjopro.github.io/threestreets/mockarr/privacy/`).
+  - **Privacy policy** brought up to date. Removed the stale "settings can swap servers/style" claim.
+    Added the reverse lookup that names tapped stops, the real-location uses ("Go to my location" and
+    the "My location" start, via `LocationManager`), and Play services' mock mode (ADR 0005). Also
+    reworded the no-tracking line and filled in the date and contact.
+  - **FGS description** now names Play services' mock mode. **Data safety** gets a
+    play-services-location note (the answers are unchanged).
+  - **Tester brief** no longer says "nothing tracked" (CLAUDE.md).
+  - **Store description** verified claim by claim. Added drive/ride/walk, named stops and the realism
+    settings.
+- **Tooling:**
+  - `scripts/emu.sh installapk` defaults to whichever release APK exists and always re-signs it with the
+    debug key, so it installs over the debug build and the AVD keeps its data. It had broken as soon as
+    `keystore.properties` existed, silently, because under `pipefail` a failed `ls` exits the script.
+  - New `scripts/privacy-site.py` generates the studio site (`/` and `/mockarr/privacy/`) from
+    `privacy-policy.md`.
+- **Verified on mockarr_test with the release build:**
+  - Search (Geoapify under R8), saved-route load, a drive, and the notification's Pause, Resume and End
+    drive.
+  - Stop holding clears the notification, and `dumpsys location` shows no test providers left.
+  - The Privacy pill opens Chrome.
+- **Names:** "Mockarr" and "Three Streets Studios" are clear on Play, the web and GitHub. USPTO needs a
+  browser, so it's an optional step for Ethan.
+- **Ethan's steps:** a private checklist artifact with 17 steps, links, a copy button for every Play
+  Console field (generated from the repo files), ticks saved in its `launch/progress` db doc, and a
+  14-day countdown: https://claude.ai/artifact/SN3tYzNaXRQ3Eu3LKNwBXh. `docs/release/play-launch.md`
+  is updated to match.
+- **Seen while verifying, not changed:** when idle, Start waits for a fresh GPS fix (`currentReal`, a
+  5 s timeout) before deciding on the drive-in. On the emulator, which has no live GPS, that is a
+  5–6 s spinner every time. Real-phone timing is unknown, so it's on Ethan's Pixel check (checklist
+  step 13) rather than changed blind before launch.
+- **Blocked on Ethan:** confirming the Gmail address. After that, Claude creates the public repo
+  `Ethanjopro/threestreets` with Pages (approved in the plan), pushes the site, and curls the URL.
+
+### NEXT SESSION — continue the launch
+1. If the `threestreets` Pages site isn't live yet: get the final Gmail from Ethan (fix
+   `privacy-policy.md`, the artifact and the memory if it isn't ThreeStreets@), run
+   `scripts/privacy-site.py`, create the repo and enable Pages
+   (`gh api repos/Ethanjopro/threestreets/pages -X POST -f build_type=legacy -f 'source[branch]=main' -f 'source[path]=/'`),
+   then check the URL returns 200.
+2. Read the checklist's progress (ArtifactData `get` launch/progress) to see where Ethan is.
+3. Fix whatever his Pixel check (step 13) or the closed testers turn up; ship fixes as 1.0.x to the
+   closed track (bump `versionName`, add `changelogs/<code>.txt`, `:app:bundleRelease`, and copy the AAB
+   to the launch folder).
+

@@ -13,7 +13,7 @@ android {
 
     defaultConfig {
         applicationId = "dev.mockarr.app"
-        versionName = "0.2.0"
+        versionName = "1.0.0"
         versionCode = AndroidConfig.versionCode(versionName!!)
     }
 

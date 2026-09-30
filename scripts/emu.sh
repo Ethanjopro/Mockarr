@@ -235,24 +235,22 @@ case "${1:-help}" in
       || { echo "install failed or timed out" >&2; exit 1; }
     ;;
   # Release-build verification: R8 breakage only shows in the minified APK.
-  # An unsigned APK (no keystore.properties) is signed with the debug key so
-  # the emulator accepts it; the store bundle is signed for real at upload.
+  # The release APK (unsigned, or upload-signed once keystore.properties exists)
+  # is always re-signed with the debug key, so it installs over the debug build
+  # and the AVD keeps its routes and permissions; Play re-signs the store bundle.
   installapk)
     root="$(cd "$(dirname "$0")/.." && pwd)"
-    apk="${2:-$root/app/build/outputs/apk/release/app-release-unsigned.apk}"
-    [ -f "$apk" ] || { echo "no APK at $apk — run scripts/gradle :app:assembleRelease" >&2; exit 1; }
+    out="$root/app/build/outputs/apk/release"
+    apk="${2:-$(ls -t "$out"/app-release*.apk 2>/dev/null | head -1 || true)}"
+    [ -n "$apk" ] && [ -f "$apk" ] || { echo "no release APK — run scripts/gradle :app:assembleRelease" >&2; exit 1; }
     if [ "$("$ADB" devices | awk '/^emulator-/ { print $2; exit }')" != "device" ]; then
       echo "no online emulator — run scripts/emu.sh boot first" >&2; exit 1
     fi
-    case "$apk" in
-      *unsigned*)
-        signer="$(ls -d "$SDK"/build-tools/*/apksigner | sort -V | tail -1)"
-        signed="${TMPDIR:-/tmp}/mockarr-release-debugsigned.apk"
-        "$signer" sign --ks "$HOME/.android/debug.keystore" --ks-pass pass:android \
-          --ks-key-alias androiddebugkey --key-pass pass:android --out "$signed" "$apk"
-        apk="$signed" ;;
-    esac
-    "$ADB" install -r "$apk"
+    signer="$(ls -d "$SDK"/build-tools/*/apksigner | sort -V | tail -1)"
+    signed="${TMPDIR:-/tmp}/mockarr-release-debugsigned.apk"
+    "$signer" sign --ks "$HOME/.android/debug.keystore" --ks-pass pass:android \
+      --ks-key-alias androiddebugkey --key-pass pass:android --out "$signed" "$apk"
+    "$ADB" install -r "$signed"
     ;;
   # Launch the way the home screen does (MAIN + LAUNCHER): a bare -n start
   # matches a different root intent and hides task-reuse bugs.

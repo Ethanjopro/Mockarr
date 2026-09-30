@@ -7,15 +7,21 @@ and trade-offs live in `docs/private/play-store-recommendations.md` (git-ignored
 
 Path: **personal developer account** (ADR 0002). The organization/LLC path is Appendix A.
 
+**State (2026-09-29, session 53).** Publisher identity: **Three Streets Studios**. Ethan's new
+Google account `ThreeStreets@gmail.com` owns the Play Console, the YouTube channel and the tester
+group, and is the public contact. The repo side (§1) is done: the upload key, a signed 1.0.0 bundle,
+store images at Play's specs, an FGS video, and the in-app privacy link. Ethan's click-by-click steps,
+with copy buttons for every field, are in a private checklist page Claude publishes. The upload files
+are in `~/Desktop/Mockarr launch/` (not committed).
+
 ## 0. Before touching the Console
 - [ ] You are 18+, and you have a Google account you are comfortable owning this app forever (it
       cannot be moved between accounts without a transfer request; use a dedicated one if in doubt).
-- [ ] Create a dedicated contact mailbox (e.g. a `mockarr@` address or a Gmail alias). It is shown
-      publicly on the listing and receives policy emails with deadlines.
-- [ ] Trademark sanity check (10 min): search "Mockarr" on Play and on USPTO TESS. A live conflict
-      means renaming *now*, before the name is on a listing and an application ID.
-- [ ] Decide the developer name shown on the listing (your legal name is verified; the display name
-      can be "Mockarr").
+- [x] Dedicated contact mailbox: `ThreeStreets@gmail.com`, which is also the Play account owner. It
+      is shown publicly on the listing and receives policy emails with deadlines.
+- [x] Trademark sanity check: Play, web and GitHub are clear for "Mockarr" and "Three Streets
+      Studios" (2026-09-29). USPTO's search is browser-only, so Ethan runs it himself (optional).
+- [x] Developer name on the listing: **Three Streets Studios** (the legal name is verified privately).
 
 ## 1. Repo readiness (done this round unless unchecked)
 - [x] R8 release build with `app/proguard-rules.pro`; backup rules; `versionCode` derived from
@@ -24,7 +30,7 @@ Path: **personal developer account** (ADR 0002). The organization/LLC path is Ap
       (`fastlane/metadata/android/en-US/`).
 - [x] `docs/release/privacy-policy.md`, `data-safety.md`, `fgs-declaration.md`.
 - [x] Backend seams: `RouteProvider`, `Geocoder`, `ElevationProvider` interfaces.
-- [ ] **Geoapify key** (ADR 0003): sign up at geoapify.com (free plan, no card), create a project,
+- [x] **Geoapify key** (ADR 0003), in `secrets.properties` since 2026-09-03; the GitHub secret waits for §10: sign up at geoapify.com (free plan, no card), create a project,
       copy the API key into `secrets.properties` at the repo root (git-ignored):
       ```
       GEOAPIFY_KEY=…
@@ -32,7 +38,9 @@ Path: **personal developer account** (ADR 0002). The organization/LLC path is Ap
       Add the same value as the GitHub Actions secret `GEOAPIFY_KEY` so CI builds carry it. Set a
       usage alert in the Geoapify dashboard at ~80 % of the daily credits and create a second key to
       keep in reserve. Without the key every build silently uses the public OSRM/Photon servers (build-time only — there is no in-app switch).
-- [ ] **Upload keystore** (once, on your machine, never in the repo):
+- [x] **Upload keystore** (done 2026-09-29: `~/Keys/mockarr-upload.jks`, CN=Three Streets Studios, a
+      random password in `keystore.properties`, and a backup `.jks` in iCloud Drive › Mockarr keys).
+      How it was made (once, on your machine, never in the repo):
   ```sh
   keytool -genkeypair -v -keystore ~/Keys/mockarr-upload.jks -alias mockarr-upload \
     -keyalg RSA -keysize 4096 -validity 9125
@@ -46,35 +54,45 @@ Path: **personal developer account** (ADR 0002). The organization/LLC path is Ap
   ```
   Back the `.jks` + passwords up in a password manager and one offline copy. Losing the upload key
   is recoverable (Play lets you register a new one with a support request) but slow.
-- [ ] `scripts/gradle :app:bundleRelease` → `app/build/outputs/bundle/release/app-release.aab`.
-      `scripts/gradle build` must stay green *without* `keystore.properties` too.
+- [x] `scripts/gradle :app:bundleRelease` → `app/build/outputs/bundle/release/app-release.aab`.
+      `scripts/gradle build` must stay green *without* `keystore.properties` too (CI builds keyless).
+      Checked for 1.0.0: `jarsigner -verify`, `zipalign -c -P 16`, every `.so` LOAD segment aligned to
+      16 KB, targetSdk 37, no `AD_ID` permission in the merged manifest.
 - [x] Verify the release build on the emulator (not just debug) — done 2026-09-03 with
       `scripts/gradle :app:assembleRelease` + `scripts/emu.sh installapk` (debug-signed on the fly):
       search → route → Play → notification Pause/Resume/Stop → Settings → Setup all pass under R8.
       Repeat on a real phone from the internal-test link (Play-signed build) before closed testing.
-- [x] Screenshots from the current UI (route builder, driving, setup checklist, settings) in
-      `fastlane/metadata/android/en-US/images/phoneScreenshots/` and a placeholder feature graphic
-      at `images/featureGraphic.png` (indigo + the driving screenshot; redo when the brand is settled).
-- [ ] 512×512 PNG icon at `images/icon.png`: Android Studio → right-click `res` → New → Image
-      Asset → Launcher Icons → reuse `ic_launcher_foreground` — it writes `ic_launcher-playstore.png`
-      at the app root; move it there. (The icon itself is an undecided brand asset — PRODUCT.md.)
-- [ ] Bump `versionName` in `app/build.gradle.kts`, add
-      `fastlane/metadata/android/en-US/changelogs/<versionCode>.txt`, tag `v<versionName>`.
+      `scripts/emu.sh installapk` re-signs any release APK (unsigned or upload-signed) with the debug
+      key, so it installs over the debug build and the AVD keeps its data.
+- [x] Six phone screenshots from the redesigned UI (ready route, driving, search, hold, saved routes,
+      notification) at **1080×1920**, taken with `scripts/emu.sh resize 1080x1920` and a demo-mode
+      status bar. Play rejects a long side more than 2× the short one, so the AVD's native 1080×2400
+      doesn't qualify. They are 24-bit PNGs with no alpha. The feature graphic (1024×500, Night
+      Indigo + the driving screen) is in `images/featureGraphic.png`.
+- [x] 512×512 icon at `images/icon.png`, rendered from the adaptive icon's layers (the icon itself is
+      still an undecided brand asset, PRODUCT.md).
+- [x] `versionName` 1.0.0 (versionCode 10000), `changelogs/10000.txt`; tag `v1.0.0`.
 
 ## 2. Privacy policy hosting
-Play needs a public URL. The main repo is public but source-available (ADR 0004); keep the policy page in its own place so it can change without a code release:
-- [ ] Create a public repo `mockarr-site` (or a branch of a public docs repo) with GitHub Pages
-      on; put `privacy-policy.md` there as `privacy.md` (Pages renders Markdown) → URL like
-      `https://<user>.github.io/mockarr-site/privacy`.
-- [ ] Fill in the placeholders (date, contact, current providers). Keep the repo copy and the page
-      identical; the app's About credits must list the same providers.
+Play needs a public URL, and the User Data policy also wants the policy reachable **inside the app**:
+Settings › About › "Privacy policy" (`R.string.privacy_policy_url`). The main repo is public but
+source-available (ADR 0004); the policy lives in its own place so it can change without a code release:
+- [ ] The studio site, public repo `Ethanjopro/threestreets` with GitHub Pages (plain HTML, no Jekyll):
+      `/` is the Three Streets Studios page, and `/mockarr/privacy/` is generated from
+      `privacy-policy.md` by `scripts/privacy-site.py` → **https://ethanjopro.github.io/threestreets/mockarr/privacy/**. A custom
+      domain can be added later without changing the repo (update the Play fields and the app string).
+- [x] Placeholders filled (date, contact, providers, Play services mock mode). Keep the repo copy and
+      the page identical; the app's About credits must list the same providers.
 
 ## 3. Developer account ($25 once)
 - [ ] play.google.com/console → Create account → **Personal**. Legal name as on your ID, address,
       phone (verified by SMS), the contact email from §0.
 - [ ] Identity verification: government ID upload; usually hours, can be days. The account is
       read-only until it passes.
-- [ ] Developer page: display name "Mockarr", the contact email, (optional) website = the Pages site.
+- [ ] Developer page: display name **Three Streets Studios**, the contact email, (optional) website =
+      `https://ethanjopro.github.io/threestreets/`.
+- [ ] Verify an Android device: the Play Console app on the Pixel, signed in with the Three Streets
+      account (a personal-account requirement).
 - [ ] Note the account's creation date: personal accounts created after 13 Nov 2023 must complete
       the closed-test requirement (§6) before production access is granted.
 
@@ -87,7 +105,7 @@ Play needs a public URL. The main repo is public but source-available (ADR 0004)
 | Row | Answer | Source |
 |---|---|---|
 | Privacy policy | the Pages URL | §2 |
-| App access | "All functionality is available without special access" **plus** instructions: "Testing requires Android Developer Options → Select mock location app → Mockarr. Steps: Settings → About phone → tap Build number 7× → Settings → System → Developer options → Select mock location app → Mockarr." | reviewers cannot see playback otherwise |
+| App access | "All or some functionality is restricted" → Add instructions (name "Mock location setup", no credentials): Settings → About phone → tap Build number 7× → Settings → System → Developer options → Select mock location app → Mockarr | reviewers cannot see playback otherwise; the unrestricted option has no instructions box |
 | Ads | No, the app has no ads | ADR 0002 |
 | Content rating | IARC questionnaire → Utility/Productivity; no violence, no user interaction, no sharing of location *between users* | — |
 | Target audience | 18 and over only (keeps the app out of the Families policy; Developer Options is not a children's feature) | — |
@@ -98,7 +116,7 @@ Play needs a public URL. The main repo is public but source-available (ADR 0004)
 | Financial features | None | — |
 | Health | None | — |
 | Foreground service types | **Location** → description + video from `fgs-declaration.md` | manifest |
-| Advertising ID | Does not use | merged manifest has no `AD_ID` |
+| Advertising ID | Does not use | merged manifest has no `AD_ID` (rechecked with play-services-location, 2026-09-29) |
 
 ## 6. Store listing (Grow → Store presence → Main store listing)
 - [ ] App name "Mockarr"; short description ≤ 80 chars and full description ≤ 4000 chars from the
@@ -119,8 +137,9 @@ Play needs a public URL. The main repo is public but source-available (ADR 0004)
       cannot select a mock-location app — check it for crashes and accessibility warnings only).
 - [ ] Install from the internal-test link on a real phone: mock selection, notification actions,
       background playback, screen-off — the Play-signed build must behave exactly like the local one.
-- [ ] **Closed testing** (required for production access on new personal accounts): create a track
-      (Alpha), add an email list or a Google Group, upload the same bundle, opt-in URL.
+- [ ] **Closed testing** (required for production access on new personal accounts): the Alpha track,
+      testers = the Google Group `mockarr-testers@googlegroups.com` (anyone can join), promote the
+      internal release, send for review, then share the group link + opt-in URL.
   - Need **≥ 12 testers opted in continuously for 14 consecutive days**; a tester who opts out
     resets their own clock. Recruit 15–18 to be safe: friends/family with Android phones,
     r/androidapps "beta testers wanted" threads, r/androiddev, Mastodon/OSM communities (the
@@ -176,4 +195,4 @@ Play's API cannot create the app or the first release. After that:
 > install it from a private Play link and **stay opted in for 14 days** (Google's rule for new
 > developers). Use it as much or as little as you like; the in-app checklist shows the two
 > settings to flip. Please tell me your phone model, and message me if anything crashes or looks
-> wrong. No account, no ads, nothing tracked. Opt-in link: <…>. Thank you!
+> wrong. No account, no ads. Opt-in link: <…>. Thank you!

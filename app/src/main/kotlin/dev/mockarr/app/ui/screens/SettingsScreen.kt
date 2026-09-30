@@ -28,12 +28,14 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dev.mockarr.app.R
+import dev.mockarr.app.ui.theme.SmallPill
 import dev.mockarr.app.ui.theme.Tokens
 import dev.mockarr.core.data.MockarrSettings
 import dev.mockarr.core.model.DistanceUnits
@@ -250,6 +252,8 @@ private fun GpsRows(settings: MockarrSettings, viewModel: SettingsViewModel) {
 @Composable
 private fun AboutBlock(managedAvailable: Boolean) {
     val context = LocalContext.current
+    val uriHandler = LocalUriHandler.current
+    val privacyUrl = stringResource(R.string.privacy_policy_url)
     val version = remember {
         runCatching { context.packageManager.getPackageInfo(context.packageName, 0).versionName }.getOrNull() ?: "—"
     }
@@ -270,6 +274,11 @@ private fun AboutBlock(managedAvailable: Boolean) {
             ),
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        // Play's User Data policy: the policy must be reachable inside the app too.
+        SmallPill(
+            label = stringResource(R.string.settings_about_privacy),
+            onClick = { runCatching { uriHandler.openUri(privacyUrl) } },
         )
     }
 }

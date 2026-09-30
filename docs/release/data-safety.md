@@ -22,8 +22,15 @@ backend provider changes (ADR 0002 §3) or a new permission appears in the merge
 | Purposes | App functionality |
 
 Note for the reviewer box: "Coordinates the user places on the map are sent to a routing service
-to compute a road route. The device's real GPS position is only used if the user taps 'Start from
-my location', and then only as a stop coordinate."
+to compute a road route, and to a place-search service to name a stop. The device's real position
+is only used when the user taps 'Go to my location' or starts a drive from 'My location', and then
+only as a map position or stop coordinate."
+
+### Google Play services (`play-services-location`, ADR 0005)
+Adds nothing to declare. The app hands only *simulated* positions to Play services' mock mode on
+the device, and reads the real location through the platform `LocationManager`, not Play
+services. Location is declared above in any case, so Google's SDK guidance for this library is
+covered.
 
 ### Personal info / Messages / Photos / Files / Contacts / App activity / Device IDs
 All **not collected**. (Search text is sent to the place-search service; Play's "Other user-
