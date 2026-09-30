@@ -47,7 +47,7 @@ object Tokens {
     val popoverElevation = 8.dp
     val pillSize = 48.dp
 
-    /** Full-width pill actions (Pause / Resume / Finish). */
+    /** Full-width pill actions (Pause / Resume / End drive) and every dialog verb. */
     val pillHeight = 56.dp
 
     /** The numbered stop disc, in the sheet and the popover (the map marker is 11dp radius + ring). */

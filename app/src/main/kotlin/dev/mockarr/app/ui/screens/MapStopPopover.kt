@@ -27,8 +27,8 @@ import dev.mockarr.core.model.Waypoint
 /**
  * Strava's tap-a-point callout over the marker, as symbols only: Move
  * (four-way arrows) · Wait (clock — hold-tinted once a wait is set, greyed
- * on the last stop while "Stay at destination" is on) · Delete (trash, error
- * ink). No header: the selected disc says which stop, and the words live in
+ * on the last stop while "Stay at destination" is on) · Delete (trash, in the
+ * same neutral ink as the others). No header: the selected disc says which stop, and the words live in
  * the buttons' descriptions for TalkBack ("Wait · 5 min"). While [playing]
  * only the clock shows — mid-drive the route's shape is fixed, but a coming
  * stop's wait can still change. [anchor] is the marker's window position,

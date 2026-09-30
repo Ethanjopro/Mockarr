@@ -243,7 +243,7 @@ internal data class StripModel(
      * on real state changes (audit, session 41). Null speaks [text].
      */
     val spoken: String? = null,
-    /** Idle prompts ("Plan a drive", "Building a route") show no card at all. */
+    /** The builder with no route yet ("Building a route") shows no card at all. */
     val hidden: Boolean = false,
 )
 

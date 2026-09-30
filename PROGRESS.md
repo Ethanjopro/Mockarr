@@ -2430,6 +2430,45 @@ Ethan's 17 decisions are in memory `loose-end-4-decisions`. Items 1, 14 and 17 n
   release (R8) build for drive, notification, pause and the saved list; logcat clean. The
   build and tests are green.
 
+### 2026-09-29 — Session 51 (loose end 5: `/impeccable document`, then `/impeccable doctor`)
+- **DESIGN.md refreshed in place, not overwritten.** The North Star ("The Quiet Dashboard"),
+  the named rules and the voice stay. An agent checked every claim that carries a number or
+  a name against the code and found 30 stale ones. All 30 are fixed:
+  - **Frontmatter:**
+    - buttons are 56dp with 16dp padding (it said 40/24)
+    - the `button-text` role is gone and `button-small` added, plus `speed-presets`,
+      `fab-start` and `dialog`
+    - strips are 48dp with 0/20dp padding
+    - chips have an 8dp radius, and selected chips use the secondary container
+    - title is 16sp bold (as used), label is 12sp, and an 11sp caption was added
+    - floating surfaces use `floating` / `floating-dark` + rim
+    - 23 missing colours added: floating, the secondary container, and the map's travelled,
+      glow, off-road, rings, wait chips and attribution
+    - `shadow` props moved out of components, since the spec allows 8 props
+  - **Prose:**
+    - the idle card (no "Plan a route"; a hold resolving reads "Holding your location")
+    - which state hides the card
+    - off-road dots vs the dashed fallback
+    - `MapPalette`'s file
+    - "End drive" in the notification
+    - the "Recent" header's Clear history pill
+    - the Set up action
+    - thumbnail 12dp, spinner 20dp
+    - the progress bar's stop dots, and the wait badge's real form
+    - the Map group in the options list, and the sheet collapsing on builder exit
+- **`.impeccable/design.json` regenerated** (schema 2, from the refreshed DESIGN.md):
+  - 9 current components (filled / outlined / small pill, status band, stat card, speed
+    presets, map pill, search field, stop disc) replace the old Finish-pill set
+  - colour metadata and tonal ramps for all 86 tokens
+  - shadows and breakpoints corrected (no rail; the side panel exists)
+  - motion timings from Motion.kt
+  - the narrative pulled verbatim from DESIGN.md
+- Stale code comments fixed: "Finish" in Tokens / MapScreen, and MapActionRow's START FROM
+  and "Plan a drive" wording.
+- **`/impeccable doctor`: no findings** (Android, rule registry validated).
+- **All five loose ends are done.** Optional next steps from the handoff: `/impeccable
+  onboard setup`, and a fresh `/impeccable critique` to measure (last 26/40, 2026-09-24).
+
 ### NEXT SESSION — loose ends (written 2026-09-24, before a chat reset)
 Work these in order, one commit per round. Verify each on `mockarr_test`, and CI must be
 green after every push.
@@ -2483,7 +2522,7 @@ green after every push.
    - **TalkBack:** no gesture-free stop placement except search; Move stop needs a drag.
    - **Landscape:** the held pin can be off-edge after rotating; the attribution "i" jumps.
    - The 80 km drive-in cut-off is unconfirmed.
-5. **`/impeccable document`, then `/impeccable doctor`.** Refresh DESIGN.md and the stale
+5. ✅ **Done in session 51.** **`/impeccable document`, then `/impeccable doctor`.** Refresh DESIGN.md and the stale
    `.impeccable/design.json`, which still describes the inverse "Finish" pill. Optionally
    `/impeccable onboard setup`, then a fresh `/impeccable critique` to measure (last 26/40).
 

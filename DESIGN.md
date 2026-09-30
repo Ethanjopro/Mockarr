@@ -47,20 +47,43 @@ colors:
   asphalt-container-high: "#292A30"
   asphalt-container-highest: "#34343B"
   outline-dark: "#90909A"
+  outline-variant-dark: "#45464F"
+  soft-indigo-container: "#E0E1F9"
+  soft-indigo-container-on: "#181A2C"
+  soft-indigo-dark-container: "#434559"
+  soft-indigo-dark-container-on: "#E0E1F9"
+  floating: "#FFFFFF"
+  floating-dark: "#292A30"
+  floating-outline-dark: "#6E7079"
   map-route: "#3949AB"
   map-route-casing: "#FFFFFF"
+  map-route-travelled: "#A9AECC"
   map-route-fallback: "#B8741A"
+  map-off-road: "#3949AB"
   map-position: "#3949AB"
+  map-position-ring: "#FFFFFF"
   map-hold-pin: "#E0901E"
+  map-hold-pin-ring: "#8A5A00"
   map-stop-start: "#1A7D52"
   map-stop-via: "#3949AB"
   map-stop-end: "#1A1B21"
-  map-wait-badge: "#F0A422"
+  map-wait-chip: "#1A1B21F2"
+  map-wait-chip-active: "#F0A422"
   map-selection: "#5C6BC0"
+  map-attribution: "#45464F99"
   map-route-dark: "#9FA8FF"
   map-route-casing-dark: "#121319"
+  map-route-travelled-dark: "#4B5273"
+  map-route-glow-dark: "#9FA8FF66"
+  map-route-fallback-dark: "#F0A422"
+  map-off-road-dark: "#9FA8FF"
   map-position-dark: "#B9C3FF"
+  map-position-ring-dark: "#121319"
   map-hold-pin-dark: "#FFBB58"
+  map-hold-pin-ring-dark: "#121319"
+  map-wait-chip-dark: "#E3E1E9F2"
+  map-wait-chip-active-dark: "#FFBB58"
+  map-attribution-dark: "#C6C5D099"
   map-stop-start-dark: "#6FD3A4"
   map-stop-via-dark: "#7A88E6"
   map-stop-end-dark: "#E3E1E9"
@@ -75,14 +98,14 @@ typography:
     fontFamily: "Roboto, system-ui, sans-serif"
     fontSize: "28sp"
     fontWeight: 700
-    lineHeight: 1.33
+    lineHeight: 1.29
     fontFeature: "tnum"
   title:
     fontFamily: "Roboto, system-ui, sans-serif"
-    fontSize: "14sp"
-    fontWeight: 500
-    lineHeight: 1.43
-    letterSpacing: "0.1sp"
+    fontSize: "16sp"
+    fontWeight: 700
+    lineHeight: 1.5
+    letterSpacing: "0.15sp"
   body:
     fontFamily: "Roboto, system-ui, sans-serif"
     fontSize: "16sp"
@@ -91,11 +114,18 @@ typography:
     letterSpacing: "0.5sp"
   label:
     fontFamily: "Roboto, system-ui, sans-serif"
+    fontSize: "12sp"
+    fontWeight: 500
+    lineHeight: 1.33
+    letterSpacing: "0.5sp"
+  caption:
+    fontFamily: "Roboto, system-ui, sans-serif"
     fontSize: "11sp"
     fontWeight: 500
     lineHeight: 1.45
     letterSpacing: "0.5sp"
 rounded:
+  chip: "8dp"
   control: "12dp"
   card: "16dp"
   sheet: "28dp"
@@ -115,38 +145,56 @@ components:
   button-primary:
     backgroundColor: "{colors.night-indigo}"
     textColor: "{colors.night-indigo-on}"
+    typography: "{typography.title}"
     rounded: "{rounded.full}"
-    height: "40dp"
-    padding: "0 24dp"
+    height: "56dp"
+    padding: "0 16dp"
   button-outlined:
     backgroundColor: "transparent"
     textColor: "{colors.night-indigo}"
+    typography: "{typography.title}"
     rounded: "{rounded.full}"
-    height: "40dp"
-    padding: "0 24dp"
-  button-text:
+    height: "56dp"
+    padding: "0 16dp"
+  button-small:
     backgroundColor: "transparent"
     textColor: "{colors.night-indigo}"
     rounded: "{rounded.full}"
     height: "40dp"
-    padding: "0 12dp"
+    padding: "0 16dp"
   chip-filter:
     backgroundColor: "transparent"
     textColor: "{colors.paper-on-variant}"
-    rounded: "{rounded.control}"
+    rounded: "{rounded.chip}"
     height: "32dp"
     padding: "0 16dp"
   chip-filter-selected:
-    backgroundColor: "{colors.surface-container-highest}"
-    textColor: "{colors.paper-on}"
-    rounded: "{rounded.control}"
+    backgroundColor: "{colors.soft-indigo-container}"
+    textColor: "{colors.soft-indigo-container-on}"
+    rounded: "{rounded.chip}"
     height: "32dp"
     padding: "0 16dp"
+  speed-presets:
+    backgroundColor: "transparent"
+    textColor: "{colors.paper-on}"
+    rounded: "{rounded.full}"
+    height: "40dp"
+    padding: "0 4dp"
+  speed-presets-selected:
+    backgroundColor: "{colors.soft-indigo-container}"
+    textColor: "{colors.soft-indigo-container-on}"
+    rounded: "{rounded.full}"
+    height: "40dp"
   fab-tonal:
     backgroundColor: "{colors.night-indigo-container}"
     textColor: "{colors.night-indigo-container-on}"
     rounded: "{rounded.full}"
-    size: "40dp"
+    size: "64dp"
+  fab-start:
+    backgroundColor: "{colors.night-indigo}"
+    textColor: "{colors.night-indigo-on}"
+    rounded: "{rounded.full}"
+    size: "80dp"
   sheet:
     backgroundColor: "{colors.surface-container-low}"
     textColor: "{colors.paper-on}"
@@ -156,51 +204,50 @@ components:
     backgroundColor: "{colors.surface-container-high}"
     textColor: "{colors.paper-on-variant}"
     typography: "{typography.title}"
-    height: "40dp"
-    padding: "8dp 20dp 0"
+    height: "48dp"
+    padding: "0 20dp"
   strip-ready:
     backgroundColor: "{colors.signal-teal-container}"
     textColor: "{colors.signal-teal-container-on}"
     typography: "{typography.title}"
-    height: "40dp"
-    padding: "8dp 20dp 0"
+    height: "48dp"
+    padding: "0 20dp"
   strip-accent:
     backgroundColor: "{colors.night-indigo-container}"
     textColor: "{colors.night-indigo-container-on}"
     typography: "{typography.title}"
-    height: "40dp"
-    padding: "8dp 20dp 0"
+    height: "48dp"
+    padding: "0 20dp"
   strip-hold:
     backgroundColor: "{colors.amber-hold-container}"
     textColor: "{colors.amber-hold-container-on}"
     typography: "{typography.title}"
-    height: "40dp"
-    padding: "8dp 20dp 0"
+    height: "48dp"
+    padding: "0 20dp"
   strip-error:
     backgroundColor: "{colors.error-container}"
     textColor: "{colors.error-container-on}"
     typography: "{typography.title}"
-    height: "40dp"
-    padding: "8dp 20dp 0"
+    height: "48dp"
+    padding: "0 20dp"
   stat-card:
-    backgroundColor: "{colors.surface-container-lowest}"
+    backgroundColor: "{colors.floating}"
     textColor: "{colors.paper-on}"
     rounded: "{rounded.card}"
-    shadow: "4dp"
     padding: "0"
-  button-pill:
-    backgroundColor: "{colors.night-indigo}"
-    textColor: "{colors.night-indigo-on}"
-    rounded: "{rounded.full}"
-    height: "56dp"
-    padding: "0 24dp"
   card:
     backgroundColor: "{colors.surface-container}"
     textColor: "{colors.paper-on}"
     rounded: "{rounded.card}"
     padding: "12dp"
-  search-field:
+  dialog:
     backgroundColor: "{colors.surface-container-lowest}"
+    textColor: "{colors.paper-on}"
+    rounded: "{rounded.card}"
+    padding: "20dp"
+    width: "420dp"
+  search-field:
+    backgroundColor: "{colors.floating}"
     textColor: "{colors.paper-on}"
     rounded: "{rounded.control}"
     height: "56dp"
@@ -211,17 +258,16 @@ components:
     rounded: "{rounded.full}"
     size: "28dp"
   map-pill:
-    backgroundColor: "{colors.surface-container-lowest}"
+    backgroundColor: "{colors.floating}"
     textColor: "{colors.paper-on}"
     rounded: "{rounded.full}"
     size: "48dp"
-    shadow: "6dp"
   popover:
-    backgroundColor: "{colors.surface-container-lowest}"
+    backgroundColor: "{colors.floating}"
     textColor: "{colors.paper-on}"
     rounded: "{rounded.card}"
-    shadow: "8dp"
     padding: "0"
+    width: "280dp"
 ---
 
 # Design System: Mockarr
@@ -273,15 +319,19 @@ borrow the accent.
 
 ### Tertiary
 - **Amber Hold** (`{colors.amber-hold}` / `{colors.amber-hold-dark}`): "you are parked
-  somewhere" — Holding and Waiting strips, the hold pin and its wobble range, and live wait
-  chips. Never a button (session 40: one button system).
+  somewhere" — Holding, Waiting, Paused and interrupted-session strips, the hold pin and its
+  wobble range, and live wait chips. Never a button (session 40: one button system).
 - **Error** (`{colors.error}` / `{colors.error-dark}`): not-set-up strip, routing failures.
 
 ### Neutral
 - **Paper** (`{colors.paper}`) and **Asphalt** (`{colors.asphalt}`): the two grounds. Both
   themes carry the full Material surface-container ramp (lowest → highest); sheets sit on
   `surface-container-low`, neutral strips on `surface-container-high`, selected list rows
-  on `surface-container-high`, progress tracks on `surface-container-highest`.
+  on `surface-container-high`, progress tracks on `surface-container-highest`. Everything
+  that floats over the map (stat card, map pills, search field, popovers) is `floating`:
+  white by day, `floating-dark` (M3's tonal lift) with the `floating-outline-dark` rim at
+  night. Selected chips and speed segments use M3's secondary container
+  (`soft-indigo-container`).
 - **On-surface / on-surface-variant** (`{colors.paper-on}` / `{colors.paper-on-variant}`
   and the asphalt pair): primary and secondary text. Labels in stat cells and section
   headers are always on-surface-variant.
@@ -296,13 +346,14 @@ waits.
 
 **The State Is a Band Rule.** Session state (ready / driving / waiting / holding / paused /
 error) is communicated by the strip's container colour and one line of copy — never by a
-new card, never by an icon alone. Idle prompts ("Plan a route", "Building a route") are not
-state: the card is hidden until there is something to report. The band never shows raw coordinates: while a hold's
-place name resolves, the previous line stays; if the lookup fails it reads "Holding at
-dropped pin".
+new card, never by an icon alone. At cold start the card is the neutral idle band ("Tap
+the map to add stops · long-press to hold"); only the builder with no route yet (0–1 stops,
+"Building a route") hides it. The band never shows raw coordinates: while a hold's place
+name resolves it reads "Holding your location"; if the lookup fails, "Holding at dropped
+pin".
 
 **The Palette Travels Rule.** Map colours are never literals: they come from `MapPalette`
-in `ui/theme/Theme.kt`, and anything that bakes a colour into a bitmap or cache includes
+(`ui/theme/MapPalette.kt`, its light and dark instances in `ui/theme/Theme.kt`), and anything that bakes a colour into a bitmap or cache includes
 the palette in its key so a theme switch re-renders.
 
 ## Typography
@@ -364,7 +415,9 @@ numbers, wait chips) scale with the font size up to 1.3×.
   two states: *peek* — the action row (Mode · Start · Add route), or Pause / End drive + Resume
   while driving, measured at runtime and never assumed — and *expanded* — the same plus a
   scrollable options list — *Save route* first when a road route is loaded (reads *Saved*
-  once it is), the drive switches, then *Saved routes ›* and *All settings ›*. The peek is
+  once it is), the **Map** group (Add a stop / Hold my location at the map centre), the
+  drive switches, then *Saved routes ›* and *All settings ›*. Leaving the builder (✕, Done,
+  Discard changes) drops an expanded sheet back to its peek. The peek is
   the screen's resting state. The sheet is draggable from anywhere on it, the
   handle (36dp of layout, 48dp of touch) toggles peek ↔ expanded — two ways in, because a
   swipe alone is neither discoverable nor accessible. **While driving (Playing, Paused,
@@ -399,7 +452,7 @@ numbers, wait chips) scale with the font size up to 1.3×.
 ## Elevation & Depth
 
 Tonal layering inside the sheet, one soft lift over the map. Surfaces step through the
-container ramp (card on `surface-container-lowest`, sheet on `surface-container-low`,
+container ramp (card on `floating`, sheet on `surface-container-low`,
 strips on `-high`, selected rows on `-high`, tracks on `-highest`); the map itself is the
 lowest layer. Everything that floats over the basemap reads as an object on it: the stat
 card (4dp), the sheet (8dp), the white **map pills** (6dp), **popovers** (8dp) and the
@@ -421,13 +474,15 @@ map). The sheet wears the same rim on its top edge: the dark sheet met the map a
 ## Shapes
 
 One radius family, applied by role: **28dp** for the sheet's top corners, **16dp** for
-cards, **12dp** for controls (search field, filter chips), and **full pills** for buttons,
+cards, **12dp** for controls (search field, route thumbnails), **8dp** for filter chips
+(M3's default), and **full pills** for buttons,
 FABs, the drag handle and the numbered stop discs. Map markers are circles with a 2.5dp
 ring in the ground colour; the selected marker gains an outer ring in `map-selection`.
 Direction chevrons on the route are 10dp, 2dp stroke, drawn in the casing colour.
-Off-road connectors (a stop the road network can't reach, off-road setting on) and the
-straight-line fallback draw as the same dotted `map-route-fallback` line; the road part
-of a route stays solid. 3D mode pitches the camera itself (a gentle 30°, `MockarrMap`'s
+Off-road connectors (a stop the road network can't reach, off-road setting on) draw as
+round dots at the route's width in `map-off-road` (the route accent); the straight-line
+fallback is a 4dp dashed line (1.5 / 1.5) in `map-route-fallback`; the road part of a route
+stays solid. 3D mode pitches the camera itself (a gentle 30°, `MockarrMap`'s
 `ENTER_3D_TILT_DEGREES`) and shows the style's stock building extrusions — the toggle
 must read instantly, not only after a manual two-finger tilt; a hand-set tilt is left alone.
 
@@ -439,7 +494,7 @@ formatted differently"). Every **labelled** button is a pill from `ui/theme/Pill
 `Pill` / `OutlinedPill`, or `ActionPill` / `OutlinedActionPill` for an equal share of a
 two-up row — and the pills take **no colour parameter**, so no screen can repaint one.
 - **Shape:** full pill (`{rounded.full}`), **56dp** tall everywhere (sheet, dialogs,
-  builder, Setup, Saved routes), 24dp horizontal padding, Title bold one-line label that
+  builder, Setup, Saved routes), 16dp horizontal padding, Title bold one-line label that
   shrinks (16 → 12sp) rather than wraps, leading 24dp glyph when the verb has one.
 - **Filled (indigo):** the one verb that moves you forward on a surface — Pause, Resume,
   Start of route, Done, Save, Set wait, Start drive, Clear route, Plan a drive.
@@ -474,7 +529,8 @@ two-up row — and the pills take **no colour parameter**, so no screen can repa
 
 ### Dialog
 - **Container:** `MockarrDialog` (`ui/theme/Dialogs.kt`) — the stat card floated to the
-  centre: its 16dp corner on `surface-container-lowest` at `popoverElevation`, the card's
+  centre: its 16dp corner on `surface-container-lowest` at `popoverElevation` (dialogs sit on
+  the dimmed scrim, not the map, so they keep the lowest surface), the card's
   own `map-edge` side margins (never the platform dialog width; capped at
   `Tokens.dialogMaxWidth` on tablets), 20dp inset; title `titleMedium` bold, body
   `bodyMedium` on `onSurfaceVariant`.
@@ -507,7 +563,7 @@ are map pills above the card. While driving the row is replaced by the **Pause p
 which splits into **End drive** (outlined, left) + **Resume** (filled, right) when paused;
 the "1×" speed chip sits in the card's strip. **A drive's end clears its route** (Ethan,
 session 44 — the kept route and "Drive again" of session 41 are gone): a natural arrival,
-End drive and Stop in the notification all leave the map with just the hold. A saved route
+End drive (in the app or the notification) all leave the map with just the hold. A saved route
 is reloaded from Saved routes. Every new drive starts at **1×**; only a resumed drive keeps
 its own pace. Never stack actions vertically in the peek.
 
@@ -522,7 +578,7 @@ signalling a disabled state — a tool that applies but can't act yet stays visi
 disabled (Save on a straight-line fallback); a tool that doesn't apply yet isn't shown.
 
 ### Popover
-Strava's builder menu and its tap-a-point callout: a 16dp `surface-container-lowest` card
+Strava's builder menu and its tap-a-point callout: a 16dp `floating` card
 with the popover shadow and a **caret** on its anchor (`MapPopover`), sitting above the
 anchor and flipping below when there is no room — "room" ends at the search bar, so a stop
 just under it opens its popover below, never over the field. The card hugs its widest row
@@ -581,7 +637,7 @@ thumbstick's dead-zone edge (`SegmentFrequentTick`); arrival (`Confirm`). Nothin
 vibrates; the system haptic setting silences all of it.
 
 ### Stat Card (signature)
-Strava's "run box": a 16dp-corner `surface-container-lowest` card with the soft lift,
+Strava's "run box": a 16dp-corner `floating` card with the soft lift,
 floating `map-edge` above the sheet — **in every state, from cold start to Stop**. With
 nothing loaded it is the empty card: one neutral band, "Tap the map to add stops ·
 long-press to hold". **Status strip** on top: a 48dp-min band of bold Title copy, centred
@@ -605,8 +661,8 @@ building too (the builder's peek holds only the hint and the Done row). The card
 the sheet**: as the sheet expands (speed chips, options, stops) the card and the builder
 pills lift with it, capped under the top chrome — and the sheet in turn stops `map-edge`
 under the card — so the trio stays readable while its speed changes and a hold's Stop is
-never buried. The only state with no card is a single
-placed stop ("Building a route") — unless a search pin is up, when the band names the
+never buried. The only state with no card is the builder with no route yet (0–1 stops,
+"Building a route") — unless a search pin is up, when the band names the
 place in the accent tone with *Add stop* as its action. A wait names its stop: "Waiting at
 Reunion Tower · 0:56" (the stop's number in *your* route when it has no name yet), and the
 notification's title says the same. Otherwise the notification's title carries the time
@@ -622,35 +678,38 @@ card's Duration, the saved list and a drive's opening Time left are the drive's 
 (`estimatedDriveSeconds` — traffic, waits and off-road pauses; the engine's speed spread
 keeps its total), worded by one rule (`Formatter.duration`: whole minutes rounded up, seconds
 under a minute). Under it while driving, a 4dp `LinearProgressIndicator` with a
-`surface-container-highest` track and no stop indicator. Hidden entirely when the numbers
+`surface-container-highest` track, M3's end dot off, and a dot at each intermediate stop
+(`onPrimary` once passed, `outline` ahead). Hidden entirely when the numbers
 are undefined (nothing loaded).
 
 ### Chips
-- **Filter chip:** 12dp radius, 32dp tall, 16dp padding; unselected is outlined, selected
-  is `surface-container-highest` fill with on-surface text. Used for wait presets. The
+- **Filter chip:** 8dp radius (M3 default), 32dp tall, 16dp padding; unselected is outlined, selected
+  is `soft-indigo-container` fill with its on-colour text (M3's `secondaryContainer`).
+  Used for wait presets. The
   speed pill on the band is the same component, selected while its popover is open.
 - **Speed presets** are one row of M3 segmented buttons (0.25× · 0.5× · 1× · 2× · 4×) under
-  a SPEED caption, the selected one filled, no check mark: five chips wrapped 3 + 2 and
-  read as two groups.
+  a SPEED caption, the selected one filled, no check mark (five chips used to wrap 3 + 2).
 
 ### Cards / Containers
 - **Corner:** 16dp. **Background:** `surface-container`. **Shadow:** none (see Elevation).
-  **Padding:** 12dp; list cards keep a map thumbnail on the left at 88dp with an 8dp radius.
+  **Padding:** 12dp; list cards keep a map thumbnail on the left at 88dp with a 12dp radius.
 - **Saved route card:** title (two lines max), then the meta line with the mode as a plain
   16dp glyph and word — "🚗 Drive · 1.5 mi · 5 min" — never an outlined tag, which read as
   a button; then the place and "Created …".
 
 ### Inputs / Fields
-- **Search field:** `surface-container-lowest` fill, 12dp radius, no visible border until
-  focused (then the indigo outline), trailing search icon or a 24dp progress spinner. No
+- **Search field:** `floating` fill, 12dp radius, no visible border until
+  focused (then the indigo outline; in dark the `floating-outline-dark` rim is always drawn),
+  a trailing search icon, a clear ✕ once text is typed, or a 20dp progress spinner. No
   visible label; TalkBack gets the field's name as a description, so it survives typing.
-  Results drop as a 16dp `surface-container-lowest` card that floats — it takes no layout
+  Results drop as a 16dp `floating` card that floats — it takes no layout
   room, so the 3D / locate buttons under the field never move; the dropdown draws over them — at popover elevation with 48dp-min
   rows and a scroll cap of 280dp; past four rows the list fades at the bottom. Each row:
   a 24dp `on-surface-variant` glyph by kind (pin = place, signpost = street, house =
   address, skyline = city/region, history = recent), the name with the typed text bold,
   a `bodySmall` "where" line, distance from the viewport right-aligned; one line each,
-  ellipsised. An empty focused field shows "Recent · Clear"; no-match and offline read
+  ellipsised. An empty focused field shows a "Recent" header with a *Clear history* small
+  pill; no-match and offline read
   as a quiet notice above the list, never a blank card. A pick, Close, or a tap on the
   map clears the field and its list — while the search is up, a map tap only dismisses
   it, never places a stop; recents open only for a focused, empty field — never on launch.
@@ -660,7 +719,7 @@ are undefined (nothing loaded).
 - No navigation bar. The Map is the root; **Saved routes** and **All settings** are rows
   at the bottom of the sheet's drag-up list and open as pushed screens with a centred,
   pinned top bar (tints to `surface-container` as content scrolls under it) and a back
-  arrow; Setup opens from Settings or the strip's Fix action, and on first run only when a
+  arrow; Setup opens from Settings or the band's *Set up* action, and on first run only when a
   required step is missing. System back always returns to the map.
 - **Every map gesture has a row twin** in the sheet (the TalkBack and precision path): a
   "Map" group with "Add a stop at the map centre" (pin-with-plus) and "Hold my location at
@@ -682,8 +741,9 @@ are undefined (nothing loaded).
   response, 20 Hz (`docs/research/thumbstick-rnd.md`).
 - **Stop discs:** 11dp radius, numbered, bold label; start in `map-stop-start`, vias in
   `map-stop-via`, destination in `map-stop-end` with the ring colour as its text, on a
-  baked soft shadow (3dp blur, 1.5dp down). Wait badge: a 5dp ground-toned clock at the
-  top-right of every waited stop — the icon says "waits", never the amount.
+  baked soft shadow (3dp blur, 1.5dp down). Wait badge: a 5dp disc in `map-wait-chip` with a
+  1.25dp ground-colour ring and a clock drawn in the chip's text ink, at the top-right of
+  every waited stop — the icon says "waits", never the amount.
   Selected: the disc itself lifts to `map-selection` and grows 2dp (no halo); the number
   flips to whichever ink contrasts. Tapping one opens the stop popover; **dragging one
   moves it** (the map does not pan; the route refetches on drop). The popover's wait row

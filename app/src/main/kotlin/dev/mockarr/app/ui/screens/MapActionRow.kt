@@ -62,9 +62,9 @@ data class StartChoice(
  * The signature row under the stat card (DESIGN.md → The Action Row): mode
  * picker · Start · add/edit route, three equal slots, Strava's Record layout
  * translated to Material. One filled control per surface: Start. With a
- * [choice] pending, the row swaps (fade-through, like Pause → Resume/Finish)
- * to two pills — *From held spot* · *From route start* — and swaps back once
- * one is picked.
+ * [choice] pending, the row swaps (fade-through, like Pause → End drive ·
+ * Resume) to a START FROM caption over two pills — *Held spot* or *My location*
+ * · *Start of route* — and swaps back once one is picked.
  */
 @Composable
 fun ActionRow(

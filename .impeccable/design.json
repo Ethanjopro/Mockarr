@@ -1,6 +1,6 @@
 {
   "schemaVersion": 2,
-  "generatedAt": "2026-08-28T12:00:00+00:00",
+  "generatedAt": "2026-09-30T00:14:07+00:00",
   "title": "Design System: Mockarr",
   "extensions": {
     "colorMeta": {
@@ -9,14 +9,119 @@
         "displayName": "Night Indigo",
         "canonical": "#3949AB",
         "tonalRamp": [
-          "#0A1B6B",
-          "#1F2C8A",
-          "#2A3A9F",
-          "#3949AB",
-          "#5C6BC0",
-          "#7A88E6",
-          "#9FA8FF",
-          "#DEE0FF"
+          "#131839",
+          "#222B65",
+          "#303E91",
+          "#3F50BD",
+          "#6977CD",
+          "#949EDB",
+          "#C0C6EA",
+          "#ECEEF9"
+        ]
+      },
+      "night-indigo-on": {
+        "role": "primary",
+        "displayName": "Night Indigo On",
+        "canonical": "#FFFFFF",
+        "tonalRamp": [
+          "#262626",
+          "#434343",
+          "#616161",
+          "#7E7E7E",
+          "#9B9B9B",
+          "#B8B8B8",
+          "#D5D5D5",
+          "#F2F2F2"
+        ]
+      },
+      "night-indigo-container": {
+        "role": "primary",
+        "displayName": "Night Indigo Container",
+        "canonical": "#DEE0FF",
+        "tonalRamp": [
+          "#00054C",
+          "#000887",
+          "#000CC1",
+          "#000FFB",
+          "#3743FF",
+          "#717AFF",
+          "#ABB0FF",
+          "#E6E7FF"
+        ]
+      },
+      "night-indigo-container-on": {
+        "role": "primary",
+        "displayName": "Night Indigo Container On",
+        "canonical": "#0A1B6B",
+        "tonalRamp": [
+          "#071246",
+          "#0C1F7B",
+          "#112DB1",
+          "#153AE6",
+          "#4865EE",
+          "#7D92F3",
+          "#B2BFF8",
+          "#E8EBFD"
+        ]
+      },
+      "night-indigo-dark": {
+        "role": "primary",
+        "displayName": "Night Indigo Dark",
+        "canonical": "#B9C3FF",
+        "tonalRamp": [
+          "#000B4C",
+          "#001387",
+          "#001CC1",
+          "#0024FB",
+          "#3753FF",
+          "#7185FF",
+          "#ABB7FF",
+          "#E6E9FF"
+        ]
+      },
+      "night-indigo-dark-on": {
+        "role": "primary",
+        "displayName": "Night Indigo Dark On",
+        "canonical": "#0A1B6B",
+        "tonalRamp": [
+          "#071246",
+          "#0C1F7B",
+          "#112DB1",
+          "#153AE6",
+          "#4865EE",
+          "#7D92F3",
+          "#B2BFF8",
+          "#E8EBFD"
+        ]
+      },
+      "night-indigo-dark-container": {
+        "role": "primary",
+        "displayName": "Night Indigo Dark Container",
+        "canonical": "#2A3A9F",
+        "tonalRamp": [
+          "#10163D",
+          "#1C276B",
+          "#283899",
+          "#3549C7",
+          "#6170D5",
+          "#8F9AE1",
+          "#BDC3ED",
+          "#EBEDFA"
+        ]
+      },
+      "night-indigo-dark-container-on": {
+        "role": "primary",
+        "displayName": "Night Indigo Dark Container On",
+        "canonical": "#DEE0FF",
+        "tonalRamp": [
+          "#00054C",
+          "#000887",
+          "#000CC1",
+          "#000FFB",
+          "#3743FF",
+          "#717AFF",
+          "#ABB0FF",
+          "#E6E7FF"
         ]
       },
       "signal-teal": {
@@ -24,14 +129,89 @@
         "displayName": "Signal Teal",
         "canonical": "#1E6B4E",
         "tonalRamp": [
-          "#002114",
-          "#0F4F38",
-          "#1E6B4E",
-          "#1E8A5A",
-          "#4FB98A",
-          "#6FD3A4",
-          "#8BD6B2",
-          "#A6F2CD"
+          "#113C2C",
+          "#1E694D",
+          "#2A976E",
+          "#37C48F",
+          "#63D3A9",
+          "#90E0C2",
+          "#BEEDDB",
+          "#EBF9F4"
+        ]
+      },
+      "signal-teal-container": {
+        "role": "secondary",
+        "displayName": "Signal Teal Container",
+        "canonical": "#A6F2CD",
+        "tonalRamp": [
+          "#0A4327",
+          "#117645",
+          "#19A862",
+          "#20DB80",
+          "#50E59D",
+          "#83EDB9",
+          "#B6F4D6",
+          "#E9FCF3"
+        ]
+      },
+      "signal-teal-container-on": {
+        "role": "secondary",
+        "displayName": "Signal Teal Container On",
+        "canonical": "#002114",
+        "tonalRamp": [
+          "#004C2E",
+          "#008752",
+          "#00C175",
+          "#00FB98",
+          "#37FFB0",
+          "#71FFC7",
+          "#ABFFDE",
+          "#E6FFF5"
+        ]
+      },
+      "signal-teal-dark": {
+        "role": "secondary",
+        "displayName": "Signal Teal Dark",
+        "canonical": "#8BD6B2",
+        "tonalRamp": [
+          "#143927",
+          "#236445",
+          "#328F62",
+          "#42BA80",
+          "#6BCB9D",
+          "#96DAB9",
+          "#C1E9D6",
+          "#ECF8F2"
+        ]
+      },
+      "signal-teal-dark-container": {
+        "role": "secondary",
+        "displayName": "Signal Teal Dark Container",
+        "canonical": "#0F4F38",
+        "tonalRamp": [
+          "#0C402E",
+          "#167150",
+          "#1FA273",
+          "#28D396",
+          "#57DFAE",
+          "#88E8C6",
+          "#B9F2DD",
+          "#EAFBF5"
+        ]
+      },
+      "signal-teal-dark-container-on": {
+        "role": "secondary",
+        "displayName": "Signal Teal Dark Container On",
+        "canonical": "#A6F2CD",
+        "tonalRamp": [
+          "#0A4327",
+          "#117645",
+          "#19A862",
+          "#20DB80",
+          "#50E59D",
+          "#83EDB9",
+          "#B6F4D6",
+          "#E9FCF3"
         ]
       },
       "amber-hold": {
@@ -39,14 +219,179 @@
         "displayName": "Amber Hold",
         "canonical": "#8A5A00",
         "tonalRamp": [
-          "#2B1A00",
-          "#442B00",
-          "#5F4100",
-          "#8A5A00",
-          "#B8741A",
-          "#E0901E",
-          "#FFBB58",
-          "#FFDEA8"
+          "#4C3200",
+          "#875800",
+          "#C17E00",
+          "#FBA400",
+          "#FFB937",
+          "#FFCE71",
+          "#FFE2AB",
+          "#FFF6E6"
+        ]
+      },
+      "amber-hold-container": {
+        "role": "tertiary",
+        "displayName": "Amber Hold Container",
+        "canonical": "#FFDEA8",
+        "tonalRamp": [
+          "#4C2F00",
+          "#875400",
+          "#C17800",
+          "#FB9C00",
+          "#FFB337",
+          "#FFC971",
+          "#FFDFAB",
+          "#FFF5E6"
+        ]
+      },
+      "amber-hold-container-on": {
+        "role": "tertiary",
+        "displayName": "Amber Hold Container On",
+        "canonical": "#2B1A00",
+        "tonalRamp": [
+          "#4C2E00",
+          "#875100",
+          "#C17500",
+          "#FB9800",
+          "#FFB037",
+          "#FFC771",
+          "#FFDEAB",
+          "#FFF5E6"
+        ]
+      },
+      "amber-hold-dark": {
+        "role": "tertiary",
+        "displayName": "Amber Hold Dark",
+        "canonical": "#FFBB58",
+        "tonalRamp": [
+          "#4C2D00",
+          "#875000",
+          "#C17200",
+          "#FB9500",
+          "#FFAD37",
+          "#FFC571",
+          "#FFDDAB",
+          "#FFF5E6"
+        ]
+      },
+      "amber-hold-dark-container": {
+        "role": "tertiary",
+        "displayName": "Amber Hold Dark Container",
+        "canonical": "#5F4100",
+        "tonalRamp": [
+          "#4C3400",
+          "#875C00",
+          "#C18400",
+          "#FBAC00",
+          "#FFC037",
+          "#FFD271",
+          "#FFE5AB",
+          "#FFF7E6"
+        ]
+      },
+      "amber-hold-dark-container-on": {
+        "role": "tertiary",
+        "displayName": "Amber Hold Dark Container On",
+        "canonical": "#FFDEA8",
+        "tonalRamp": [
+          "#4C2F00",
+          "#875400",
+          "#C17800",
+          "#FB9C00",
+          "#FFB337",
+          "#FFC971",
+          "#FFDFAB",
+          "#FFF5E6"
+        ]
+      },
+      "error": {
+        "role": "error",
+        "displayName": "Error",
+        "canonical": "#BA1A1A",
+        "tonalRamp": [
+          "#430909",
+          "#761111",
+          "#A91818",
+          "#DD1F1F",
+          "#E64F4F",
+          "#EE8282",
+          "#F5B5B5",
+          "#FCE9E9"
+        ]
+      },
+      "error-container": {
+        "role": "error",
+        "displayName": "Error Container",
+        "canonical": "#FFDAD6",
+        "tonalRamp": [
+          "#4C0700",
+          "#870D00",
+          "#C11300",
+          "#FB1900",
+          "#FF4A37",
+          "#FF7F71",
+          "#FFB3AB",
+          "#FFE8E6"
+        ]
+      },
+      "error-container-on": {
+        "role": "error",
+        "displayName": "Error Container On",
+        "canonical": "#410002",
+        "tonalRamp": [
+          "#4C0002",
+          "#870004",
+          "#C10006",
+          "#FB0008",
+          "#FF373D",
+          "#FF7175",
+          "#FFABAE",
+          "#FFE6E6"
+        ]
+      },
+      "error-dark": {
+        "role": "error",
+        "displayName": "Error Dark",
+        "canonical": "#FFB4AB",
+        "tonalRamp": [
+          "#4C0800",
+          "#870E00",
+          "#C11500",
+          "#FB1B00",
+          "#FF4C37",
+          "#FF8071",
+          "#FFB4AB",
+          "#FFE8E6"
+        ]
+      },
+      "error-dark-container": {
+        "role": "error",
+        "displayName": "Error Dark Container",
+        "canonical": "#93000A",
+        "tonalRamp": [
+          "#4C0005",
+          "#870009",
+          "#C1000D",
+          "#FB0011",
+          "#FF3744",
+          "#FF717B",
+          "#FFABB1",
+          "#FFE6E7"
+        ]
+      },
+      "error-dark-container-on": {
+        "role": "error",
+        "displayName": "Error Dark Container On",
+        "canonical": "#FFDAD6",
+        "tonalRamp": [
+          "#4C0700",
+          "#870D00",
+          "#C11300",
+          "#FB1900",
+          "#FF4A37",
+          "#FF7F71",
+          "#FFB3AB",
+          "#FFE8E6"
         ]
       },
       "paper": {
@@ -54,14 +399,149 @@
         "displayName": "Paper",
         "canonical": "#FAF8FF",
         "tonalRamp": [
-          "#1A1B21",
-          "#45464F",
-          "#767680",
-          "#C6C5D0",
-          "#E2E1E9",
-          "#EEEDF4",
-          "#F4F3FA",
-          "#FAF8FF"
+          "#16004C",
+          "#270087",
+          "#3700C1",
+          "#4800FB",
+          "#7037FF",
+          "#9A71FF",
+          "#C3ABFF",
+          "#EDE6FF"
+        ]
+      },
+      "paper-on": {
+        "role": "neutral",
+        "displayName": "Paper On",
+        "canonical": "#1A1B21",
+        "tonalRamp": [
+          "#22232B",
+          "#3B3E4B",
+          "#55586C",
+          "#6F738D",
+          "#8F92A7",
+          "#B0B2C0",
+          "#D0D2DA",
+          "#F1F1F4"
+        ]
+      },
+      "paper-on-variant": {
+        "role": "neutral",
+        "displayName": "Paper On Variant",
+        "canonical": "#45464F",
+        "tonalRamp": [
+          "#242429",
+          "#3F4048",
+          "#5A5B67",
+          "#757786",
+          "#9495A2",
+          "#B3B4BD",
+          "#D2D3D8",
+          "#F1F2F3"
+        ]
+      },
+      "surface-container-lowest": {
+        "role": "neutral",
+        "displayName": "Surface Container Lowest",
+        "canonical": "#FFFFFF",
+        "tonalRamp": [
+          "#262626",
+          "#434343",
+          "#616161",
+          "#7E7E7E",
+          "#9B9B9B",
+          "#B8B8B8",
+          "#D5D5D5",
+          "#F2F2F2"
+        ]
+      },
+      "surface-container-low": {
+        "role": "neutral",
+        "displayName": "Surface Container Low",
+        "canonical": "#F4F3FA",
+        "tonalRamp": [
+          "#1B1636",
+          "#30285F",
+          "#443988",
+          "#594AB1",
+          "#7D72C4",
+          "#A39BD5",
+          "#C9C4E6",
+          "#EFEDF8"
+        ]
+      },
+      "surface-container": {
+        "role": "neutral",
+        "displayName": "Surface Container",
+        "canonical": "#EEEDF4",
+        "tonalRamp": [
+          "#201D2F",
+          "#383354",
+          "#504978",
+          "#685F9C",
+          "#8A83B3",
+          "#ACA7C9",
+          "#CECBDF",
+          "#F0EFF5"
+        ]
+      },
+      "surface-container-high": {
+        "role": "neutral",
+        "displayName": "Surface Container High",
+        "canonical": "#E8E7EF",
+        "tonalRamp": [
+          "#211F2E",
+          "#393651",
+          "#524D74",
+          "#6B6597",
+          "#8C87AF",
+          "#ADAAC6",
+          "#CFCDDD",
+          "#F0F0F5"
+        ]
+      },
+      "surface-container-highest": {
+        "role": "neutral",
+        "displayName": "Surface Container Highest",
+        "canonical": "#E2E1E9",
+        "tonalRamp": [
+          "#22202C",
+          "#3C394E",
+          "#55526F",
+          "#6F6A91",
+          "#8F8BAA",
+          "#B0ADC3",
+          "#D0CFDC",
+          "#F1F0F4"
+        ]
+      },
+      "outline": {
+        "role": "neutral",
+        "displayName": "Outline",
+        "canonical": "#767680",
+        "tonalRamp": [
+          "#252528",
+          "#414146",
+          "#5D5D64",
+          "#797983",
+          "#97979F",
+          "#B5B5BB",
+          "#D3D3D7",
+          "#F2F2F3"
+        ]
+      },
+      "outline-variant": {
+        "role": "neutral",
+        "displayName": "Outline Variant",
+        "canonical": "#C6C5D0",
+        "tonalRamp": [
+          "#23222A",
+          "#3E3C4A",
+          "#58566B",
+          "#73718B",
+          "#9290A5",
+          "#B2B1BF",
+          "#D2D1D9",
+          "#F1F1F4"
         ]
       },
       "asphalt": {
@@ -69,14 +549,749 @@
         "displayName": "Asphalt",
         "canonical": "#121319",
         "tonalRamp": [
-          "#0D0E13",
-          "#121319",
-          "#1A1B21",
-          "#1E1F25",
-          "#292A30",
-          "#34343B",
-          "#45464F",
-          "#E3E1E9"
+          "#20222C",
+          "#383C4E",
+          "#515570",
+          "#696F92",
+          "#8B8FAB",
+          "#ACB0C4",
+          "#CED0DC",
+          "#F0F1F4"
+        ]
+      },
+      "asphalt-on": {
+        "role": "neutral",
+        "displayName": "Asphalt On",
+        "canonical": "#E3E1E9",
+        "tonalRamp": [
+          "#23202C",
+          "#3E394E",
+          "#59526F",
+          "#746A91",
+          "#938BAA",
+          "#B3ADC3",
+          "#D2CFDC",
+          "#F1F0F4"
+        ]
+      },
+      "asphalt-on-variant": {
+        "role": "neutral",
+        "displayName": "Asphalt On Variant",
+        "canonical": "#C6C5D0",
+        "tonalRamp": [
+          "#23222A",
+          "#3E3C4A",
+          "#58566B",
+          "#73718B",
+          "#9290A5",
+          "#B2B1BF",
+          "#D2D1D9",
+          "#F1F1F4"
+        ]
+      },
+      "asphalt-container-lowest": {
+        "role": "neutral",
+        "displayName": "Asphalt Container Lowest",
+        "canonical": "#0D0E13",
+        "tonalRamp": [
+          "#1F212D",
+          "#373B50",
+          "#4E5473",
+          "#666E95",
+          "#888EAE",
+          "#ABAFC5",
+          "#CDD0DD",
+          "#F0F1F5"
+        ]
+      },
+      "asphalt-container-low": {
+        "role": "neutral",
+        "displayName": "Asphalt Container Low",
+        "canonical": "#1A1B21",
+        "tonalRamp": [
+          "#22232B",
+          "#3B3E4B",
+          "#55586C",
+          "#6F738D",
+          "#8F92A7",
+          "#B0B2C0",
+          "#D0D2DA",
+          "#F1F1F4"
+        ]
+      },
+      "asphalt-container": {
+        "role": "neutral",
+        "displayName": "Asphalt Container",
+        "canonical": "#1E1F25",
+        "tonalRamp": [
+          "#22232A",
+          "#3C3E4A",
+          "#56596B",
+          "#71748B",
+          "#9093A5",
+          "#B1B3BF",
+          "#D1D2D9",
+          "#F1F1F4"
+        ]
+      },
+      "asphalt-container-high": {
+        "role": "neutral",
+        "displayName": "Asphalt Container High",
+        "canonical": "#292A30",
+        "tonalRamp": [
+          "#232429",
+          "#3E4049",
+          "#595B68",
+          "#747788",
+          "#9395A3",
+          "#B2B4BE",
+          "#D2D3D8",
+          "#F1F2F3"
+        ]
+      },
+      "asphalt-container-highest": {
+        "role": "neutral",
+        "displayName": "Asphalt Container Highest",
+        "canonical": "#34343B",
+        "tonalRamp": [
+          "#242429",
+          "#3F3F48",
+          "#5A5A67",
+          "#767686",
+          "#9595A1",
+          "#B3B3BC",
+          "#D2D2D8",
+          "#F1F1F3"
+        ]
+      },
+      "outline-dark": {
+        "role": "neutral",
+        "displayName": "Outline Dark",
+        "canonical": "#90909A",
+        "tonalRamp": [
+          "#242428",
+          "#404047",
+          "#5C5C65",
+          "#787884",
+          "#9696A0",
+          "#B5B5BB",
+          "#D3D3D7",
+          "#F2F2F3"
+        ]
+      },
+      "outline-variant-dark": {
+        "role": "neutral",
+        "displayName": "Outline Variant Dark",
+        "canonical": "#45464F",
+        "tonalRamp": [
+          "#242429",
+          "#3F4048",
+          "#5A5B67",
+          "#757786",
+          "#9495A2",
+          "#B3B4BD",
+          "#D2D3D8",
+          "#F1F2F3"
+        ]
+      },
+      "soft-indigo-container": {
+        "role": "neutral",
+        "displayName": "Soft Indigo Container",
+        "canonical": "#E0E1F9",
+        "tonalRamp": [
+          "#0C0E40",
+          "#161971",
+          "#1F25A2",
+          "#2930D3",
+          "#575DDF",
+          "#888CE8",
+          "#B9BBF1",
+          "#EAEAFB"
+        ]
+      },
+      "soft-indigo-container-on": {
+        "role": "neutral",
+        "displayName": "Soft Indigo Container On",
+        "canonical": "#181A2C",
+        "tonalRamp": [
+          "#1B1D32",
+          "#303457",
+          "#444A7D",
+          "#5960A3",
+          "#7D83B8",
+          "#A3A7CD",
+          "#C9CBE1",
+          "#EFEFF6"
+        ]
+      },
+      "soft-indigo-dark-container": {
+        "role": "neutral",
+        "displayName": "Soft Indigo Dark Container",
+        "canonical": "#434559",
+        "tonalRamp": [
+          "#21222C",
+          "#3A3C4D",
+          "#53556E",
+          "#6C6F8F",
+          "#8D8FA9",
+          "#AEB0C2",
+          "#CFD0DB",
+          "#F0F1F4"
+        ]
+      },
+      "soft-indigo-dark-container-on": {
+        "role": "neutral",
+        "displayName": "Soft Indigo Dark Container On",
+        "canonical": "#E0E1F9",
+        "tonalRamp": [
+          "#0C0E40",
+          "#161971",
+          "#1F25A2",
+          "#2930D3",
+          "#575DDF",
+          "#888CE8",
+          "#B9BBF1",
+          "#EAEAFB"
+        ]
+      },
+      "floating": {
+        "role": "neutral",
+        "displayName": "Floating",
+        "canonical": "#FFFFFF",
+        "tonalRamp": [
+          "#262626",
+          "#434343",
+          "#616161",
+          "#7E7E7E",
+          "#9B9B9B",
+          "#B8B8B8",
+          "#D5D5D5",
+          "#F2F2F2"
+        ]
+      },
+      "floating-dark": {
+        "role": "neutral",
+        "displayName": "Floating Dark",
+        "canonical": "#292A30",
+        "tonalRamp": [
+          "#232429",
+          "#3E4049",
+          "#595B68",
+          "#747788",
+          "#9395A3",
+          "#B2B4BE",
+          "#D2D3D8",
+          "#F1F2F3"
+        ]
+      },
+      "floating-outline-dark": {
+        "role": "neutral",
+        "displayName": "Floating Outline Dark",
+        "canonical": "#6E7079",
+        "tonalRamp": [
+          "#242528",
+          "#404147",
+          "#5C5E65",
+          "#787A84",
+          "#9698A0",
+          "#B5B6BB",
+          "#D3D4D7",
+          "#F2F2F3"
+        ]
+      },
+      "map-route": {
+        "role": "map",
+        "displayName": "Map Route",
+        "canonical": "#3949AB",
+        "tonalRamp": [
+          "#131839",
+          "#222B65",
+          "#303E91",
+          "#3F50BD",
+          "#6977CD",
+          "#949EDB",
+          "#C0C6EA",
+          "#ECEEF9"
+        ]
+      },
+      "map-route-casing": {
+        "role": "map",
+        "displayName": "Map Route Casing",
+        "canonical": "#FFFFFF",
+        "tonalRamp": [
+          "#262626",
+          "#434343",
+          "#616161",
+          "#7E7E7E",
+          "#9B9B9B",
+          "#B8B8B8",
+          "#D5D5D5",
+          "#F2F2F2"
+        ]
+      },
+      "map-route-travelled": {
+        "role": "map",
+        "displayName": "Map Route Travelled",
+        "canonical": "#A9AECC",
+        "tonalRamp": [
+          "#1C1F30",
+          "#323755",
+          "#484F79",
+          "#5E679E",
+          "#8189B4",
+          "#A6ABCA",
+          "#CACDE0",
+          "#EFF0F6"
+        ]
+      },
+      "map-route-fallback": {
+        "role": "map",
+        "displayName": "Map Route Fallback",
+        "canonical": "#B8741A",
+        "tonalRamp": [
+          "#432A09",
+          "#764A11",
+          "#A96B18",
+          "#DC8B1F",
+          "#E6A54F",
+          "#EDBF83",
+          "#F5D9B6",
+          "#FCF4E9"
+        ]
+      },
+      "map-off-road": {
+        "role": "map",
+        "displayName": "Map Off Road",
+        "canonical": "#3949AB",
+        "tonalRamp": [
+          "#131839",
+          "#222B65",
+          "#303E91",
+          "#3F50BD",
+          "#6977CD",
+          "#949EDB",
+          "#C0C6EA",
+          "#ECEEF9"
+        ]
+      },
+      "map-position": {
+        "role": "map",
+        "displayName": "Map Position",
+        "canonical": "#3949AB",
+        "tonalRamp": [
+          "#131839",
+          "#222B65",
+          "#303E91",
+          "#3F50BD",
+          "#6977CD",
+          "#949EDB",
+          "#C0C6EA",
+          "#ECEEF9"
+        ]
+      },
+      "map-position-ring": {
+        "role": "map",
+        "displayName": "Map Position Ring",
+        "canonical": "#FFFFFF",
+        "tonalRamp": [
+          "#262626",
+          "#434343",
+          "#616161",
+          "#7E7E7E",
+          "#9B9B9B",
+          "#B8B8B8",
+          "#D5D5D5",
+          "#F2F2F2"
+        ]
+      },
+      "map-hold-pin": {
+        "role": "map",
+        "displayName": "Map Hold Pin",
+        "canonical": "#E0901E",
+        "tonalRamp": [
+          "#432B09",
+          "#774C10",
+          "#AA6D17",
+          "#DE8F1E",
+          "#E7A84E",
+          "#EEC182",
+          "#F5DBB5",
+          "#FCF4E9"
+        ]
+      },
+      "map-hold-pin-ring": {
+        "role": "map",
+        "displayName": "Map Hold Pin Ring",
+        "canonical": "#8A5A00",
+        "tonalRamp": [
+          "#4C3200",
+          "#875800",
+          "#C17E00",
+          "#FBA400",
+          "#FFB937",
+          "#FFCE71",
+          "#FFE2AB",
+          "#FFF6E6"
+        ]
+      },
+      "map-stop-start": {
+        "role": "map",
+        "displayName": "Map Stop Start",
+        "canonical": "#1A7D52",
+        "tonalRamp": [
+          "#0D3F2A",
+          "#177049",
+          "#21A069",
+          "#2BD088",
+          "#59DDA3",
+          "#89E7BE",
+          "#BAF1D9",
+          "#EAFBF3"
+        ]
+      },
+      "map-stop-via": {
+        "role": "map",
+        "displayName": "Map Stop Via",
+        "canonical": "#3949AB",
+        "tonalRamp": [
+          "#131839",
+          "#222B65",
+          "#303E91",
+          "#3F50BD",
+          "#6977CD",
+          "#949EDB",
+          "#C0C6EA",
+          "#ECEEF9"
+        ]
+      },
+      "map-stop-end": {
+        "role": "map",
+        "displayName": "Map Stop End",
+        "canonical": "#1A1B21",
+        "tonalRamp": [
+          "#22232B",
+          "#3B3E4B",
+          "#55586C",
+          "#6F738D",
+          "#8F92A7",
+          "#B0B2C0",
+          "#D0D2DA",
+          "#F1F1F4"
+        ]
+      },
+      "map-wait-chip": {
+        "role": "map",
+        "displayName": "Map Wait Chip",
+        "canonical": "#1A1B21F2",
+        "tonalRamp": [
+          "#22232B",
+          "#3B3E4B",
+          "#55586C",
+          "#6F738D",
+          "#8F92A7",
+          "#B0B2C0",
+          "#D0D2DA",
+          "#F1F1F4"
+        ]
+      },
+      "map-wait-chip-active": {
+        "role": "map",
+        "displayName": "Map Wait Chip Active",
+        "canonical": "#F0A422",
+        "tonalRamp": [
+          "#482F05",
+          "#7E5309",
+          "#B5770C",
+          "#EB9A10",
+          "#F2B243",
+          "#F6C87A",
+          "#FADFB1",
+          "#FDF5E7"
+        ]
+      },
+      "map-selection": {
+        "role": "map",
+        "displayName": "Map Selection",
+        "canonical": "#5C6BC0",
+        "tonalRamp": [
+          "#151A37",
+          "#262F61",
+          "#36438B",
+          "#4657B5",
+          "#6E7CC7",
+          "#99A2D7",
+          "#C3C8E8",
+          "#EDEEF8"
+        ]
+      },
+      "map-attribution": {
+        "role": "map",
+        "displayName": "Map Attribution",
+        "canonical": "#45464F99",
+        "tonalRamp": [
+          "#242429",
+          "#3F4048",
+          "#5A5B67",
+          "#757786",
+          "#9495A2",
+          "#B3B4BD",
+          "#D2D3D8",
+          "#F1F2F3"
+        ]
+      },
+      "map-route-dark": {
+        "role": "map",
+        "displayName": "Map Route Dark",
+        "canonical": "#9FA8FF",
+        "tonalRamp": [
+          "#00074C",
+          "#000D87",
+          "#0012C1",
+          "#0018FB",
+          "#3749FF",
+          "#717EFF",
+          "#ABB3FF",
+          "#E6E8FF"
+        ]
+      },
+      "map-route-casing-dark": {
+        "role": "map",
+        "displayName": "Map Route Casing Dark",
+        "canonical": "#121319",
+        "tonalRamp": [
+          "#20222C",
+          "#383C4E",
+          "#515570",
+          "#696F92",
+          "#8B8FAB",
+          "#ACB0C4",
+          "#CED0DC",
+          "#F0F1F4"
+        ]
+      },
+      "map-route-travelled-dark": {
+        "role": "map",
+        "displayName": "Map Route Travelled Dark",
+        "canonical": "#4B5273",
+        "tonalRamp": [
+          "#1E212E",
+          "#353A52",
+          "#4C5375",
+          "#636C98",
+          "#868DB0",
+          "#A9AEC7",
+          "#CCCFDE",
+          "#F0F1F5"
+        ]
+      },
+      "map-route-glow-dark": {
+        "role": "map",
+        "displayName": "Map Route Glow Dark",
+        "canonical": "#9FA8FF66",
+        "tonalRamp": [
+          "#00074C",
+          "#000D87",
+          "#0012C1",
+          "#0018FB",
+          "#3749FF",
+          "#717EFF",
+          "#ABB3FF",
+          "#E6E8FF"
+        ]
+      },
+      "map-route-fallback-dark": {
+        "role": "map",
+        "displayName": "Map Route Fallback Dark",
+        "canonical": "#F0A422",
+        "tonalRamp": [
+          "#482F05",
+          "#7E5309",
+          "#B5770C",
+          "#EB9A10",
+          "#F2B243",
+          "#F6C87A",
+          "#FADFB1",
+          "#FDF5E7"
+        ]
+      },
+      "map-off-road-dark": {
+        "role": "map",
+        "displayName": "Map Off Road Dark",
+        "canonical": "#9FA8FF",
+        "tonalRamp": [
+          "#00074C",
+          "#000D87",
+          "#0012C1",
+          "#0018FB",
+          "#3749FF",
+          "#717EFF",
+          "#ABB3FF",
+          "#E6E8FF"
+        ]
+      },
+      "map-position-dark": {
+        "role": "map",
+        "displayName": "Map Position Dark",
+        "canonical": "#B9C3FF",
+        "tonalRamp": [
+          "#000B4C",
+          "#001387",
+          "#001CC1",
+          "#0024FB",
+          "#3753FF",
+          "#7185FF",
+          "#ABB7FF",
+          "#E6E9FF"
+        ]
+      },
+      "map-position-ring-dark": {
+        "role": "map",
+        "displayName": "Map Position Ring Dark",
+        "canonical": "#121319",
+        "tonalRamp": [
+          "#20222C",
+          "#383C4E",
+          "#515570",
+          "#696F92",
+          "#8B8FAB",
+          "#ACB0C4",
+          "#CED0DC",
+          "#F0F1F4"
+        ]
+      },
+      "map-hold-pin-dark": {
+        "role": "map",
+        "displayName": "Map Hold Pin Dark",
+        "canonical": "#FFBB58",
+        "tonalRamp": [
+          "#4C2D00",
+          "#875000",
+          "#C17200",
+          "#FB9500",
+          "#FFAD37",
+          "#FFC571",
+          "#FFDDAB",
+          "#FFF5E6"
+        ]
+      },
+      "map-hold-pin-ring-dark": {
+        "role": "map",
+        "displayName": "Map Hold Pin Ring Dark",
+        "canonical": "#121319",
+        "tonalRamp": [
+          "#20222C",
+          "#383C4E",
+          "#515570",
+          "#696F92",
+          "#8B8FAB",
+          "#ACB0C4",
+          "#CED0DC",
+          "#F0F1F4"
+        ]
+      },
+      "map-wait-chip-dark": {
+        "role": "map",
+        "displayName": "Map Wait Chip Dark",
+        "canonical": "#E3E1E9F2",
+        "tonalRamp": [
+          "#23202C",
+          "#3E394E",
+          "#59526F",
+          "#746A91",
+          "#938BAA",
+          "#B3ADC3",
+          "#D2CFDC",
+          "#F1F0F4"
+        ]
+      },
+      "map-wait-chip-active-dark": {
+        "role": "map",
+        "displayName": "Map Wait Chip Active Dark",
+        "canonical": "#FFBB58",
+        "tonalRamp": [
+          "#4C2D00",
+          "#875000",
+          "#C17200",
+          "#FB9500",
+          "#FFAD37",
+          "#FFC571",
+          "#FFDDAB",
+          "#FFF5E6"
+        ]
+      },
+      "map-attribution-dark": {
+        "role": "map",
+        "displayName": "Map Attribution Dark",
+        "canonical": "#C6C5D099",
+        "tonalRamp": [
+          "#23222A",
+          "#3E3C4A",
+          "#58566B",
+          "#73718B",
+          "#9290A5",
+          "#B2B1BF",
+          "#D2D1D9",
+          "#F1F1F4"
+        ]
+      },
+      "map-stop-start-dark": {
+        "role": "map",
+        "displayName": "Map Stop Start Dark",
+        "canonical": "#6FD3A4",
+        "tonalRamp": [
+          "#123B27",
+          "#206746",
+          "#2D9464",
+          "#3BC182",
+          "#66D09E",
+          "#92DEBA",
+          "#BFEBD6",
+          "#EBF9F3"
+        ]
+      },
+      "map-stop-via-dark": {
+        "role": "map",
+        "displayName": "Map Stop Via Dark",
+        "canonical": "#7A88E6",
+        "tonalRamp": [
+          "#0C1340",
+          "#152171",
+          "#1F30A3",
+          "#283ED4",
+          "#5668DF",
+          "#8794E9",
+          "#B8C0F2",
+          "#EAECFB"
+        ]
+      },
+      "map-stop-end-dark": {
+        "role": "map",
+        "displayName": "Map Stop End Dark",
+        "canonical": "#E3E1E9",
+        "tonalRamp": [
+          "#23202C",
+          "#3E394E",
+          "#59526F",
+          "#746A91",
+          "#938BAA",
+          "#B3ADC3",
+          "#D2CFDC",
+          "#F1F0F4"
+        ]
+      },
+      "map-selection-dark": {
+        "role": "map",
+        "displayName": "Map Selection Dark",
+        "canonical": "#DEE0FF",
+        "tonalRamp": [
+          "#00054C",
+          "#000887",
+          "#000CC1",
+          "#000FFB",
+          "#3743FF",
+          "#717AFF",
+          "#ABB0FF",
+          "#E6E7FF"
         ]
       }
     },
@@ -97,132 +1312,169 @@
     "shadows": [
       {
         "name": "card",
-        "value": "4dp ambient",
+        "value": "4dp elevation (Tokens.cardElevation)",
         "purpose": "The floating stat card."
       },
       {
+        "name": "floating",
+        "value": "6dp elevation (Tokens.floatingElevation)",
+        "purpose": "Map pills, the thumbstick base, the search field."
+      },
+      {
         "name": "sheet",
-        "value": "8dp ambient",
+        "value": "8dp elevation (Tokens.sheetElevation)",
         "purpose": "The bottom sheet."
+      },
+      {
+        "name": "popover",
+        "value": "8dp elevation (Tokens.popoverElevation)",
+        "purpose": "Popovers, the search dropdown and dialogs."
+      },
+      {
+        "name": "marker",
+        "value": "baked 3dp blur, 1.5dp down, #00000048 (MapPalette.markerShadow)",
+        "purpose": "Stop discs and the search pin on the map."
+      },
+      {
+        "name": "dark-rim",
+        "value": "1dp floating-outline-dark instead of a visible shadow",
+        "purpose": "In dark, anything over the map (and the sheet's top edge) is rimmed: a near-black shadow vanished on the dark map."
       }
     ],
     "motion": [
       {
         "name": "strip-tone",
-        "value": "animateColorAsState default (300ms, FastOutSlowIn)",
-        "purpose": "Status strip container/content crossfade between states."
+        "value": "colour 200ms tween; words fade through (out 90ms, in 200ms after)",
+        "purpose": "The band changes state as one surface: new words never sit on the old colour."
       },
       {
-        "name": "sheet-snap",
-        "value": "Material BottomSheetScaffold spring",
-        "purpose": "Peek ↔ expanded; Play collapses to peek."
+        "name": "fade-through",
+        "value": "out 90ms, in 300ms (delay 90ms) + scale 0.96→1",
+        "purpose": "The sheet peek swapping in place (Start → Pause → End drive · Resume)."
+      },
+      {
+        "name": "floating-enter-exit",
+        "value": "scale 0.8→1 + fade, 300ms in / 200ms out",
+        "purpose": "Card, thumbstick and builder tools popping from their centre."
+      },
+      {
+        "name": "top-chrome",
+        "value": "slide + fade, 300ms in / 200ms out",
+        "purpose": "Search bar and FABs leaving upward during playback."
       },
       {
         "name": "camera-follow",
-        "value": "easeCamera 900ms",
-        "purpose": "Follow-mode camera per fix; must honour the animator duration scale (planned)."
+        "value": "easeCamera 900ms; jumps after a >5s gap (back in the app)",
+        "purpose": "Follow mode per fix; honours the system animator scale."
       },
       {
-        "name": "pause-split",
-        "value": "fade-through 90/300ms + animateContentSize",
-        "purpose": "Pause pill splits into Resume + Finish."
+        "name": "puck-glide",
+        "value": "linear, the fix interval clamped 150–1500ms",
+        "purpose": "The dot and its wobble range glide between fixes."
       }
     ],
     "breakpoints": [
       {
         "name": "compact",
-        "value": "<600dp"
+        "value": "width < 600dp",
+        "purpose": "Phone portrait: search on top, card over the sheet."
       },
       {
-        "name": "expanded",
-        "value": ">=600dp (navigation rail; side panel planned)"
+        "name": "short-wide",
+        "value": "height < 480dp and width >= 600dp",
+        "purpose": "Landscape phones: the overlay becomes a start-side panel (min(420dp, half the width))."
+      },
+      {
+        "name": "wide",
+        "value": "width >= 600dp",
+        "purpose": "Tablets: sheet, card, search and tools centred and capped at 640dp. No navigation bar or rail on any width."
       }
     ]
   },
   "components": [
     {
-      "name": "Primary Button",
+      "name": "Filled Pill",
       "kind": "button",
       "refersTo": "button-primary",
-      "description": "The one filled action per surface (Play, Pause).",
-      "html": "<button class=\"ds-btn-primary\"><svg width=\"20\" height=\"20\" viewBox=\"0 0 24 24\" fill=\"currentColor\"><path d=\"M8 5v14l11-7z\"/></svg>Play</button>",
-      "css": ".ds-btn-primary{display:inline-flex;align-items:center;gap:8px;height:40px;padding:0 24px;border:0;border-radius:9999px;background:#3949AB;color:#fff;font:500 14px/1 Roboto,system-ui,sans-serif;letter-spacing:.1px;cursor:pointer;transition:background .2s}.ds-btn-primary:hover{background:#2A3A9F}.ds-btn-primary:focus-visible{outline:2px solid #3949AB;outline-offset:2px}"
+      "description": "The one verb that moves you forward on a surface: Pause, Resume, Start of route, Done, Save.",
+      "html": "<button class=\"ds-pill\"><svg viewBox=\"0 0 24 24\" width=\"24\" height=\"24\" aria-hidden=\"true\"><path d=\"M8 5v14l11-7z\" fill=\"currentColor\"/></svg>Start of route</button>",
+      "css": ".ds-pill { display:inline-flex; align-items:center; gap:8px; height:56px; padding:0 16px; border:none; border-radius:9999px; background:#3949AB; color:#FFFFFF; font:700 16px/1 Roboto, system-ui, sans-serif; cursor:pointer; transition:filter .2s; } .ds-pill:hover { filter:brightness(1.08); } .ds-pill:focus-visible { outline:3px solid #DEE0FF; outline-offset:2px; } .ds-pill:active { filter:brightness(.92); }"
     },
     {
-      "name": "Outlined Button",
+      "name": "Outlined Pill",
       "kind": "button",
       "refersTo": "button-outlined",
-      "description": "Secondary verb beside a primary (Stop).",
-      "html": "<button class=\"ds-btn-outlined\"><svg width=\"20\" height=\"20\" viewBox=\"0 0 24 24\" fill=\"currentColor\"><path d=\"M6 6h12v12H6z\"/></svg>Stop</button>",
-      "css": ".ds-btn-outlined{display:inline-flex;align-items:center;gap:8px;height:40px;padding:0 24px;border:1px solid #767680;border-radius:9999px;background:transparent;color:#3949AB;font:500 14px/1 Roboto,system-ui,sans-serif;cursor:pointer;transition:background .2s}.ds-btn-outlined:hover{background:rgba(57,73,171,.08)}.ds-btn-outlined:focus-visible{outline:2px solid #3949AB;outline-offset:2px}"
+      "description": "The alternative or the way out, always left of the filled pill: Cancel, End drive, My location.",
+      "html": "<button class=\"ds-pill-outline\">End drive</button>",
+      "css": ".ds-pill-outline { height:56px; padding:0 16px; border:1px solid #767680; border-radius:9999px; background:transparent; color:#3949AB; font:700 16px/1 Roboto, system-ui, sans-serif; cursor:pointer; transition:background .2s; } .ds-pill-outline:hover { background:#DEE0FF55; } .ds-pill-outline:focus-visible { outline:3px solid #DEE0FF; outline-offset:2px; }"
     },
     {
-      "name": "Filter Chip",
-      "kind": "chip",
-      "refersTo": "chip-filter",
-      "description": "Speed / wait presets; the 1× speed pill is the selected variant.",
-      "html": "<span class=\"ds-chip\">0.5×</span> <span class=\"ds-chip ds-chip--selected\">1×</span> <span class=\"ds-chip\">2×</span>",
-      "css": ".ds-chip{display:inline-flex;align-items:center;height:32px;padding:0 16px;border:1px solid #767680;border-radius:12px;color:#45464F;font:500 14px/1 Roboto,system-ui,sans-serif;cursor:pointer}.ds-chip--selected{background:#E2E1E9;border-color:transparent;color:#1A1B21}.ds-chip:hover{background:rgba(26,27,33,.06)}"
+      "name": "Small Pill",
+      "kind": "button",
+      "refersTo": "button-small",
+      "description": "The compact button for rows, lists, the band and snackbars; takes a tinted surface's own ink. No text-only buttons.",
+      "html": "<button class=\"ds-small-pill\">Clear history</button>",
+      "css": ".ds-small-pill { height:40px; padding:0 16px; border:1px solid #767680; border-radius:9999px; background:transparent; color:#3949AB; font:700 14px/1 Roboto, system-ui, sans-serif; cursor:pointer; transition:background .2s; } .ds-small-pill:hover { background:#DEE0FF55; } .ds-small-pill:focus-visible { outline:3px solid #DEE0FF; outline-offset:2px; }"
     },
     {
-      "name": "Status Strip",
+      "name": "Status Band",
       "kind": "custom",
-      "refersTo": "strip-accent",
-      "description": "Sheet top band carrying session state in colour and one line of copy.",
-      "html": "<div class=\"ds-strip ds-strip--accent\"><div class=\"ds-strip__handle\"></div><div class=\"ds-strip__row\"><span>Driving</span></div></div><div class=\"ds-strip ds-strip--hold\"><div class=\"ds-strip__handle\"></div><div class=\"ds-strip__row\"><span>Holding at 28th Avenue</span><button class=\"ds-strip__action\">Stop</button></div></div>",
-      "css": ".ds-strip{padding:0 20px;border-radius:28px 28px 0 0;font:500 14px/1.4 Roboto,system-ui,sans-serif;transition:background .3s,color .3s}.ds-strip__handle{width:32px;height:4px;margin:8px auto 0;border-radius:9999px;background:currentColor;opacity:.4}.ds-strip__row{display:flex;align-items:center;min-height:40px;gap:8px}.ds-strip__row span{flex:1}.ds-strip__action{border:0;background:transparent;color:inherit;font:500 14px Roboto,system-ui,sans-serif;padding:8px 12px;border-radius:9999px;cursor:pointer}.ds-strip--accent{background:#DEE0FF;color:#0A1B6B}.ds-strip--hold{background:#FFDEA8;color:#2B1A00}.ds-strip--ready{background:#A6F2CD;color:#002114}.ds-strip--error{background:#FFDAD6;color:#410002}.ds-strip--neutral{background:#E8E7EF;color:#45464F}"
-    },
-    {
-      "name": "Stat Trio",
-      "kind": "custom",
-      "refersTo": "sheet",
-      "description": "Three equal label-over-value cells with a thin progress track.",
-      "html": "<div class=\"ds-trio\"><div><small>Time left</small><b>2 min</b></div><div><small>Distance left</small><b>0.4 mi</b></div><div><small>Speed</small><b>14 mph</b></div></div><div class=\"ds-progress\"><i style=\"width:22%\"></i></div>",
-      "css": ".ds-trio{display:flex;padding:12px 20px 0;background:#F4F3FA;font-family:Roboto,system-ui,sans-serif}.ds-trio>div{flex:1;display:flex;flex-direction:column;gap:2px}.ds-trio small{font:500 11px/1.45 Roboto,system-ui,sans-serif;letter-spacing:.5px;text-transform:uppercase;color:#45464F}.ds-trio b{font:600 24px/1.33 Roboto,system-ui,sans-serif;font-variant-numeric:tabular-nums;color:#1A1B21}.ds-progress{height:4px;margin:12px 20px;border-radius:2px;background:#E2E1E9;overflow:hidden}.ds-progress i{display:block;height:100%;background:#3949AB}"
-    },
-    {
-      "name": "Search Field",
-      "kind": "input",
-      "refersTo": "search-field",
-      "description": "Floating place search over the map.",
-      "html": "<label class=\"ds-search\"><input placeholder=\"Search for a place\"><svg width=\"24\" height=\"24\" viewBox=\"0 0 24 24\" fill=\"currentColor\"><path d=\"M15.5 14h-.8l-.3-.3A6.5 6.5 0 1 0 9.5 16a6.5 6.5 0 0 0 4.2-1.6l.3.3v.8l5 5 1.5-1.5-5-5zm-6 0A4.5 4.5 0 1 1 14 9.5 4.5 4.5 0 0 1 9.5 14z\"/></svg></label>",
-      "css": ".ds-search{display:flex;align-items:center;height:56px;padding:0 16px;border-radius:12px;background:#fff;color:#45464F;border:1px solid transparent;font-family:Roboto,system-ui,sans-serif}.ds-search input{flex:1;border:0;outline:0;background:transparent;font:400 16px Roboto,system-ui,sans-serif;color:#1A1B21}.ds-search:focus-within{border-color:#3949AB}"
-    },
-    {
-      "name": "Stop Disc",
-      "kind": "custom",
-      "refersTo": "stop-disc",
-      "description": "Numbered marker in the stop list; mirrors the map markers.",
-      "html": "<span class=\"ds-disc ds-disc--start\">1</span> <span class=\"ds-disc\">2</span> <span class=\"ds-disc ds-disc--end\">3</span>",
-      "css": ".ds-disc{display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;border-radius:9999px;background:#3949AB;color:#fff;font:700 12px Roboto,system-ui,sans-serif}.ds-disc--start{background:#1E8A5A}.ds-disc--end{background:#1A1B21}"
+      "refersTo": "strip-hold",
+      "description": "The session's one line of state, tinted by tone; its action is a Small Pill in the band's own ink.",
+      "html": "<div class=\"ds-band\"><span>Holding at North Olive Street</span><button class=\"ds-band-pill\">Stop holding</button></div>",
+      "css": ".ds-band { display:flex; align-items:center; gap:8px; min-height:48px; padding:0 20px; background:#FFDEA8; color:#2B1A00; font:700 16px/1.3 Roboto, system-ui, sans-serif; border-radius:16px 16px 0 0; } .ds-band span { flex:1; } .ds-band-pill { height:40px; padding:0 16px; border:1px solid currentColor; border-radius:9999px; background:transparent; color:inherit; font:700 14px/1 Roboto, system-ui, sans-serif; cursor:pointer; } .ds-band-pill:focus-visible { outline:2px solid currentColor; outline-offset:2px; }"
     },
     {
       "name": "Stat Card",
       "kind": "card",
       "refersTo": "stat-card",
-      "description": "Strava's run box: coloured status strip over a bold value-over-label trio, floating above the sheet.",
-      "html": "<div class=\"ds-stat\"><div class=\"ds-stat__strip\">Ready to drive</div><div class=\"ds-stat__trio\"><div><b>2.4 mi</b><span>Distance</span></div><div><b>9 min</b><span>Duration</span></div><div><b>3</b><span>Stops</span></div></div></div>",
-      "css": ".ds-stat{width:340px;border-radius:16px;background:#fff;box-shadow:0 2px 8px rgba(0,0,0,.18);overflow:hidden;font-family:Roboto,system-ui,sans-serif}.ds-stat__strip{background:#A6F2CD;color:#002114;font:700 16px/48px Roboto;text-align:center}.ds-stat__trio{display:flex;padding:12px 20px}.ds-stat__trio>div{flex:1;display:flex;flex-direction:column;align-items:center}.ds-stat__trio b{font:700 28px/1.2 Roboto;font-variant-numeric:tabular-nums;color:#1A1B21}.ds-stat__trio span{font:500 12px Roboto;color:#45464F}"
+      "description": "Strava's run box: the status band over a value-over-label trio, floating above the sheet in every state.",
+      "html": "<div class=\"ds-stat-card\"><div class=\"ds-stat-band\">Ready to drive</div><div class=\"ds-trio\"><div><b>2.7 mi</b><span>Distance</span></div><div><b>12 min</b><span>Duration</span></div><div><b>3</b><span>Stops</span></div></div></div>",
+      "css": ".ds-stat-card { width:360px; border-radius:16px; overflow:hidden; background:#FFFFFF; box-shadow:0 2px 6px rgba(0,0,0,.18); font-family:Roboto, system-ui, sans-serif; } .ds-stat-band { min-height:48px; display:flex; align-items:center; justify-content:center; background:#A6F2CD; color:#002114; font-weight:700; font-size:16px; } .ds-trio { display:grid; grid-template-columns:repeat(3,1fr); padding:12px 20px; text-align:center; } .ds-trio b { display:block; font-size:28px; font-weight:700; color:#1A1B21; font-variant-numeric:tabular-nums; } .ds-trio span { font-size:12px; color:#45464F; }"
     },
     {
-      "name": "Pill Button",
-      "kind": "button",
-      "refersTo": "button-pill",
-      "description": "Full-width playback pill; Pause splits into Resume (primary) + Finish (inverse).",
-      "html": "<div style=\"display:flex;gap:8px;width:340px\"><button class=\"ds-pill\">▶ Resume</button><button class=\"ds-pill ds-pill--inverse\">⚑ Finish</button></div>",
-      "css": ".ds-pill{flex:1;height:56px;border:0;border-radius:9999px;background:#3949AB;color:#fff;font:700 16px Roboto,system-ui,sans-serif;cursor:pointer}.ds-pill--inverse{background:#1A1B21;color:#FAF8FF}"
+      "name": "Speed Presets",
+      "kind": "chip",
+      "refersTo": "speed-presets",
+      "description": "Five speeds in one row of segmented buttons under a SPEED caption; the selected one filled, no check mark.",
+      "html": "<div class=\"ds-seg\"><button>0.25×</button><button>0.5×</button><button aria-pressed=\"true\">1×</button><button>2×</button><button>4×</button></div>",
+      "css": ".ds-seg { display:inline-flex; border:1px solid #767680; border-radius:9999px; overflow:hidden; font:500 14px/1 Roboto, system-ui, sans-serif; } .ds-seg button { height:40px; min-width:60px; padding:0 4px; border:none; border-right:1px solid #767680; background:transparent; color:#1A1B21; cursor:pointer; } .ds-seg button:last-child { border-right:none; } .ds-seg button[aria-pressed=true] { background:#DEE0FF; color:#0A1B6B; } .ds-seg button:focus-visible { outline:2px solid #3949AB; outline-offset:-2px; }"
+    },
+    {
+      "name": "Map Pill",
+      "kind": "custom",
+      "refersTo": "map-pill",
+      "description": "A 48dp white circle with a soft shadow and an on-surface glyph; filled indigo when selected (Follow).",
+      "html": "<button class=\"ds-map-pill\" aria-label=\"Go to my location\"><svg viewBox=\"0 0 24 24\" width=\"24\" height=\"24\" aria-hidden=\"true\"><circle cx=\"12\" cy=\"12\" r=\"4\" fill=\"currentColor\"/><circle cx=\"12\" cy=\"12\" r=\"7\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\"/><path d=\"M12 1v4M12 19v4M1 12h4M19 12h4\" stroke=\"currentColor\" stroke-width=\"2\"/></svg></button>",
+      "css": ".ds-map-pill { width:48px; height:48px; border-radius:50%; border:none; display:grid; place-items:center; background:#FFFFFF; color:#1A1B21; box-shadow:0 3px 8px rgba(0,0,0,.2); cursor:pointer; } .ds-map-pill:hover { background:#F4F3FA; } .ds-map-pill:focus-visible { outline:3px solid #3949AB; outline-offset:2px; }"
+    },
+    {
+      "name": "Search Field",
+      "kind": "input",
+      "refersTo": "search-field",
+      "description": "Floating place search: white fill, 12dp corner, no border until focused; its dropdown floats over the controls below.",
+      "html": "<label class=\"ds-search\"><input placeholder=\"Search for a place\" aria-label=\"Search for a place\"><svg viewBox=\"0 0 24 24\" width=\"24\" height=\"24\" aria-hidden=\"true\"><circle cx=\"10\" cy=\"10\" r=\"6\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\"/><path d=\"M15 15l6 6\" stroke=\"currentColor\" stroke-width=\"2\"/></svg></label>",
+      "css": ".ds-search { display:flex; align-items:center; gap:8px; width:360px; height:56px; padding:0 16px; border-radius:12px; background:#FFFFFF; color:#45464F; box-shadow:0 3px 8px rgba(0,0,0,.18); border:2px solid transparent; } .ds-search input { flex:1; border:none; outline:none; background:transparent; font:400 16px/1.5 Roboto, system-ui, sans-serif; color:#1A1B21; } .ds-search:focus-within { border-color:#3949AB; }"
+    },
+    {
+      "name": "Stop Disc",
+      "kind": "custom",
+      "refersTo": "stop-disc",
+      "description": "Numbered stop in the list, mirroring the map markers: green start, indigo via, near-black destination.",
+      "html": "<span class=\"ds-disc ds-disc-start\">1</span><span class=\"ds-disc ds-disc-via\">2</span><span class=\"ds-disc ds-disc-end\">3</span>",
+      "css": ".ds-disc { display:inline-grid; place-items:center; width:28px; height:28px; margin-right:8px; border-radius:50%; font:700 12px/1 Roboto, system-ui, sans-serif; color:#fff; } .ds-disc-start { background:#1A7D52; } .ds-disc-via { background:#3949AB; } .ds-disc-end { background:#1A1B21; }"
     }
   ],
   "narrative": {
     "northStar": "The Quiet Dashboard",
-    "overview": "Mockarr looks like a car's instrument cluster at night: neutral surfaces, one indigo signal, big bold numerals, and state shown as a tinted band on a card that floats over the map. The map is the product; every piece of chrome either serves the drive in progress or recedes. Colour appears where it means something — the route, the position, the primary action, the state strip — and nowhere else; weight and lift (bold type, soft shadows, a 64dp Start) carry the energy instead.\n\nThe system is Material 3 in structure with a hand-authored indigo scheme on every API level; dynamic colour is off so the map palette never fights a wallpaper. Dark is designed as its own set, not an inversion. Strava's Record screen is the layout, matched exactly: a stat card with a coloured strip floating above a separate sheet whose peek is the action row; Pause is one full-width pill that splits into Resume + Finish; there is no navigation bar. Only the palette and the components are Material — never Strava orange, never iOS chrome.",
+    "overview": "Mockarr looks like a car's instrument cluster at night: neutral surfaces, one indigo\nsignal, big bold numerals, and state shown as a tinted band on a card that floats over\nthe map. The map is the product; every piece of chrome either serves the drive in progress\nor recedes. Colour appears where it means something — the route, the position, the primary\naction, the state strip — and nowhere else; weight and lift (bold type, soft shadows, a\n80dp Start) carry the energy instead.\n\nThe system is Material 3 in structure (sheet, chips, snackbars, pills) with a hand-authored\nindigo scheme on every API level; dynamic colour is off so the map palette never fights a\nwallpaper. Dark is designed as its own set, not an inversion: the evening-on-the-couch\nscene is the primary one. **Strava's Record screen is the layout, matched exactly** (brief\n3, 2026-08-28): a stat card with a coloured strip floating above a separate sheet whose\npeek is the action row; Pause is one full-width pill that splits into End drive + Resume. Only\nthe palette and the components are Material. Confirmed anti-references: the pre-2026-08\ncard stack, Strava orange, hero numerals, a bottom navigation bar, iOS wheel pickers and\nCancel/Done headers.",
     "keyCharacteristics": [
       "Restrained colour: neutral ground, indigo accent, semantic state tints kept separate.",
       "Card over sheet: the stat card (strip + trio) floats above the sheet and rides its edge.",
       "Value-over-label stat cells in equal-weight trios; bold tabular figures; no hero number.",
-      "Soft lift: the card and the sheet carry a low shadow; nothing else does.",
+      "Soft lift: the card, the sheet and every control floating over the map (white pills,",
       "One radius family: 12 / 16 / 28 dp and full pills.",
-      "No navigation bar; chrome recedes during playback (search, 3D, action row hide — the card stays)."
+      "No navigation bar; chrome recedes during playback (search, 3D toggle, action row hide —"
     ],
     "rules": [
       {
@@ -232,17 +1484,17 @@
       },
       {
         "name": "The State Is a Band Rule",
-        "body": "Session state is communicated by the strip's container colour and one line of copy — never by a new card, never by an icon alone. The band never shows raw coordinates: while a hold's name resolves the previous line stays.",
+        "body": "Session state (ready / driving / waiting / holding / paused / error) is communicated by the strip's container colour and one line of copy — never by a new card, never by an icon alone. At cold start the card is the neutral idle band (\"Tap the map to add stops · long-press to hold\"); only the builder with no route yet (0–1 stops, \"Building a route\") hides it. The band never shows raw coordinates: while a hold's place name resolves it reads \"Holding your location\"; if the lookup fails, \"Holding at dropped pin\".",
         "section": "colors"
       },
       {
         "name": "The Palette Travels Rule",
-        "body": "Map colours are never literals: they come from MapPalette, and anything that bakes a colour into a bitmap or cache includes the palette in its key so a theme switch re-renders.",
+        "body": "Map colours are never literals: they come from `MapPalette` (`ui/theme/MapPalette.kt`, its light and dark instances in `ui/theme/Theme.kt`), and anything that bakes a colour into a bitmap or cache includes the palette in its key so a theme switch re-renders.",
         "section": "colors"
       },
       {
         "name": "The Value Over Label Rule",
-        "body": "A number never appears alone: its label sits directly under it, centred, and the three cells of a trio share one baseline. A trio with nothing to count is not shown — never placeholders.",
+        "body": "A number never appears alone: its label sits directly under it (Strava's trio), centred, and the three cells of a trio share one baseline. A trio with nothing to count is not shown — never placeholders for undefined numbers.",
         "section": "typography"
       },
       {
@@ -252,28 +1504,28 @@
       },
       {
         "name": "The Soft Lift Rule",
-        "body": "Only the stat card (4dp) and the sheet (8dp) cast a shadow. Everything else floating over the map is distinguished by container tone and its 28/16/12dp corner.",
+        "body": "A shadow means \"this floats over the map\". The stat card, the sheet, map pills, popovers and markers cast one — always the low value in `Tokens` (`cardElevation` / `sheetElevation` / `floatingElevation` / `popoverElevation`). Inside the sheet, hierarchy comes from container tone and the 28/16/12dp corner, never a shadow. **In dark**, a near-black shadow on the near-black basemap disappears (1.05:1, audit session 41), so floating objects use `MockarrTheme.colors.floating` — lighter than the sheet (`#292A30`, M3's tonal lift) — rimmed by a 1dp `floatingOutline` (`#6E7079`, ≥3:1 on the dark map). The sheet wears the same rim on its top edge: the dark sheet met the map at 1.07:1 (audit, session 49). Light keeps white plus shadow and no rim.",
         "section": "elevation"
       }
     ],
     "dos": [
-      "Do read every colour from MaterialTheme.colorScheme or MockarrTheme.colors; map code takes a MapPalette.",
-      "Do put session state in the strip's tone and copy; put transient feedback in a snackbar.",
-      "Do present numbers as bold Headline-over-Label cells in equal trios with tabular figures.",
-      "Do measure the sheet's peek at runtime and fall back to 200dp until measured.",
-      "Do hide non-essential chrome (search, 3D, action row, thumbstick) during playback or when its state does not apply.",
-      "Do hide the trio rather than show placeholders when its numbers are undefined.",
-      "Do keep every touch target at 48dp and every list scrollable with IME padding."
+      "**Do** read every colour from `MaterialTheme.colorScheme` or `MockarrTheme.colors`; map code takes a `MapPalette`.",
+      "**Do** put session state in the strip's tone and copy; put transient feedback in a snackbar.",
+      "**Do** present numbers as Label-over-Headline cells in equal trios with tabular figures.",
+      "**Do** measure the sheet's peek at runtime and fall back to 200dp until measured.",
+      "**Do** hide non-essential chrome (search, 3D, action row, thumbstick) during playback or when its state does not apply — through the `Motion` transitions, never a hard cut.",
+      "**Do** hide the trio rather than show placeholders when its numbers are undefined.",
+      "**Do** keep every touch target at 48dp and every list scrollable with IME padding."
     ],
     "donts": [
-      "Don't add a second card above the sheet; there is one card and one sheet.",
-      "Don't enlarge one stat into a hero numeral.",
-      "Don't use Strava orange, or any second saturated accent beside indigo.",
-      "Don't put a shadow on anything but the card and the sheet.",
-      "Don't add a navigation bar or tabs; everything is reachable from the sheet.",
-      "Don't ever show raw coordinates in the strip or the notification.",
-      "Don't add iOS chrome — wheel pickers, Cancel/Done header pairs, Cupertino switches.",
-      "Don't hard-code a colour, radius or spacing literal in a screen; extend Tokens or the theme instead."
+      "**Don't** add a second card above the sheet; there is one card and one sheet (popovers are transient and anchored, not cards).",
+      "**Don't** enlarge one stat into a hero numeral.",
+      "**Don't** use Strava orange, or any second saturated accent beside indigo.",
+      "**Don't** put a shadow on anything inside the sheet; over the map, only the Soft Lift set.",
+      "**Don't** add a navigation bar or tabs; everything is reachable from the sheet.",
+      "**Don't** ever show raw coordinates in the strip or the notification.",
+      "**Don't** add iOS chrome — wheel pickers, Cancel/Done header pairs, Cupertino switches.",
+      "**Don't** hard-code a colour, radius or spacing literal in a screen; extend `Tokens` or the theme instead."
     ]
   }
 }

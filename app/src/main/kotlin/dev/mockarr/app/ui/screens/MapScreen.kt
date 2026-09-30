@@ -452,8 +452,8 @@ fun MapScreen(
         }
     }
 
-    // The strip never shows raw coordinates: while a hold's name resolves,
-    // stripFor returns null and the previous line stays on screen.
+    // stripFor returns null only while a drive winds down (End drive's slow-down): the
+    // previous line stays on screen until the hold takes over.
     val arrived = rememberArrived(session = session, outcome = { sessionViewModel.driveOutcome.value })
     val summary by sessionViewModel.arrivalSummary.collectAsStateWithLifecycle()
     val summaryFormatter = rememberFormatter()
@@ -599,8 +599,8 @@ fun MapScreen(
             sheetContainerColor = MaterialTheme.colorScheme.surfaceContainerLow,
             sheetShadowElevation = Tokens.sheetElevation,
             sheetDragHandle = null,
-            // Inert while driving: the peek is the whole sheet (Pause / Resume +
-            // Finish), so a swipe must not lift it into an empty band.
+            // Inert while driving: the peek is the whole sheet (Pause, or End drive ·
+            // Resume), so a swipe must not lift it into an empty band.
             sheetSwipeEnabled = !playing,
             containerColor = Color.Transparent,
             // Above the floating card, never on it: a confirmation must not garble the trio.
