@@ -2469,63 +2469,54 @@ Ethan's 17 decisions are in memory `loose-end-4-decisions`. Items 1, 14 and 17 n
 - **All five loose ends are done.** Optional next steps from the handoff: `/impeccable
   onboard setup`, and a fresh `/impeccable critique` to measure (last 26/40, 2026-09-24).
 
-### NEXT SESSION — loose ends (written 2026-09-24, before a chat reset)
-Work these in order, one commit per round. Verify each on `mockarr_test`, and CI must be
-green after every push.
+### 2026-09-29 — Session 52 (critique #4, 27/40, then Ethan: "critical fixes only", then the launch)
+- **`/impeccable critique` #4: 27/40** (trend 28 → 27 → 26 → 27). The snapshot is
+  `.impeccable/critique/2026-09-30T01-11-54Z__app-src-main-kotlin-dev-mockarr-app-ui.md`.
+  Ethan declined the design questions: fix the real bugs only, then push for the Play launch.
+- **Fixed, the 4 bugs in it** (verified on mockarr_test, debug and release/R8):
+  1. **An unsaved route was lost on Back at the map root, and on process death.** New
+     `RouteDraftStore` (core:data, the `SessionSnapshotStore` pattern: atomic file
+     `route_draft.json`) keeps stops, mode, route, `routedFor`, saved and fallback flags.
+     `MapViewModel` restores it once when the map starts empty with no live drive, then
+     writes it (500 ms debounce) or clears it when there are no stops. A route drawn for
+     other stops is dropped and refetched (`MapDraft.kt`, tests). A drive's end still clears
+     the route: the service clears the draft at engine end and on Stop mid-drive, so the
+     rule holds even with the map closed.
+  2. **Revoking the mock-app setting mid-session went unnoticed** (the band kept saying
+     Holding). `MockLocationController.push` now returns false when the platform refuses a
+     fix; the service's `push` helper then reports "isn't selected as the mock location app"
+     and calls `release()` (posted, so the caller's step finishes first). Hold and drive both
+     end with the error and the red Set up band. Platform limit, not ours: once revoked,
+     Android also refuses removing the test providers, so the device stays frozen at the
+     last mocked spot (no real-location leak) until Mockarr is re-selected and starts again.
+  3. **A saved route loaded while holding wasn't framed.** The sheet dropping brought the
+     thumbstick back; its new bounds re-ran the hold's keep-in-view effect, which re-centred
+     on the far-away pin. Split into two effects: re-centre only when the pin moves or the
+     map resizes; the thumbstick avoidance still re-runs on its bounds (checked: a resumed
+     pin under the thumbstick is eased out).
+  4. **The arrival band split "2.7 / mi".** Every number-unit string (distances, durations,
+     speeds, the wait and wobble values) now uses a non-breaking space.
+- Not a bug: Save after Undo does clear "Saved" (`scheduleRouteFetch`).
+- **Parked (design, not critical), from critique #4:** the band never says the location
+  is fake; glyph conflicts (flag and pin reused) and Clear route beside Save; navigation
+  buried at the bottom of the sheet; a filled destructive button in "Discard changes?" and
+  several filled pills in Setup; search relevance (a Réunion result). The search field's
+  TalkBack name still needs a check on a real phone.
 
-1. ✅ **Done in session 45.** **Finish the no-text-only-buttons round** (Ethan: every clickable action must look like
-   a button). `SmallPill` is already in `ui/theme/Pills.kt` (uncommitted, unused). Convert:
-   - the band action in `StatusStrip` (`MapStatCard.kt`), in the band's ink
-   - search Close and Clear history (`MapSearchComponents.kt`)
-   - the stop row's Set/Edit wait, Remove wait and Move stop (`MapScreen.kt` `StopRow`)
-   - snackbar actions: a custom `SnackbarHost { data -> ... }` in MapScreen and
-     SavedRoutesScreen
-   - the first-run hint's "Got it"
+### NEXT SESSION — the Play launch push (written 2026-09-29, before a chat reset)
+Ethan clears this chat after session 52; the next chat starts the launch. All 5 loose ends
+from 2026-09-24 are done (sessions 45–51) and the critique's bugs are fixed (session 52).
 
-   Then update DESIGN.md → Buttons (drop the "Text" role) and add the rule to CLAUDE.md.
-   Check light, dark and font 1.3.
-   - **Same round, bug:** the saved route "Klyde Warren Park … to Canton @ Farmers Market"
-     shows city "Sayreville" (NJ) for a Dallas route. The city comes from
-     `geocoder.reverse(route.points.last())` in `MapViewModel.suggestName`.
-2. ✅ **Done in session 47.** **`/impeccable optimize`.**
-   - Split `MapScreen()` (971 lines) and extract `playbackPhase`.
-   - `MarkerTracker` recomposes per frame, and `MapScreen` reads `playbackState` in its
-     body, which recomposes the whole screen.
-   - Code hygiene:
-     - 4 `.uppercase()` calls without a locale
-     - `isSystemInDarkTheme` in MapScreen / SavedRoutesScreen (move to the theme)
-     - `splitRouteName` splits at the last ", " (a user name with a comma breaks)
-     - search list keys
-3. ✅ **Done in session 49.** **`/impeccable audit`.** Last run August, 13/20. Include the dark sheet edge (1.07:1),
-   the saved-routes search field with no border, and a search-field TalkBack label (needs a
-   visual-label call).
-4. ✅ **Done in session 50.** **Design decisions for Ethan.** Ask them in one batch, then build; minimal copy only
-   (memory `minimal-ui-copy`). From the 2026-09-24 critique:
-   - **Status:**
-     - idle doesn't say what location other apps see
-     - Paused hides the wait countdown and doesn't say the location is still held
-     - the collapsed notification has no time left
-   - **Drive ending:** it drops into an amber hold with the thumbstick and no summary.
-   - **Wording:** "Fwy Eb" abbreviations in the band; Cycle / Cycling / ride.
-   - **Icon reuse:** the trash glyph has 3 meanings; the squiggle, crosshair and clock are
-     each reused.
-   - **Travel mode** is set in three places.
-   - **Layout:**
-     - the saved card's "Drive" badge looks tappable
-     - 3D/locate jump with the search dropdown's height
-     - the speed menu wraps 3 + 2
-     - the stop popover can open over the search bar
-     - the thumbstick covers the held pin
-   - **Large text:** "Start of route" shrinks to 12 sp beside 16 sp.
-   - **Setup** doesn't list the location permission.
-   - **4×** gives 60+ mph with no warning.
-   - **TalkBack:** no gesture-free stop placement except search; Move stop needs a drag.
-   - **Landscape:** the held pin can be off-edge after rotating; the attribution "i" jumps.
-   - The 80 km drive-in cut-off is unconfirmed.
-5. ✅ **Done in session 51.** **`/impeccable document`, then `/impeccable doctor`.** Refresh DESIGN.md and the stale
-   `.impeccable/design.json`, which still describes the inverse "Finish" pill. Optionally
-   `/impeccable onboard setup`, then a fresh `/impeccable critique` to measure (last 26/40).
+1. **Start from `docs/release/play-launch.md`** and memory `play-launch-tabled` (the state
+   when it was tabled on 2026-09-04: no upload keystore, no Play account, no public privacy
+   URL, no 512 icon, zero GitHub Actions secrets). Don't re-audit the repo.
+2. **The 14-day closed test is the long pole.** First moves: the mailbox, the privacy-policy
+   URL, the developer account (ID verification), then the 12 testers' opt-ins. Offer to run
+   the automatable pieces straight away: signed bundle, FGS video, GitHub secret, privacy
+   Pages repo.
+3. Check the store copy and the data-safety answers against ADR 0005: a session now mocks
+   Play services' fused location too.
+4. Design polish from critique #4 stays parked unless Ethan picks it up.
 
-The `mockarr_test` AVD was rebuilt again on 2026-09-24 (session 45b, after Quick Boot restored
-a stale snapshot): mock app selected, permissions granted, 2 Dallas routes saved. End every
-round with `scripts/emu.sh kill`.
+The `mockarr_test` AVD: mock app selected, permissions granted, 3 Dallas routes saved, the
+latest debug build installed. End every round with `scripts/emu.sh kill`.

@@ -6,6 +6,7 @@ import android.app.NotificationManager
 import android.app.PendingIntent
 import android.app.Service
 import android.content.ComponentName
+import android.content.Context
 import android.content.Intent
 import android.content.pm.ServiceInfo
 import android.os.IBinder
@@ -20,6 +21,7 @@ import dev.mockarr.app.ui.Formatter
 import dev.mockarr.app.ui.screens.endLabelRes
 import dev.mockarr.app.ui.screens.movingLabelRes
 import dev.mockarr.app.ui.tidyRoadName
+import dev.mockarr.core.data.RouteDraftStore
 import dev.mockarr.core.data.SessionSnapshotStore
 import dev.mockarr.core.data.SettingsRepository
 import dev.mockarr.core.mocklocation.MockLocationController
@@ -77,6 +79,9 @@ class MockSessionService : Service() {
     @Inject
     lateinit var snapshotStore: SessionSnapshotStore
 
+    @Inject
+    lateinit var routeDraftStore: RouteDraftStore
+
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     private var sessionJob: Job? = null
     private var holdJob: Job? = null
@@ -97,6 +102,9 @@ class MockSessionService : Service() {
 
     /** The pin held when playback began — the fallback if "stay at destination" is off. */
     private var rememberedPin: LatLng? = null
+
+    // Set once the platform refuses a fix: Mockarr stopped being the mock location app.
+    private var mockRevoked = false
 
     /** A parked receiver still wobbles: the hold keepalive reports a jittered copy of the spot. */
     private val holdJitter = Jitter(Random(SystemClock.elapsedRealtimeNanos()))
@@ -204,8 +212,9 @@ class MockSessionService : Service() {
     }
 
     private fun beginMocking(): Boolean {
-        val error = mockController.start().errorMessageOrNull()
+        val error = mockController.start().errorMessageOrNull(this)
         if (error != null) repository.reportError(error)
+        if (error == null) mockRevoked = false
         return error == null
     }
 
@@ -270,7 +279,7 @@ class MockSessionService : Service() {
                 }
             }
             engine.fixes.collect { fix ->
-                mockController.push(fix)
+                push(fix)
                 repository.updateFix(fix)
             }
             stateJob.cancel()
@@ -321,6 +330,7 @@ class MockSessionService : Service() {
             )
         }
         driveStartedAt = null
+        routeDraftStore.clear() // a drive's end clears its route, even with the map closed
         repository.engineEnded(summary)
         lastNotified = null
         val pin = rememberedPin
@@ -344,7 +354,7 @@ class MockSessionService : Service() {
             accuracyMeters = HOLD_ACCURACY_METERS,
             altitudeMeters = HOLD_ALTITUDE_METERS,
         )
-        mockController.push(fix) // synchronous first push — no gap in the handoff
+        push(fix) // synchronous first push — no gap in the handoff
         holdJob = scope.launch {
             // Upgrade later pushes to real terrain altitude; the constant stands on failure.
             launch {
@@ -360,7 +370,7 @@ class MockSessionService : Service() {
             launch {
                 repository.holdMoves.collect { target ->
                     fix = fix.copy(position = target, truePosition = target)
-                    mockController.push(fix)
+                    push(fix)
                     repository.holdMoved(target)
                 }
             }
@@ -378,11 +388,25 @@ class MockSessionService : Service() {
             }
             while (isActive) {
                 delay(HOLD_TICK_MILLIS)
-                mockController.push(wobbled(fix))
+                push(wobbled(fix))
             }
         }
         getSystemService(NotificationManager::class.java)
             .notify(NOTIFICATION_ID, buildNotification())
+    }
+
+    /**
+     * Every fix goes out through here. A refused one means the mock location app selection
+     * was revoked mid-session (Developer options, another app picked): nothing can be held
+     * any more, so say so and end the session — posted, so the caller's step finishes first.
+     */
+    private fun push(fix: SimulatedFix) {
+        if (mockController.push(fix) || mockRevoked) return
+        mockRevoked = true
+        scope.launch(Dispatchers.Main) {
+            repository.reportError(getString(R.string.error_mock_not_selected))
+            release()
+        }
     }
 
     /** The pushed copy only — the held position, the banner and the thumbstick target never move. */
@@ -408,6 +432,7 @@ class MockSessionService : Service() {
         holdJob?.cancel()
         holdJob = null
         rememberedPin = null
+        if (activeDrive != null) routeDraftStore.clear() // Stop mid-drive ends the drive too
         activeDrive = null
         lastNotified = null
         snapshotStore.clear() // ended on purpose: nothing to resume
@@ -532,13 +557,6 @@ class MockSessionService : Service() {
             .build()
     }
 
-    /** User-facing failure copy for a mock session start, or null on success. */
-    private fun MockStartResult.errorMessageOrNull(): String? = when (this) {
-        MockStartResult.Ok -> null
-        MockStartResult.NotSelectedAsMockApp -> getString(R.string.error_mock_not_selected)
-        is MockStartResult.ProviderError -> message
-    }
-
     private fun servicePendingIntent(action: String, requestCode: Int): PendingIntent =
         PendingIntent.getService(
             this,
@@ -572,4 +590,11 @@ class MockSessionService : Service() {
         // 6 h cap: long holds in deep doze may see deferred ticks after this — acceptable.
         private const val WAKE_LOCK_TIMEOUT_MILLIS = 6 * 60 * 60 * 1000L
     }
+}
+
+/** User-facing failure copy for a mock session start, or null on success. */
+private fun MockStartResult.errorMessageOrNull(context: Context): String? = when (this) {
+    MockStartResult.Ok -> null
+    MockStartResult.NotSelectedAsMockApp -> context.getString(R.string.error_mock_not_selected)
+    is MockStartResult.ProviderError -> message
 }

@@ -12,7 +12,11 @@ interface MockLocationController {
 
     fun start(): MockStartResult
 
-    fun push(fix: SimulatedFix)
+    /**
+     * Sends [fix] to every mock sink. False when the platform refused it because Mockarr is
+     * no longer the selected mock location app: the session can't hold anything any more.
+     */
+    fun push(fix: SimulatedFix): Boolean
 
     fun stop()
 }

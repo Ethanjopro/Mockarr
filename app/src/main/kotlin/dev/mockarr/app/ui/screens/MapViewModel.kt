@@ -14,6 +14,7 @@ import dev.mockarr.app.ui.RouteHandoff
 import dev.mockarr.app.ui.map.CameraCommand
 import dev.mockarr.app.ui.map.wobbleRadiusOf
 import dev.mockarr.app.ui.tidyRoadName
+import dev.mockarr.core.data.RouteDraftStore
 import dev.mockarr.core.data.SavedRoutesRepository
 import dev.mockarr.core.data.SettingsRepository
 import dev.mockarr.core.model.DistanceUnits
@@ -64,6 +65,7 @@ class MapViewModel @Inject constructor(
     private val settingsRepository: SettingsRepository,
     private val savedRoutesRepository: SavedRoutesRepository,
     private val routeHandoff: RouteHandoff,
+    private val routeDraftStore: RouteDraftStore,
     sessionRepository: MockSessionRepository,
     backend: BackendConfig,
 ) : ViewModel() {
@@ -207,6 +209,24 @@ class MapViewModel @Inject constructor(
                     loadRoute(RouteHandoff.LoadedRoute(drive.planned, drive.profile, drive.saved), frame = false)
                 }
             }
+        }
+        // A route being built outlives the app (Back at the map root, a process kill):
+        // put the draft back once, if nothing else has claimed the map, then keep it.
+        viewModelScope.launch {
+            val draft = routeDraftStore.read()
+            val empty = _uiState.value.let { it.waypoints.isEmpty() && it.route == null }
+            if (draft != null && empty && sessionRepository.liveDrive.value == null) {
+                profileTouched = true
+                val restored = _uiState.updateAndGet { it.withDraft(draft) }
+                val stale = restored.route == null || restored.routeIsFallback
+                if (restored.waypoints.size >= 2 && stale) scheduleRouteFetch()
+                restored.route?.let(::enrichWithElevations)
+            }
+            @OptIn(FlowPreview::class)
+            _uiState.map { it.toDraft() }
+                .distinctUntilChanged()
+                .debounce(DRAFT_SAVE_DEBOUNCE_MILLIS)
+                .collect { if (it == null) routeDraftStore.clear() else routeDraftStore.write(it) }
         }
         // The default profile loads from DataStore after construction — follow
         // it until the user picks a profile by hand.
@@ -621,6 +641,7 @@ class MapViewModel @Inject constructor(
     private companion object {
         const val DEBOUNCE_MILLIS = 500L
         const val CAMERA_SAVE_DEBOUNCE_MILLIS = 1_000L
+        const val DRAFT_SAVE_DEBOUNCE_MILLIS = 500L
         const val LOCATE_ZOOM = 15.0
         const val LOCATE_REFINE_METERS = 50.0
         const val NAME_TIMEOUT_MILLIS = 4_000L

@@ -72,6 +72,8 @@ a free non-OSS API is acceptable when it noticeably improves the app (ADR 0001 a
   (`MockarrApp.kt`); the floating stat card lives in `ui/screens/MapStatCard.kt`.
 - `core:data` — Room schema v6 (`SavedRouteEntity`; migrations 1→…→6 in `MockarrDatabase`, registered in
   `AppModule`), DataStore settings. A saved route's city is its own `place` column, never parsed from the name.
+  Two JSON files in `filesDir`: `SessionSnapshotStore` (resume a hold/drive) and `RouteDraftStore` (the map's
+  unsaved route survives Back and process death; a drive's end clears it).
 - `core:mocklocation` — mock providers + setup-status detection (Android, no Hilt).
 
 ## Lint tripwires (detekt flags AT threshold)

@@ -86,8 +86,8 @@
     <string name="stat_duration">Duration</string>
     <string name="stat_stops">Stops</string>
     <string name="stat_trio_edit_cd">Edit the route</string>
-    <string name="speed_kmh">%1$d km/h</string>
-    <string name="speed_mph">%1$d mph</string>
+    <string name="speed_kmh">%1$d\u00A0km/h</string>
+    <string name="speed_mph">%1$d\u00A0mph</string>
 
     <!-- Map: floating controls -->
     <string name="map_3d">3D</string>
@@ -111,7 +111,7 @@
     <!-- Map: dialogs -->
     <string name="dialog_wait_title">Wait at %1$s</string>
     <string name="dialog_wait_body">Playback will pause here before continuing.</string>
-    <string name="dialog_wait_minutes">%1$d min</string>
+    <string name="dialog_wait_minutes">%1$d\u00A0min</string>
     <string name="dialog_wait_custom">Custom minutes</string>
     <string name="dialog_set">Set wait</string>
     <string name="dialog_cancel">Cancel</string>
@@ -245,7 +245,7 @@
     <string name="settings_wobble_desc">Tiny random offsets so positions look like real GPS, not a perfect line</string>
     <string name="settings_wobble_amount">Wobble amount</string>
     <string name="settings_wobble_amount_desc">How far positions can wander from the true one — the circle around the dot on the map</string>
-    <string name="settings_wobble_value">%1$.1f m</string>
+    <string name="settings_wobble_value">%1$.1f\u00A0m</string>
     <string name="settings_wobble_cd">%1$.1f metres</string>
     <string name="settings_mode">Default travel mode</string>
     <string name="settings_mode_desc">Used for new routes</string>
@@ -306,16 +306,16 @@
     <string name="unit_mi">mi</string>
     <string name="unit_m">m</string>
     <string name="unit_ft">ft</string>
-    <string name="unit_seconds_short">%1$d s</string>
-    <string name="unit_minutes_short">%1$d min</string>
-    <string name="unit_hours_short">%1$d h</string>
-    <string name="unit_hours_minutes_short">%1$d h %2$d min</string>
-    <string name="distance_whole">%1$s %2$s</string>
-    <string name="distance_value">%1$.1f %2$s</string>
-    <string name="distance_progress">%1$.1f / %2$.1f %3$s</string>
+    <string name="unit_seconds_short">%1$d\u00A0s</string>
+    <string name="unit_minutes_short">%1$d\u00A0min</string>
+    <string name="unit_hours_short">%1$d\u00A0h</string>
+    <string name="unit_hours_minutes_short">%1$d\u00A0h\u00A0%2$d\u00A0min</string>
+    <string name="distance_whole">%1$s\u00A0%2$s</string>
+    <string name="distance_value">%1$.1f\u00A0%2$s</string>
+    <string name="distance_progress">%1$.1f / %2$.1f\u00A0%3$s</string>
     <!-- Under a tenth of a km / mi the copy switches to whole metres / feet (rounded to 10). -->
-    <string name="distance_small">%1$d %2$s</string>
-    <string name="distance_progress_small">%1$d / %2$d %3$s</string>
+    <string name="distance_small">%1$d\u00A0%2$s</string>
+    <string name="distance_progress_small">%1$d / %2$d\u00A0%3$s</string>
 
     <!-- Foreground service -->
     <string name="notification_channel">Mock location session</string>

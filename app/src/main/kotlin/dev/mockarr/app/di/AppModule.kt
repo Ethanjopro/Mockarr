@@ -14,6 +14,7 @@ import dagger.hilt.components.SingletonComponent
 import dev.mockarr.app.BuildConfig
 import dev.mockarr.core.data.MockarrDatabase
 import dev.mockarr.core.data.RecentSearchesStore
+import dev.mockarr.core.data.RouteDraftStore
 import dev.mockarr.core.data.SavedRoutesRepository
 import dev.mockarr.core.data.SessionSnapshotStore
 import dev.mockarr.core.data.SettingsRepository
@@ -71,6 +72,11 @@ object AppModule {
     @Singleton
     fun provideSessionSnapshotStore(@ApplicationContext context: Context): SessionSnapshotStore =
         SessionSnapshotStore(File(context.filesDir, SessionSnapshotStore.FILE_NAME))
+
+    @Provides
+    @Singleton
+    fun provideRouteDraftStore(@ApplicationContext context: Context): RouteDraftStore =
+        RouteDraftStore(File(context.filesDir, RouteDraftStore.FILE_NAME))
 
     @Provides
     @Singleton

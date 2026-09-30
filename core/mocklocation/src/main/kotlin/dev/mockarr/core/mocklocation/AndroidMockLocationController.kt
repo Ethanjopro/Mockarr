@@ -81,20 +81,23 @@ class AndroidMockLocationController(
         }
     }
 
-    override fun push(fix: SimulatedFix) {
+    override fun push(fix: SimulatedFix): Boolean {
         val time = System.currentTimeMillis()
         val elapsed = SystemClock.elapsedRealtimeNanos()
+        var refused = false
         for (provider in activeProviders) {
             try {
                 locationManager.setTestProviderLocation(provider, fix.toLocation(provider, time, elapsed))
             } catch (_: SecurityException) {
-                // Mock app selection revoked mid-session; stop() cleans up what it can.
+                // Mock app selection revoked mid-session: the caller ends the session.
+                refused = true
             } catch (_: IllegalArgumentException) {
                 // Provider vanished (OEM quirk); skip this tick for it.
             }
         }
         // The same fix, same instant, for Play services' fused engine.
-        playServices?.push(fix.toLocation(PLAY_SERVICES_PROVIDER, time, elapsed))
+        if (!refused) playServices?.push(fix.toLocation(PLAY_SERVICES_PROVIDER, time, elapsed))
+        return !refused
     }
 
     /**

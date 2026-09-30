@@ -410,10 +410,10 @@ internal fun MockarrMap(
 
     val currentStartObstruction by rememberUpdatedState(startObstructionPx)
     // Keep the hold pin in view: when it crosses into the outer margin of the viewport, ease
-    // the camera back onto it; when it sits under the thumbstick, ease it out to the left
-    // (Ethan, 2026-09-29). Re-checked when the map resizes: a rotation left it off-edge. A
-    // stationary pin otherwise never moves the camera.
-    LaunchedEffect(map, pinPosition, mapSize, pinAvoidWindowRect) {
+    // the camera back onto it. Re-checked when the map resizes: a rotation left it off-edge. Not
+    // keyed on the thumbstick: its bounds change as the sheet drops after a saved route is framed,
+    // and re-centring then threw the route's framing away (critique 2026-09-29).
+    LaunchedEffect(map, pinPosition, mapSize) {
         val libreMap = map ?: return@LaunchedEffect
         val pin = pinPosition ?: return@LaunchedEffect
         if (mapSize.width == 0 || mapSize.height == 0) return@LaunchedEffect
@@ -423,23 +423,27 @@ internal fun MockarrMap(
         // A side panel (short windows) covers the start edge: the pin must stay right of it.
         val outside = screen.x < currentStartObstruction + marginX || screen.x > libreMap.width - marginX ||
             screen.y < marginY || screen.y > libreMap.height - marginY
+        if (!outside) return@LaunchedEffect
+        libreMap.move(CameraUpdateFactory.newLatLng(pin.toMapLibre()), animateCamera, KEEP_IN_VIEW_EASE_MILLIS)
+    }
+    // When the pin sits under the thumbstick, ease it out to the left (Ethan, 2026-09-29).
+    LaunchedEffect(map, pinPosition, mapSize, pinAvoidWindowRect) {
+        val libreMap = map ?: return@LaunchedEffect
+        val pin = pinPosition ?: return@LaunchedEffect
+        if (mapSize.width == 0 || mapSize.height == 0) return@LaunchedEffect
+        val screen = libreMap.projection.toScreenLocation(pin.toMapLibre())
         // The control's window rect in the map view's own pixels, plus a finger of clearance.
         val origin = IntArray(2).also(mapView::getLocationInWindow)
         val avoid = pinAvoidWindowRect
             ?.translate(-origin[0].toFloat(), -origin[1].toFloat())
             ?.inflate(PIN_CLEARANCE_DP * density)
-        val target = when {
-            outside -> pin.toMapLibre()
-            avoid != null && avoid.contains(Offset(screen.x, screen.y)) -> {
-                // Move the camera right by how far the pin must go left of the control. Measured
-                // from where the camera's target is drawn, not the view's centre: a fit's padding
-                // sets the target off-centre, and the view centre dragged the map up as well.
-                val shift = screen.x - avoid.left
-                val anchor = libreMap.projection.toScreenLocation(libreMap.cameraPosition.target ?: pin.toMapLibre())
-                libreMap.projection.fromScreenLocation(PointF(anchor.x + shift, anchor.y))
-            }
-            else -> return@LaunchedEffect
-        }
+        if (avoid == null || !avoid.contains(Offset(screen.x, screen.y))) return@LaunchedEffect
+        // Move the camera right by how far the pin must go left of the control. Measured from
+        // where the camera's target is drawn, not the view's centre: a fit's padding sets the
+        // target off-centre, and the view centre dragged the map up as well.
+        val shift = screen.x - avoid.left
+        val anchor = libreMap.projection.toScreenLocation(libreMap.cameraPosition.target ?: pin.toMapLibre())
+        val target = libreMap.projection.fromScreenLocation(PointF(anchor.x + shift, anchor.y))
         libreMap.move(CameraUpdateFactory.newLatLng(target), animateCamera, KEEP_IN_VIEW_EASE_MILLIS)
     }
 
