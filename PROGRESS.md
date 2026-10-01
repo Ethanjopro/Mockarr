@@ -2588,3 +2588,40 @@ and the tester group, and it is the public contact (memory `three-streets-identi
    closed track (bump `versionName`, add `changelogs/<code>.txt`, `:app:bundleRelease`, and copy the AAB
    to the launch folder).
 
+### 2026-09-30 — Session 53b (a feature video for YouTube; the first upload becomes 1.0.1)
+Ethan: "can you make a longer video with all the features that I can upload to youtube?"
+- **`~/Desktop/Mockarr launch/mockarr-feature-video.mp4`**: 2:48, 1920×1080, 30 fps, H.264 with a
+  silent AAC track. Each feature has a caption on the left and the phone (9:16, rounded, bezel) on the
+  right, on Mockarr's Night Indigo background, with a title card and an end card. Nine emulator takes
+  (1080×1920, a demo-mode status bar, touch dots, `REC_BITRATE=12000000`), in this order:
+  1. Setup checklist.
+  2. Search: two stops by search, one tapped, the named stop list, Save.
+  3. A wait at a stop, then the travel-mode picker.
+  4. Start, then 4× speed.
+  5. Notification Pause and Resume, with the emulator's "Serial console" card painted out.
+  6. Google Maps following the drive in Dallas.
+  7. A real "Waiting at Klyde Warren Park" countdown, End drive, a long-press hold, the thumbstick.
+  8. Saved routes.
+  9. Settings.
+
+  Built with ffmpeg and PIL (scratch scripts). Also `youtube-thumbnail.png` (1280×720). The YouTube
+  title and chaptered description are copy fields in checklist step 5, and step 11 puts the link in the
+  listing's Video field.
+- **Fixed, seen while filming:** a tapped stop read "Reunion Boulevard;Reunion Boulevard". OSM keeps
+  several values in one tag separated by ";", and geocoders pass the raw tag through. The new
+  `String.firstOsmValue()` (core:routing `Geocoder.kt`) cleans name, street and city in both
+  `GeoapifyGeocoder` and `PhotonGeocoder`, with a test. Verified on the emulator, and in the release
+  build a tapped stop is named correctly.
+- **Fixed, tooling:**
+  - `emu.sh kill` now runs `sync` first. The kill right after last night's `install` left Mockarr
+    registered with no APK on the next boot ("Activity class does not exist"), so Ethan's AVD had a
+    broken app until it was reinstalled.
+  - `emu.sh record` takes `REC_BITRATE`.
+- **The first upload is now 1.0.1 (10001)**, so it carries the fix. 1.0.0 was tagged but never
+  uploaded. The new AAB (`mockarr-1.0.1.aab`) replaced the old one in the launch folder: signed, 16 KB
+  aligned, no `AD_ID`. A first `build` failed on a lint crash over a missing generated Hilt file (stale
+  intermediates); `:app:clean` then `build` was green.
+- **Ethan's progress** (checklist db): steps 1–4 ticked (Gmail, Play Console sign-up, the key
+  password, the trademark search). Still waiting on him to confirm the Gmail address before the
+  privacy site goes up.
+

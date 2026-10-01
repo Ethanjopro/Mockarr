@@ -69,7 +69,7 @@ class PhotonGeocoder(
             append(position.longitude)
         }
         return request {
-            val properties = api.search(url).features.firstOrNull()?.properties
+            val properties = api.search(url).features.firstOrNull()?.properties?.cleaned()
             PlaceInfo(
                 name = properties?.run { name ?: street },
                 city = properties?.city,
@@ -103,7 +103,7 @@ class PhotonGeocoder(
         fun toResultOrNull(): GeocodingResult? {
             val coordinates = geometry?.coordinates ?: return null
             if (coordinates.size < 2) return null
-            return properties.toResult(LatLng(coordinates[1], coordinates[0]))
+            return properties.cleaned().toResult(LatLng(coordinates[1], coordinates[0]))
         }
     }
 
@@ -118,6 +118,12 @@ class PhotonGeocoder(
         @SerialName("osm_key") val osmKey: String? = null,
         @SerialName("osm_value") val osmValue: String? = null,
     ) {
+        fun cleaned() = copy(
+            name = name?.firstOsmValue(),
+            street = street?.firstOsmValue(),
+            city = city?.firstOsmValue(),
+        )
+
         fun toResult(position: LatLng): GeocodingResult? {
             val streetLine = listOfNotNull(housenumber, street).takeIf { it.isNotEmpty() }?.joinToString(" ")
             val primary = name ?: streetLine ?: return null

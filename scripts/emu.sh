@@ -61,7 +61,8 @@ case "${1:-help}" in
   # Pair with: ffmpeg -i out.mp4 -vf fps=10,scale=270:-1,tile=8x3 sheet.png
   record)
     secs="${2:-4}"; out="${3:-rec.mp4}"
-    "$ADB" shell screenrecord --time-limit "$secs" --bit-rate 4000000 /sdcard/rec.mp4
+    # REC_BITRATE=12000000 for footage meant to be published (store/YouTube videos).
+    "$ADB" shell screenrecord --time-limit "$secs" --bit-rate "${REC_BITRATE:-4000000}" /sdcard/rec.mp4
     "$ADB" pull -q /sdcard/rec.mp4 "$out" && echo "saved $out (${secs}s)"
     ;;
   # Frame strip of a recording, numbered, for reading a transition frame by frame:
@@ -115,7 +116,9 @@ case "${1:-help}" in
       *) echo "no screen named $2 (Map|Routes|Settings)" >&2; exit 1 ;;
     esac
     ;;
-  kill)      "$ADB" emu kill ;;
+  # sync first: a kill right after `install` once left the package registered but its APK
+  # missing on the next boot ("Activity class does not exist", 2026-09-30).
+  kill)      "$ADB" shell sync >/dev/null 2>&1 || true; "$ADB" emu kill ;;
   # The emulator's REAL location (its virtual GNSS): what must never show while mocking.
   geo)       "$ADB" emu geo fix "$3" "$2" ;;                        # geo LAT LNG
   tap)       "$ADB" shell input tap "$2" "$3" ;;                    # tap X Y

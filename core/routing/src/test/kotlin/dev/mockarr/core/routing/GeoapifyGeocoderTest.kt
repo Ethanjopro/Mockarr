@@ -90,6 +90,24 @@ class GeoapifyGeocoderTest {
     }
 
     @Test
+    fun `reverse shows the first of several OSM values, not the raw tag`() = runTest {
+        server.enqueue(
+            MockResponse().setBody(
+                """
+                {"results":[
+                  {"street":"Reunion Boulevard;Reunion Boulevard","city":"Dallas","result_type":"street","lat":32.77,"lon":-96.81}
+                ]}
+                """.trimIndent(),
+            ),
+        )
+
+        val info = geocoder.reverse(LatLng(32.77, -96.81)).getOrThrow()
+
+        assertEquals("Reunion Boulevard", info.name)
+        assertEquals("Reunion Boulevard", info.street)
+    }
+
+    @Test
     fun `city asks for the city boundary, not the nearest address`() = runTest {
         server.enqueue(
             MockResponse().setBody(

@@ -51,11 +51,13 @@ class GeoapifyGeocoder(
         zoom: Double?,
         limit: Int,
     ): Result<List<GeocodingResult>> = request {
-        api.get(searchUrl(baseUrl, apiKey, query, bias, limit)).results.mapNotNull { it.toResultOrNull() }.dedupe()
+        api.get(searchUrl(baseUrl, apiKey, query, bias, limit)).results
+            .mapNotNull { it.cleaned().toResultOrNull() }
+            .dedupe()
     }
 
     override suspend fun reverse(position: LatLng): Result<PlaceInfo> = request {
-        val hit = api.get(reverseUrl(baseUrl, apiKey, position)).results.firstOrNull()
+        val hit = api.get(reverseUrl(baseUrl, apiKey, position)).results.firstOrNull()?.cleaned()
         PlaceInfo(
             name = hit?.run { name ?: street },
             city = hit?.city,
@@ -66,7 +68,9 @@ class GeoapifyGeocoder(
 
     /** `type=city`: the OSM city boundary the point is in, never a nearby address record. */
     override suspend fun city(position: LatLng): Result<String?> = request {
-        api.get(reverseUrl(baseUrl, apiKey, position, type = "city")).results.firstOrNull()?.run { city ?: name }
+        api.get(reverseUrl(baseUrl, apiKey, position, type = "city")).results.firstOrNull()
+            ?.cleaned()
+            ?.run { city ?: name }
     }
 
     @Suppress("SwallowedException")
@@ -98,6 +102,12 @@ class GeoapifyGeocoder(
         val lat: Double? = null,
         val lon: Double? = null,
     ) {
+        fun cleaned() = copy(
+            name = name?.firstOsmValue(),
+            street = street?.firstOsmValue(),
+            city = city?.firstOsmValue(),
+        )
+
         fun toResultOrNull(): GeocodingResult? {
             val position = LatLng(lat ?: return null, lon ?: return null)
             val streetLine = listOfNotNull(housenumber, street).takeIf { it.isNotEmpty() }?.joinToString(" ")

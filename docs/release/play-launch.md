@@ -9,8 +9,9 @@ Path: **personal developer account** (ADR 0002). The organization/LLC path is Ap
 
 **State (2026-09-29, session 53).** Publisher identity: **Three Streets Studios**. Ethan's new
 Google account `ThreeStreets@gmail.com` owns the Play Console, the YouTube channel and the tester
-group, and is the public contact. The repo side (§1) is done: the upload key, a signed 1.0.0 bundle,
-store images at Play's specs, an FGS video, and the in-app privacy link. Ethan's click-by-click steps,
+group, and is the public contact. The repo side (§1) is done: the upload key, a signed 1.0.1 bundle,
+store images at Play's specs, an FGS video, a 2:48 feature video (YouTube and the listing's Video
+field), and the in-app privacy link. Ethan's click-by-click steps,
 with copy buttons for every field, are in a private checklist page Claude publishes. The upload files
 are in `~/Desktop/Mockarr launch/` (not committed).
 
@@ -56,7 +57,7 @@ are in `~/Desktop/Mockarr launch/` (not committed).
   is recoverable (Play lets you register a new one with a support request) but slow.
 - [x] `scripts/gradle :app:bundleRelease` → `app/build/outputs/bundle/release/app-release.aab`.
       `scripts/gradle build` must stay green *without* `keystore.properties` too (CI builds keyless).
-      Checked for 1.0.0: `jarsigner -verify`, `zipalign -c -P 16`, every `.so` LOAD segment aligned to
+      Checked for 1.0.0 and 1.0.1: `jarsigner -verify`, `zipalign -c -P 16`, every `.so` LOAD segment aligned to
       16 KB, targetSdk 37, no `AD_ID` permission in the merged manifest.
 - [x] Verify the release build on the emulator (not just debug) — done 2026-09-03 with
       `scripts/gradle :app:assembleRelease` + `scripts/emu.sh installapk` (debug-signed on the fly):
@@ -71,7 +72,8 @@ are in `~/Desktop/Mockarr launch/` (not committed).
       Indigo + the driving screen) is in `images/featureGraphic.png`.
 - [x] 512×512 icon at `images/icon.png`, rendered from the adaptive icon's layers (the icon itself is
       still an undecided brand asset, PRODUCT.md).
-- [x] `versionName` 1.0.0 (versionCode 10000), `changelogs/10000.txt`; tag `v1.0.0`.
+- [x] First upload is `versionName` 1.0.1 (versionCode 10001), `changelogs/10001.txt`, tag `v1.0.1`. 1.0.0
+      was tagged but never uploaded; 1.0.1 adds the stop-name fix.
 
 ## 2. Privacy policy hosting
 Play needs a public URL, and the User Data policy also wants the policy reachable **inside the app**:

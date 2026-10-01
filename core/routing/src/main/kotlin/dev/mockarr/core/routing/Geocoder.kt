@@ -91,3 +91,10 @@ private fun GeocodingResult.sameSecondary(other: GeocodingResult): Boolean =
 
 private fun GeocodingResult.near(other: GeocodingResult): Boolean =
     GeoMath.distanceMeters(position, other.position) < DUPLICATE_METERS
+
+/**
+ * OSM keeps several values in one tag, separated by ";" ("Reunion Boulevard;Reunion Boulevard"),
+ * and geocoders pass the raw tag through. A label shows the first non-blank value.
+ */
+internal fun String.firstOsmValue(): String =
+    split(';').map(String::trim).firstOrNull(String::isNotEmpty) ?: trim()
