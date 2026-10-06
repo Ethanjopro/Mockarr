@@ -8,7 +8,7 @@ and trade-offs live in `docs/private/play-store-recommendations.md` (git-ignored
 Path: **personal developer account** (ADR 0002). The organization/LLC path is Appendix A.
 
 **State (2026-09-29, session 53).** Publisher identity: **Three Streets Studios**. Ethan's new
-Google account `ThreeStreets@gmail.com` owns the Play Console, the YouTube channel and the tester
+Google account `threestreetstudios@gmail.com` owns the Play Console, the YouTube channel and the tester
 group, and is the public contact. The repo side (§1) is done: the upload key, a signed 1.0.1 bundle,
 store images at Play's specs, an FGS video, a 2:48 feature video (YouTube and the listing's Video
 field), and the in-app privacy link. Ethan's click-by-click steps,
@@ -18,7 +18,7 @@ are in `~/Desktop/Mockarr launch/` (not committed).
 ## 0. Before touching the Console
 - [ ] You are 18+, and you have a Google account you are comfortable owning this app forever (it
       cannot be moved between accounts without a transfer request; use a dedicated one if in doubt).
-- [x] Dedicated contact mailbox: `ThreeStreets@gmail.com`, which is also the Play account owner. It
+- [x] Dedicated contact mailbox: `threestreetstudios@gmail.com`, which is also the Play account owner. It
       is shown publicly on the listing and receives policy emails with deadlines.
 - [x] Trademark sanity check: Play, web and GitHub are clear for "Mockarr" and "Three Streets
       Studios" (2026-09-29). USPTO's search is browser-only, so Ethan runs it himself (optional).
@@ -79,7 +79,7 @@ are in `~/Desktop/Mockarr launch/` (not committed).
 Play needs a public URL, and the User Data policy also wants the policy reachable **inside the app**:
 Settings › About › "Privacy policy" (`R.string.privacy_policy_url`). The main repo is public but
 source-available (ADR 0004); the policy lives in its own place so it can change without a code release:
-- [ ] The studio site, public repo `Ethanjopro/threestreets` with GitHub Pages (plain HTML, no Jekyll):
+- [x] The studio site, public repo `Ethanjopro/threestreets` with GitHub Pages (plain HTML, no Jekyll):
       `/` is the Three Streets Studios page, and `/mockarr/privacy/` is generated from
       `privacy-policy.md` by `scripts/privacy-site.py` → **https://ethanjopro.github.io/threestreets/mockarr/privacy/**. A custom
       domain can be added later without changing the repo (update the Play fields and the app string).
@@ -87,7 +87,7 @@ source-available (ADR 0004); the policy lives in its own place so it can change 
       the page identical; the app's About credits must list the same providers.
 
 ## 3. Developer account ($25 once)
-- [ ] play.google.com/console → Create account → **Personal**. Legal name as on your ID, address,
+- [x] play.google.com/console → Create account → **Personal**. Legal name as on your ID, address,
       phone (verified by SMS), the contact email from §0.
 - [ ] Identity verification: government ID upload; usually hours, can be days. The account is
       read-only until it passes.
@@ -99,8 +99,10 @@ source-available (ADR 0004); the policy lives in its own place so it can change 
       the closed-test requirement (§6) before production access is granted.
 
 ## 4. Create the app
-- [ ] All apps → Create app: name **Mockarr**, default language en-US, **App** (not game),
-      **Free** (irreversible — fine, Pro is an in-app unlock later), accept the declarations.
+- [ ] All apps → Create app: name **Mockarr**, package name **`dev.mockarr.app`** (the Console asks
+      for it on this form; it is permanent and must equal `applicationId`), default language en-US,
+      **App** (not game), **Free** (irreversible — fine, Pro is an in-app unlock later), accept the
+      declarations.
 - [ ] Set up your app (the dashboard checklist) — every item below is one of its rows.
 
 ## 5. App content declarations (Policy → App content)

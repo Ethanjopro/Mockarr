@@ -1,6 +1,6 @@
 # Mockarr — Privacy Policy
 
-*Effective: 29 September 2026 · Contact: ThreeStreets@gmail.com*
+*Effective: 29 September 2026 · Contact: threestreetstudios@gmail.com*
 
 This is the source text for the policy page Google Play links to, published at
 https://ethanjopro.github.io/threestreets/mockarr/privacy/ from the `Ethanjopro/threestreets`
@@ -67,7 +67,7 @@ When a provider changes or the app starts doing something new with data, this pa
 and the app's "About" screen credits change with it.
 
 ## Contact
-Questions about this policy: ThreeStreets@gmail.com
+Questions about this policy: threestreetstudios@gmail.com
 
 ## Current providers
 - Routing and place search: Geoapify (https://www.geoapify.com/) — with the public OSRM demo server

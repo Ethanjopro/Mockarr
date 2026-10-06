@@ -2578,7 +2578,7 @@ and the tester group, and it is the public contact (memory `three-streets-identi
   `Ethanjopro/threestreets` with Pages (approved in the plan), pushes the site, and curls the URL.
 
 ### NEXT SESSION — continue the launch
-1. If the `threestreets` Pages site isn't live yet: get the final Gmail from Ethan (fix
+1. (Done in session 54.) If the `threestreets` Pages site isn't live yet: get the final Gmail from Ethan (fix
    `privacy-policy.md`, the artifact and the memory if it isn't ThreeStreets@), run
    `scripts/privacy-site.py`, create the repo and enable Pages
    (`gh api repos/Ethanjopro/threestreets/pages -X POST -f build_type=legacy -f 'source[branch]=main' -f 'source[path]=/'`),
@@ -2625,3 +2625,17 @@ Ethan: "can you make a longer video with all the features that I can upload to y
   password, the trademark search). Still waiting on him to confirm the Gmail address before the
   privacy site goes up.
 
+### 2026-10-06 — Session 54 (the app exists in Play Console; the privacy site is live)
+Ethan created Mockarr in Play Console and asked for the package name (`dev.mockarr.app`, the
+`applicationId`), then "what should I be doing next?".
+- **The Gmail is `threestreetstudios@gmail.com`** (he typed it himself; not the planned ThreeStreets@).
+  `privacy-policy.md` and `play-launch.md` now use it. The app has no copy of the address, so the
+  1.0.1 AAB is unchanged.
+- **Privacy site live:** `scripts/privacy-site.py` built it, Claude created the public repo
+  `Ethanjopro/threestreets` and turned on Pages. https://ethanjopro.github.io/threestreets/mockarr/privacy/
+  and the studio page both return 200, and the page shows the new address.
+- **Checklist artifact:** the address replaced in all nine places, the privacy fact no longer says
+  "live once you send the Gmail", and step 8 lists the package name with a Copy button (the Console
+  now asks for it on the Create app form). `play-launch.md` §4 says the same.
+- **Ethan's progress:** steps 1–4 ticked; he is on step 8. Steps 5–7 (YouTube, tester group,
+  recruiting) aren't done. Step 9 needs step 5's unlisted FGS video link, and recruiting is the long pole.
