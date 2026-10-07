@@ -2639,3 +2639,12 @@ Ethan created Mockarr in Play Console and asked for the package name (`dev.mocka
   now asks for it on the Create app form). `play-launch.md` §4 says the same.
 - **Ethan's progress:** steps 1–4 ticked; he is on step 8. Steps 5–7 (YouTube, tester group,
   recruiting) aren't done. Step 9 needs step 5's unlisted FGS video link, and recruiting is the long pole.
+- **Ethan dropped YouTube and the Google Group** ("I am just going to get my friends to test it"):
+  - The closed testers are friends on a Play Console email list. Claude asked where the FGS demo video
+    should live, since Play still needs a link to one; Ethan chose his Google Drive ("Anyone with the link").
+  - The listing has no video. `mockarr-feature-video.mp4` and the thumbnail go unused.
+  - `play-launch.md` (state, §7, Appendix B) and `fgs-declaration.md` are updated. The latter also gets
+    the "user impact if deferred or interrupted" answer, which Play's FGS form asks for and the checklist
+    lacked, and the video's real file name.
+  - The checklist is now 15 steps. Step 5 "Ask 12+ friends to test" sits in a new "Start now" phase, with a
+    message asking for their Gmail and a second one carrying the opt-in link. Step 12 builds the email list.

@@ -17,14 +17,23 @@ description and a demo video per type.
 > playback ends or the user stops it. The service is never started without a user action, and
 > it does not read or upload the device's real location.
 
+**User impact if the system defers or interrupts it (paste as is):**
+
+> If the service were deferred or interrupted, the mocked location would stop updating mid-drive:
+> other apps would see the position freeze or revert to the device's real location, which breaks
+> the test the user is running. A drive has to publish a fix about once a second while the user is
+> in another app or the screen is off, so the work can't be deferred.
+
 **Why this type is required:** Android 14+ mandates a type for every foreground service and
 `location` is the only type whose permitted use ("continued location access while the app is not
 in the foreground") matches publishing location fixes. Alternatives considered: `dataSync` (not
 location work), `specialUse` (Play asks for a justification and it is worse-fitting).
 
-## Video (unlisted YouTube link, 20–40 s, phone portrait)
-Recorded 2026-09-29 from the release build on the emulator: `~/Desktop/Mockarr launch/fgs-demo.mp4`
-(not committed). To re-record:
+## Video (a Google Drive link, 20–40 s, phone portrait)
+Play needs a link to a video per type; it doesn't have to be YouTube. Recorded 2026-09-29 from the
+release build on the emulator: `~/Desktop/Mockarr launch/fgs-demo-video.mp4` (not committed). Ethan
+puts it in the Three Streets account's Google Drive, shared as "Anyone with the link" (his choice,
+2026-10-06: no YouTube). To re-record:
 
 ```sh
 scripts/emu.sh boot && scripts/emu.sh launch && scripts/emu.sh settle
@@ -38,7 +47,7 @@ Steps to show, in order (narration not needed; captions optional):
    returning) to show the position moving.
 5. Return to the shade → **Stop** → the notification disappears.
 
-Upload as unlisted, paste the link in the declaration. Keep the file in `docs/release/` locally
+Upload it to Drive, share it by link, and paste the link in the declaration. Keep the file in `docs/release/` locally
 only if it is small; do not commit videos.
 
 ## Also declared on the same page

@@ -8,10 +8,11 @@ and trade-offs live in `docs/private/play-store-recommendations.md` (git-ignored
 Path: **personal developer account** (ADR 0002). The organization/LLC path is Appendix A.
 
 **State (2026-09-29, session 53).** Publisher identity: **Three Streets Studios**. Ethan's new
-Google account `threestreetstudios@gmail.com` owns the Play Console, the YouTube channel and the tester
-group, and is the public contact. The repo side (§1) is done: the upload key, a signed 1.0.1 bundle,
-store images at Play's specs, an FGS video, a 2:48 feature video (YouTube and the listing's Video
-field), and the in-app privacy link. Ethan's click-by-click steps,
+Google account `threestreetstudios@gmail.com` owns the Play Console and is the public contact. The
+repo side (§1) is done: the upload key, a signed 1.0.1 bundle, store images at Play's specs, an FGS
+demo video, and the in-app privacy link. On 2026-10-06 Ethan dropped YouTube and the Google Group:
+the FGS video is a Google Drive link, the listing has no video, and the closed testers are his
+friends on a Play Console email list. Ethan's click-by-click steps,
 with copy buttons for every field, are in a private checklist page Claude publishes. The upload files
 are in `~/Desktop/Mockarr launch/` (not committed).
 
@@ -142,13 +143,12 @@ source-available (ADR 0004); the policy lives in its own place so it can change 
 - [ ] Install from the internal-test link on a real phone: mock selection, notification actions,
       background playback, screen-off — the Play-signed build must behave exactly like the local one.
 - [ ] **Closed testing** (required for production access on new personal accounts): the Alpha track,
-      testers = the Google Group `mockarr-testers@googlegroups.com` (anyone can join), promote the
-      internal release, send for review, then share the group link + opt-in URL.
+      testers = an **email list** of friends' Play Store Google accounts (comma-separated paste),
+      promote the internal release, send for review, then send each friend the opt-in URL.
   - Need **≥ 12 testers opted in continuously for 14 consecutive days**; a tester who opts out
-    resets their own clock. Recruit 15–18 to be safe: friends/family with Android phones,
-    r/androidapps "beta testers wanted" threads, r/androiddev, Mastodon/OSM communities (the
-    OpenStreetMap stack is a genuine draw), a Discord you are in. Send them the one-paragraph brief
-    in Appendix B. Never pay a "12 testers" service — Google looks for that pattern.
+    resets their own clock. Ask 14–15 friends with Android phones so a drop-out doesn't stop the
+    clock, and send them the brief in Appendix B. Never pay a "12 testers" service — Google looks
+    for that pattern.
   - Ask explicitly for at least one Samsung and one Pixel; watch Android vitals for crashes/ANRs.
 - [ ] After 14 days: Dashboard → **Apply for production access**. The form asks what you tested,
       how testers were recruited, what feedback you acted on — answer concretely (it is reviewed by
@@ -195,7 +195,7 @@ Play's API cannot create the app or the first release. After that:
 
 ## Appendix B — Tester brief (paste into the invite)
 > Mockarr is an Android app that plays a fake drive through your phone's location using Android's
-> official "mock location" developer setting — for testing location apps. I need ~15 people to
+> official "mock location" developer setting — for testing location apps. I need 12+ people to
 > install it from a private Play link and **stay opted in for 14 days** (Google's rule for new
 > developers). Use it as much or as little as you like; the in-app checklist shows the two
 > settings to flip. Please tell me your phone model, and message me if anything crashes or looks
